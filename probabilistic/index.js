@@ -1,6 +1,7 @@
 const express = require("express");
 const app = express.Router();
 
+// Advanced I/O const
 const getEnglishProficiency = require("./getEnglishProficiency.js");
 const reportData = require("./ReportData.js");
 const translateMsg = require("./translateMsg.js");
@@ -19,6 +20,28 @@ const closeLatestSession = require("./closeLatestSession.js");
 const getTopics = require("./getTopics.js");
 const getLatestSession = require("./getLatestSession.js");
 
+// Basic I/O const
+const addUserData = require("./common/addUserData.js");
+const sendResponseToGlific = require("./common/sendResponseToGlific.js");
+const updateAssessmentContribution = require("./common/updateAssessmentContribution.js");
+const getAssessmentContribution = require("./common/getAssessmentContribution.js");
+const setSystemPrompt = require("./common/setSystemPrompt.js");
+const getConfigurationParamList = require("./common/getConfigurationParamList.js");
+const setConfigurationParam = require("./common/setConfigurationParam.js");
+const updateConfigurationParam = require("./common/updateConfigurationParam.js");
+const getConfigurationParam = require("./common/getConfigurationParam.js");
+const deleteSystemPrompt = require("./common/deleteSystemPrompt.js");
+const createAudioOfText = require("./common/createAudioOfText.js");
+const convertSpeechToText = require("./common/convertSpeechToText.js");
+const storeAudioFileinGCS = require("./common/storeAudioFileinGCS.js");
+const writeTextOnImage = require("./common/writeTextOnImage.js");
+const startGlificFlow = require("./common/startGlificFlow.js");
+const getPracticeStatus = require("./common/getPracticeStatus.js");
+const sendGlificHSMMsg = require("./common/sendGlificHSMMsg.js");
+const validateUserDataRequest = require("./common/validateUserDataRequest.js");
+const searchUserbyMobile = require("./common/searchUserbyMobile.js");
+
+// Advanced I/O routes
 app.use("/getEnglishProficiency", getEnglishProficiency);
 app.use("/ReportData", reportData);
 app.use("/translateMsg", translateMsg);
@@ -36,5 +59,26 @@ app.use("/storeFeedback",storeFeedback);
 app.use("/closeLatestSession",closeLatestSession);
 app.use("/getTopics",getTopics);
 app.use("/getLatestSession",getLatestSession);
+
+// Basic I/O  routes
+app.use("/addUserData",addUserData);
+app.use("/sendResponseToGlific",sendResponseToGlific);
+app.use("/updateAssessmentContribution",updateAssessmentContribution);
+app.use("/getAssessmentContribution",getAssessmentContribution);
+app.use("/setSystemPrompt",setSystemPrompt);
+app.use("/getConfigurationParamList",getConfigurationParamList);
+app.use("/setConfigurationParam",setConfigurationParam);
+app.use("/updateConfigurationParam",updateConfigurationParam);
+app.use("/getConfigurationParam",getConfigurationParam);
+app.use("/deleteSystemPrompt",deleteSystemPrompt);
+app.use("/createAudioOfText",createAudioOfText);
+app.use("/convertSpeechToText",convertSpeechToText);
+app.use("/storeAudioFileinGCS",storeAudioFileinGCS);
+app.use("/writeTextOnImage",writeTextOnImage);
+app.use("/startGlificFlow",startGlificFlow);
+app.use("/getPracticeStatus",getPracticeStatus);
+app.use("/sendGlificHSMMsg",sendGlificHSMMsg);
+app.use("/validateUserDataRequest",validateUserDataRequest);
+app.use("/searchUserbyMobile",searchUserbyMobile);
 
 module.exports = app;
