@@ -1,7 +1,7 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (basicIO) => {
+module.exports = async (basicIO) => {
 
 	const catalystApp = catalyst.initialize();
 
@@ -66,10 +66,10 @@ module.exports = (basicIO) => {
 				}
 			})
 		}
-				
-		getFileContent(contentType,fileData)
-		.then((fileContent)=>{
-			const config = require("./application-config.json")
+		
+		try{
+           const fileContent = await getFileContent(contentType,fileData);
+		   const config = require("./application-config.json")
 			fileName = fileName+'.'+config['fileExtension'][fileType]
 			// Imports the Google Cloud client library
 			const {Storage} = require('@google-cloud/storage');
@@ -80,31 +80,26 @@ module.exports = (basicIO) => {
 			const fileOptions = config['fileOptions'][contentType]
 			const bucket = config['bucket']	
 			var file = storage.bucket(bucket).file(fileName)
-			file.save(fileContent,options)
-			.then(async ()=>{
-				await file.makePublic()
+			try{
+              await file.save(fileContent,options);
+			  await file.makePublic()
 				const publicURL = config["publicURLPath"].replace("{{bucket}}",bucket).replace("{{filename}}",fileName)
 				console.log("Stored the audio file")
 				responseJSON["OperationStatus"] = "SUCCESS";
 				responseJSON["PublicURL"] = publicURL
 				console.log("Returned: ",responseJSON)
 				return JSON.stringify(responseJSON)
-				
-			})
-			.catch(error =>{
+			} catch(err){
 				responseJSON['OperationStatus'] = "GCS_ERR"
 				responseJSON['ErrorDescription'] = error
 				console.log('Technical Error in storing file: '+error+"\n\n Returned error response: ",responseJSON)
 				return responseJSON
-				
-			})
-		})
-		.catch(error=>{
+			}
+		} catch(err){
 			responseJSON['OperationStatus'] = "REST_API_ERR"
 			responseJSON['ErrorDescription'] = error
 			console.log('Technical Error in HTTP Request: '+error+"\n\n Returned error response: ",responseJSON)
 			return responseJSON
-			
-		})
+		}
 	}
 }

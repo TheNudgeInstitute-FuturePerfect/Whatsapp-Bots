@@ -5,7 +5,7 @@ const catalyst = require("zoho-catalyst-sdk");
 const unique = (value, index, self) => {
 	return self.indexOf(value) === index
 }
-module.exports = (basicIO) => {
+module.exports = async (basicIO) => {
 
 	const catalystApp = catalyst.initialize();
 
@@ -24,9 +24,9 @@ module.exports = (basicIO) => {
 	else{
 		mobile = mobile.slice(-10)
 		let zcql = catalystApp.zcql()
-		zcql.executeZCQLQuery("Select distinct ROWID, RegisteredTime from Users where IsActive=true and Mobile = '"+mobile+"'")
-		.then((users)=>{
-			if(users.length==0){
+		try{
+          const users = await zcql.executeZCQLQuery("Select distinct ROWID, RegisteredTime from Users where IsActive=true and Mobile = '"+mobile+"'")
+           if(users.length==0){
 				responseObject["OperationStatus"] = "USR_NT_FND"
 				responseObject["StatusDescription"] = "User could not be found or is inactive"
 				console.log("End of Execution: ",responseObject)
@@ -34,9 +34,9 @@ module.exports = (basicIO) => {
 			}
 			else{
 				const today = new Date()
-				zcql.executeZCQLQuery("Select distinct CREATEDTIME, SessionID from Sessions where Mobile = '"+mobile+"'")
-				.then((sessions)=>{
-					if(sessions == null){
+				try {
+                  const sessions = await zcql.executeZCQLQuery("Select distinct CREATEDTIME, SessionID from Sessions where Mobile = '"+mobile+"'")
+                  if(sessions == null){
 						responseObject["StatusDescription"] = "User has not started any conversation"
 						responseObject["PendingPracticeCount"] = process.env.MinDays
 						responseObject["PendingPracticeDays"] = process.env.Period
@@ -109,20 +109,18 @@ module.exports = (basicIO) => {
 							}
 						}
 					}
-				})
-				.catch(err=>{
+				} catch(err) {
 					responseObject["OperationStatus"] = "ZCQL_ERR"
 					responseObject["StatusDescription"] = "Error in executing Sessions query"
 					console.log("End of Execution: ",responseObject, "\nError:",err)
 					return JSON.stringify(responseObject);
-				})
+				}
 			}
-		})
-		.catch(err=>{
+		} catch(err) {
 			responseObject["OperationStatus"] = "ZCQL_ERR"
 			responseObject["StatusDescription"] = "Error in Users executing query"
 			console.log("End of Execution: ",responseObject, "\nError:",err)
 			return JSON.stringify(responseObject);
-		})
+		}
 	}
 }

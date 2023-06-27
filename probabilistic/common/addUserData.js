@@ -1,7 +1,7 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (basicIO) => {
+module.exports = async (basicIO) => {
 
 	const catalystApp = catalyst.initialize();
 	var responseJSON = {
@@ -21,16 +21,15 @@ module.exports = (basicIO) => {
 	}
 	
 	let table = catalystApp.datastore().table("UserData")
-	table.insertRow(insertData)
-	.then((row)=>{
-		responseJSON["UserDataROWID"] = row['ROWID']
-		console.log("End of Execution:", responseJSON)
-		return JSON.stringify(responseJSON);
-	})
-	.catch((err)=>{
+	try{
+       const row = await table.insertRow(insertData);
+	   responseJSON["UserDataROWID"] = row['ROWID']
+	   console.log("End of Execution:", responseJSON)
+	   return JSON.stringify(responseJSON);
+	} catch (err) {
 		responseJSON["OperationStatus"] = "APP_ERR"
 		responseJSON["StatusDescription"] = err
 		console.log("End of Execution:", responseJSON)
 		return JSON.stringify(responseJSON);
-	})
+	}
 }

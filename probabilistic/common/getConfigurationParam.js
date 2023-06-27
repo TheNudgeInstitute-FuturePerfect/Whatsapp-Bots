@@ -1,7 +1,7 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (basicIO) => {
+module.exports = async (basicIO) => {
 	/*
 	Request:
 		param = <Name>
@@ -46,9 +46,9 @@ module.exports = (basicIO) => {
 			//basicIO.write(JSON.stringify({x:listOfParams}));
 			var searchQuery = "select Name, Value from Configurations where SystemPromptROWID = "+systemPromptROWID
 			let zcql = catalystApp.zcql()
-			zcql.executeZCQLQuery(searchQuery)
-			.then(searchQueryResult=>{
-				result['OperationStatus']="SUCCESS"
+			try {
+              const searchQueryResult = zcql.executeZCQLQuery(searchQuery);
+			  result['OperationStatus']="SUCCESS"
 				if(searchQueryResult.length > 0){
 					var filteredValues = searchQueryResult
 					if(listOfParams.length>0)
@@ -71,13 +71,12 @@ module.exports = (basicIO) => {
 				}
 				console.log("Execution Completed: ",result);
 				return JSON.stringify(result);
-			})
-			.catch(err=>{
-				result['OperationStatus']="ZCQL_ERR"
+			} catch(err){
+                result['OperationStatus']="ZCQL_ERR"
 				result['ErrorDescription']="Error in execution of search query"
 				console.log("Execution Completed: ",result,"\nError:",err,"\nQuery:",searchQuery);
 				return JSON.stringify(result);
-			})
+			}
 		}	
 	//}
 }

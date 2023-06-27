@@ -1,7 +1,7 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (basicIO) => {
+module.exports = async (basicIO) => {
 	const catalystApp = catalyst.initialize();	
 	let flowID = basicIO["flowID"]
 	let contactID = basicIO["contactID"]

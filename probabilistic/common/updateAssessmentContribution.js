@@ -1,7 +1,7 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (basicIO) => {
+module.exports = async (basicIO) => {
 	/*
 	Request Params: 
 		prompt: <Flow Version>
@@ -33,9 +33,9 @@ module.exports = (basicIO) => {
 		//Get the data for this ROWID
 		const zcql = catalystApp.zcql()
 		const query = "select ROWID, Name, Content, IsActive, SupportingText, SupportingAVURL,SupportingImageURL, Sequence, Persona from SystemPrompts where ROWID='"+rowID+"'"
-		zcql.executeZCQLQuery(query)
-		.then((searchQuery)=>{
-			if(!((searchQuery!=null)&&(searchQuery.length>0))){
+		try{
+           const searchQuery = await zcql.executeZCQLQuery(query);
+		   if(!((searchQuery!=null)&&(searchQuery.length>0))){
 				result['OperationStatus']="REQ_ERR"
 				result['StatusDescription']="There is no record for id="+rowID
 				console.log("Execution Completed: ",result);
@@ -112,30 +112,25 @@ module.exports = (basicIO) => {
 						console.log(updateData)
 
 						let table = catalystApp.datastore().table('SystemPrompts')
-						table.updateRow(updateData)
-						.then(updateQueryResult=>{
-							result['OperationStatus']="SUCCESS"
+						try{
+                           const updateQueryResult = await table.updateRow(updateData);
+						   result['OperationStatus']="SUCCESS"
 							console.log("Execution Completed: ",result);
 							return JSON.stringify(result);
-							
-						})
-						.catch(err=>{
-							result['OperationStatus']="ZCQL_ERR"
+						} catch(err){
+                            result['OperationStatus']="ZCQL_ERR"
 							result['ErrorDescription']="Error in execution update query"
 							console.log("Execution Completed: ",result,err);
 							return JSON.stringify(result);
-							
-						})
+						}
 					}
 				}
 			}
-		})
-		.catch(err=>{
+		} catch(err){
 			result['OperationStatus']="ZCQL_ERR"
 			result['ErrorDescription']="Error in marking prompts inactive"
 			console.log("Execution Completed: ",result,err);
 			return JSON.stringify(result);
-			
-		})
+		}
 	}
 }

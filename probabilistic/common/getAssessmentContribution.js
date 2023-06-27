@@ -1,7 +1,7 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (basicIO) => {
+module.exports = async (basicIO) => {
 	/*
 	Request: None
 	Response: {
@@ -43,8 +43,9 @@ module.exports = (basicIO) => {
 	var responseJSON = {
 		OperationStatus: "SUCCESS"
 	}
-	zcql.executeZCQLQuery(query)
-	.then(queryOutput => {
+
+	try{
+        const queryOutput = await zcql.executeZCQLQuery(query);
 		if(queryOutput.length == 0){
 			responseJSON['OperationStatus']="NO_DATA"
 			responseJSON['ErrorDescription']="No data returrned by query"
@@ -56,11 +57,10 @@ module.exports = (basicIO) => {
 			responseJSON['TotalPrompts'] = retrunValues.length
 		}
 		return JSON.stringify(responseJSON);
-	})
-	.catch(err=>{
+	} catch(err){
 		responseJSON['OperationStatus']="ZCQL_ERR"
 		responseJSON['ErrorDescription']=err
 		console.log("End of Execution. Error in executing ZCQL statement: ", query, "\nError: ",err)
 		return JSON.stringify(responseJSON);
-	})
+	}
 }

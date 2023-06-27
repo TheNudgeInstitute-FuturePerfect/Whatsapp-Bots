@@ -1,7 +1,7 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (basicIO) => {
+module.exports = async (basicIO) => {
 	/*
 	Request Params: 
 		{
@@ -117,81 +117,81 @@ module.exports = (basicIO) => {
 							}
 							const datastore = catalystApp.datastore()
 							let table = datastore.table('SystemPrompts');
-							table.insertRow(insertQuery)
-							.then((insertQueryResult) => {
-								const allConfig = require("./application-config.json")
-								let functions = catalystApp.functions()
-								allConfig['defaultConfig'].forEach(cfg=>{
-									functions.execute("setConfigurationParam",{
-										args:{
-											param:cfg.Name,
-											value:cfg.Value,
-											description:cfg.Description,
-											id:insertQueryResult['ROWID']
-										}
-									})
-									.then((addedCFG)=>console.log(" default configuration:",addedCFG))
-									.catch(err=>console.log("Error in adding default configuration:",err))
-								})
+							try{
+                               const insertQueryResult = await table.insertRow(insertQuery);
+							   const allConfig = require("./application-config.json")
+							   let functions = catalystApp.functions()
+							   allConfig['defaultConfig'].forEach( async (cfg)=>{
+								   try{
+                                     let addedCFG = await functions.execute("setConfigurationParam",{
+																		args:{
+																			param:cfg.Name,
+																			value:cfg.Value,
+																			description:cfg.Description,
+																			id:insertQueryResult['ROWID']
+																		}
+																	})
+										console.log(" default configuration:",addedCFG)						
+								   } catch(err){
+									console.log("Error in adding default configuration:",err)
+								   }
+							   })
 
-								result['OperationStatus']="SUCCESS"
-								const searchQuery = "Select ROWID from SystemPrompts where IsActive = true and Name = '"+prompt+"'"
-								const zcql = catalystApp.zcql()
-								zcql.executeZCQLQuery(searchQuery)
-								.then(searchQueryResult=>{
-									if(searchQueryResult==null){
-										result['OperationStatus']="SUCCESS_NO_ACTV"
-										result['StatusDescription']="Prompt added. But none of the prompts are active for the topic '"+prompt+"'."
-										console.log("Execution Completed: ",result);
-										return JSON.stringify(result);
-										
-									}
-									else if(searchQueryResult.length==0){
-										result['OperationStatus']="SUCCESS_NO_ACTV"
-										result['StatusDescription']="Prompt added. But none of the prompts are active for the topic '"+prompt+"'."
-										console.log("Execution Completed: ",result);
-										return JSON.stringify(result);
-										
-									}
-									/*else if(searchQueryResult.length>1){
-										var updateQuery = searchQueryResult.filter(data=>data.SystemPrompts.ROWID != insertQueryResult.ROWID)
-										updateQuery = updateQuery.map(data=>{
-											var returnVal = {}
-											returnVal['ROWID']=data.SystemPrompts.ROWID
-											returnVal['IsActive']=false
-											return returnVal	
-										})
-										table.updateRows(updateQuery)
-										.then((updateQueryResult) => {
-											result['OperationStatus']="SUCCESS_MLTPL_ACTV"
-											result['StatusDescription']="Prompt added. Multiple prompts were active for topic - '"+prompt+"'. Thus deactivated all other prompts except the new one."
-											console.log("Execution Completed: ",result);
-											return JSON.stringify(result);
-											
-										})
-										.catch(err=>{
-											result['OperationStatus']="SUCCESS_MLTPL_ACTV_ERR"
-											result['StatusDescription']="Prompt added. Multiple prompts are active for topic - '"+prompt+"'. Please mark only one as active."
-											console.log("Execution Completed: ",result,err);
-											return JSON.stringify(result);
-											
-										})
-									}*/
-									else{
-										console.log("Execution Completed: ",result);
-										return JSON.stringify(result);
-										
-									}
-								})
-								.catch(err=>{
+							   result['OperationStatus']="SUCCESS"
+							   const searchQuery = "Select ROWID from SystemPrompts where IsActive = true and Name = '"+prompt+"'"
+							   const zcql = catalystApp.zcql()  
+							   try{
+                                 const searchQueryResult = await zcql.executeZCQLQuery(searchQuery)
+								 if(searchQueryResult==null){
+									   result['OperationStatus']="SUCCESS_NO_ACTV"
+									   result['StatusDescription']="Prompt added. But none of the prompts are active for the topic '"+prompt+"'."
+									   console.log("Execution Completed: ",result);
+									   return JSON.stringify(result);
+									   
+								   }
+								   else if(searchQueryResult.length==0){
+									   result['OperationStatus']="SUCCESS_NO_ACTV"
+									   result['StatusDescription']="Prompt added. But none of the prompts are active for the topic '"+prompt+"'."
+									   console.log("Execution Completed: ",result);
+									   return JSON.stringify(result);
+									   
+								   }
+								   /*else if(searchQueryResult.length>1){
+									   var updateQuery = searchQueryResult.filter(data=>data.SystemPrompts.ROWID != insertQueryResult.ROWID)
+									   updateQuery = updateQuery.map(data=>{
+										   var returnVal = {}
+										   returnVal['ROWID']=data.SystemPrompts.ROWID
+										   returnVal['IsActive']=false
+										   return returnVal	
+									   })
+									   table.updateRows(updateQuery)
+									   .then((updateQueryResult) => {
+										   result['OperationStatus']="SUCCESS_MLTPL_ACTV"
+										   result['StatusDescription']="Prompt added. Multiple prompts were active for topic - '"+prompt+"'. Thus deactivated all other prompts except the new one."
+										   console.log("Execution Completed: ",result);
+										   return JSON.stringify(result);
+										   
+									   })
+									   .catch(err=>{
+										   result['OperationStatus']="SUCCESS_MLTPL_ACTV_ERR"
+										   result['StatusDescription']="Prompt added. Multiple prompts are active for topic - '"+prompt+"'. Please mark only one as active."
+										   console.log("Execution Completed: ",result,err);
+										   return JSON.stringify(result);
+										   
+									   })
+								   }*/
+								   else{
+									   console.log("Execution Completed: ",result);
+									   return JSON.stringify(result);
+									   
+								   }
+							   } catch(err) {
 									result['OperationStatus']="ZCQL_ERR"
 									result['StatusDescription']="Error in execution search query"
 									console.log("Execution Completed: ",result,err);
 									return JSON.stringify(result);
-									
-								})
-							})
-							.catch(err=>{
+							   }   
+							} catch(err){
 								if(err.indexOf("DUPLICATE")!=-1){
 									result['OperationStatus']="DUP_ERR"
 									result['StatusDescription']="A prompt with same name and sequene number exists. Please use a different sequence number"
@@ -202,8 +202,7 @@ module.exports = (basicIO) => {
 								}
 								console.log("Execution Completed: ",result,err);
 								return JSON.stringify(result);
-								
-							})
+							}
 						}
 					}
 				}
