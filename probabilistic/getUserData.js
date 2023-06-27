@@ -8,7 +8,7 @@ const catalyst = require("zoho-catalyst-sdk");
 // app.use(express.json());
 const app = express.Router();
 
-app.post("/getproficiency", (req, res) => {
+app.post("/getuserdata", (req, res) => {
 
     let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
@@ -44,7 +44,7 @@ app.post("/getproficiency", (req, res) => {
 			}
 			else{
 				let zcql = catalystApp.zcql()
-				zcql.executeZCQLQuery("Select UserData.CREATEDTIME, UserData.Question, UserData.Answer from UserData left join Users on UserData.UserROWID = Users.ROWID where Segment = '"+segment+"' and Users.Mobile = "+mobile+" order by UserData.CREATEDTIME DESC")
+				zcql.executeZCQLQuery("Select Question, Answer from UserData left join Users on UserData.UserROWID = Users.ROWID where Segment = '"+segment+"' and Users.Mobile = "+mobile+" order by UserData.CREATEDTIME DESC")
 				.then((userdata)=>{
 					if(typeof userdata === 'undefined'){
 						result['OperationStatus'] = "NO_DATA"
@@ -73,32 +73,18 @@ app.post("/getproficiency", (req, res) => {
 							console.log("End of Execution: ",result)
 							res.status(200).json(result)
 						}
-						else{
-							questionRecord = questionRecord.sort((a,b)=> {
-								return a.UserData.CREATEDTIME >= b.UserData.CREATEDTIME ? -1 : 1
-							})
-							//let texts = questionRecord.map(data=>data.UserData.Answer)
-							let texts = []
-							for(var i=0; i<questions.length; i++){
-								for(var j=0; j<questionRecord.length; j++){
-									if(questions[i]==questionRecord[j]['UserData']['Question']){
-										texts.push(questionRecord[j]['UserData']['Answer'])
-										break;
-									}
+						else{							
+							for(var i=0;i<questions.length;i++){
+								let answer = questionRecord.filter(data=>data.UserData.Question == questions[i])
+								if(answer.length>0){
+									answer = answer.sort((a,b)=> {
+										return a.UserData.CREATEDTIME >= b.UserData.CREATEDTIME ? -1 : 1
+									})
+									result['Answer'+(i+1)] = answer[0]['UserData']['Answer']
 								}
-							}
-							const tokens = texts.join(" ").split(" ")
-							result['TotalWords'] = tokens.length
-							result['TotalTexts'] = questions.length
-							result['AvgWordsPerText'] = Math.ceil(result['TotalWords']/result['TotalTexts'])
-							result['EnglishProficiency'] = null
-							const criteria = JSON.parse(process.env.EnglishProficiencyCriteria)
-							for(var i=0; i<criteria.length; i++){
-								if((result['AvgWordsPerText'] >= criteria[i]['MinWords'])&&(result['AvgWordsPerText'] <= criteria[i]['MaxWords'])){
-									result['EnglishProficiency'] = criteria[i]['EnglishProficiency']
-									break;
+								else 
+									result['Answer'+(i+1)] = null 
 								}
-							}
 							console.log("End of Execution: ",result)
 							res.status(200).json(result)
 						}
