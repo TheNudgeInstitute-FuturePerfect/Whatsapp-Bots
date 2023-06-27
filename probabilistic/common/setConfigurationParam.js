@@ -1,0 +1,125 @@
+// const catalyst = require('zcatalyst-sdk-node');
+const catalyst = require("zoho-catalyst-sdk");
+
+module.exports = (context, basicIO) => {
+	/*
+	Request:
+		name: <Name of the parameter. Case insensitive>,
+		value: <Value of the parameter. Case sensitive>
+		description: <Text describing the parameter.>
+	Response:
+	{	
+		OperationStatus: <Status>,
+		ErrorDescription: <Sth about error>,
+		Configuration = [
+							{
+								Name: <Name of the parameter configured>,
+								Value: <Value of the parameter configured>
+								Description: <Text describing the parameter.>
+							}
+						]
+	}
+	*/
+
+
+	const catalystApp = catalyst.initialize(context);
+
+	var result = {
+		OperationStatus : "SUCCESS"
+	}
+	/*var assessment = basicIO("version");
+	if(typeof assessment === 'undefined'){
+		result['OperationStatus']="REQ_ERR"
+		result['ErrorDescription']="Missing parameter: version"
+		console.log("Execution Completed: ",result);
+		basicIO.write(JSON.stringify(result));
+		context.close();
+	}
+	else{
+		let zcql = catalystApp.zcql()
+		zcql.executeZCQLQuery("select ROWID from Assessments where Assessment = '"+assessment+"'")
+		.then(searchQueryResult => {
+			if(searchQueryResult.length == 0){
+				result['OperationStatus']="VERSN_ERR"
+				result['ErrorDescription']="Flow version not found: "+assessment
+				console.log("Execution Completed: ",result);
+				basicIO.write(JSON.stringify(result));
+				context.close();
+			}
+			else{
+				const assessmentROWID = searchQueryResult[0]['Assessments']['ROWID']*/
+				var name = basicIO("param");
+				if(typeof name === 'undefined'){
+					result['OperationStatus']="REQ_ERR"
+					result['ErrorDescription']="Missing parameter: param"
+					console.log("Execution Completed: ",result);
+					basicIO.write(JSON.stringify(result));
+					context.close();
+				}
+				else{
+					name = name.toString().toLowerCase().trim()
+					var val = basicIO("value");
+					if(typeof val === 'undefined'){
+						result['OperationStatus']="REQ_ERR"
+						result['ErrorDescription']="Missing parameter: value"
+						console.log("Execution Completed: ",result);
+						basicIO.write(JSON.stringify(result));
+						context.close();
+					}
+					else{
+						val = val.toString().trim()
+						var systemPromptROWID = basicIO("id");
+						if(typeof systemPromptROWID === 'undefined'){
+							result['OperationStatus']="REQ_ERR"
+							result['ErrorDescription']="Missing parameter: id. Please send the ID of System Prompt"
+							console.log("Execution Completed: ",result);
+							basicIO.write(JSON.stringify(result));
+							context.close();
+						}
+						else{
+							var desc = basicIO("description");
+							if(typeof desc === 'undefined')
+								desc=null
+						
+							var insertQuery = {
+								Name: encodeURI(name),
+								Value: encodeURI(val),
+								Description: encodeURI(desc),
+								SystemPromptROWID: systemPromptROWID,
+								PrimaryKey:systemPromptROWID+"-"+encodeURI(name)
+							}
+
+							let table = catalystApp.datastore().table('Configurations');
+							let insertPromise = table.insertRow(insertQuery);
+							insertPromise
+							.then(insertQueryResult=>{
+								result['OperationStatus']="SUCCESS"
+								result['Configurations']=insertQueryResult
+								console.log("Execution Completed: ",result);
+								basicIO.write(JSON.stringify(result));
+								context.close();
+							})
+							.catch(err=>{
+								result['OperationStatus']="ZCQL_ERR"
+								if(err.includes("DUPLICATE"))
+									result['OperationStatus']="DUP_RCRD"
+								result['ErrorDescription']="Error in execution insert query"
+								console.log("Execution Completed: ",result,err);
+								basicIO.write(JSON.stringify(result));
+								context.close();
+							})
+						}
+					}
+				}
+		/*	}
+		})
+		.catch(err => {
+			result['OperationStatus']="ZCQL_ERR"
+			result['ErrorDescription']="Error in execution search query"
+			console.log("Execution Completed: ",result,err);
+			basicIO.write(JSON.stringify(result));
+			context.close();
+
+		})
+	}*/
+}
