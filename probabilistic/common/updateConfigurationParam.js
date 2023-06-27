@@ -1,7 +1,7 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (basicIO) => {
+module.exports = async (basicIO) => {
 
 	const catalystApp = catalyst.initialize();
 
@@ -41,9 +41,9 @@ module.exports = (basicIO) => {
 									((typeof description !== 'undefined') && (description!=null) && (description.length>0) ? ", Description = '"+encodeURI(description)+"' ":"")+
 									"where Name = '"+encodeURI(name)+"' and SystemPromptROWID="+systemPromptROWID
 				let zcql = catalystApp.zcql()
-				zcql.executeZCQLQuery(updateQuery)
-				.then(updateQueryResult=>{
-					if((typeof updateQueryResult !== 'undefined')&&(updateQueryResult!=null)){
+				try{
+                 const updateQueryResult = await zcql.executeZCQLQuery(updateQuery);
+				 if((typeof updateQueryResult !== 'undefined')&&(updateQueryResult!=null)){
 						result['OperationStatus']="SUCCESS"
 						//result['Value']=updateQueryResult[0].Configurations.Value
 					}
@@ -53,15 +53,12 @@ module.exports = (basicIO) => {
 					}
 					console.log("Execution Completed: ",result);
 					return JSON.stringify(result);
-					
-				})
-				.catch(err=>{
+				} catch(error){
 					result['OperationStatus']="ZCQL_ERR"
 					result['ErrorDescription']="Error in execution update query"
-					console.log("Execution Completed: ",result,err,updateQuery);
+					console.log("Execution Completed: ",result,error,updateQuery);
 					return JSON.stringify(result);
-					
-				})
+				}
 			}
 		}
 	}

@@ -1,7 +1,7 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (basicIO) => {
+module.exports = async (basicIO) => {
 
 	const catalystApp = catalyst.initialize();
 
@@ -53,8 +53,8 @@ module.exports = (basicIO) => {
 			};
 			console.log(request)
 			// Performs the text-to-speech request
-			client.synthesizeSpeech(request)
-			.then((response)=>{
+			try{
+				const response = await client.synthesizeSpeech(request);
 				console.log("Storing audio received for the request: "+JSON.stringify(request));
 			
 				// Imports the Google Cloud client library
@@ -68,28 +68,26 @@ module.exports = (basicIO) => {
 				const bucket = config['bucket']
 			
 				var file = storage.bucket(bucket).file(fileName)
-				file.save(response[0].audioContent,options)
-				.then(async ()=>{
-					await file.makePublic()
-					const publicURL = config["publicURLPath"].replace("{{bucket}}",bucket).replace("{{filename}}",fileName)
+				try{
+                  await file.save(response[0].audioContent,options);
+				  await file.makePublic()
+                    const publicURL = config["publicURLPath"].replace("{{bucket}}",bucket).replace("{{filename}}",fileName)
 					result['StatusDescription']="Created and stored the audio file"
 					result['URL']=publicURL
 					console.log("Execution Completed: ",result);
 					return JSON.stringify(result);
-				})
-				.catch(err =>{
+				} catch (error){
 					result['OperationStatus']="GCS_ERR"
 					result['StatusDescription']="Error in storing audio file"
-					console.log("Execution Completed: ",result,err);
+					console.log("Execution Completed: ",result,error);
 					return JSON.stringify(result);
-				})
-			})
-			.catch(err =>{
+				}
+			} catch(error) {
 				result['OperationStatus']="GTTS_ERR"
 				result['StatusDescription']="Error in converting text to audio"
-				console.log("Execution Completed: ",result,err);
+				console.log("Execution Completed: ",result,error);
 				return JSON.stringify(result);
-			})
+			}
 	  	}
 	}
 }

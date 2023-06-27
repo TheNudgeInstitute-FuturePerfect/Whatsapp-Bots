@@ -1,7 +1,7 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (basicIO) => {
+module.exports = async (basicIO) => {
 	/*
 	Request:
 		name: <Name of the parameter. Case insensitive>,
@@ -87,31 +87,30 @@ module.exports = (basicIO) => {
 							}
 
 							let table = catalystApp.datastore().table('Configurations');
-							let insertPromise = table.insertRow(insertQuery);
-							insertPromise
-							.then(insertQueryResult=>{
-								result['OperationStatus']="SUCCESS"
+							try{
+								const insertQueryResult = await table.insertRow(insertQuery);
+                                result['OperationStatus']="SUCCESS"
 								result['Configurations']=insertQueryResult
 								console.log("Execution Completed: ",result);
 								return JSON.stringify(result);
-							})
-							.catch(err=>{
-								result['OperationStatus']="ZCQL_ERR"
-								if(err.includes("DUPLICATE"))
+							} catch(error){
+                                result['OperationStatus']="ZCQL_ERR"
+								if(error.includes("DUPLICATE"))
 									result['OperationStatus']="DUP_RCRD"
 								result['ErrorDescription']="Error in execution insert query"
-								console.log("Execution Completed: ",result,err);
+								console.log("Execution Completed: ",result,error);
 								return JSON.stringify(result);
-							})
+							}
+							
 						}
 					}
 				}
 		/*	}
 		})
-		.catch(err => {
+		.catch(error => {
 			result['OperationStatus']="ZCQL_ERR"
 			result['ErrorDescription']="Error in execution search query"
-			console.log("Execution Completed: ",result,err);
+			console.log("Execution Completed: ",result,error);
 			return JSON.stringify(result);
 
 		})

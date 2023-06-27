@@ -1,7 +1,7 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (basicIO) => {
+module.exports = async (basicIO) => {
 
 	const catalystApp = catalyst.initialize();
 
@@ -25,9 +25,9 @@ module.exports = (basicIO) => {
 		else{
 			mobile = mobile.toString().slice(-10)
 			let zcql = catalystApp.zcql()
-			zcql.executeZCQLQuery("Select ROWID from Users where IsActive = true and Mobile = "+mobile)
-			.then((user)=>{
-				if(user==null){
+			try{
+               const user = await zcql.executeZCQLQuery("Select ROWID from Users where IsActive = true and Mobile = "+mobile)
+               if(user==null){
 					responseJSON['OperationStatus'] = "NO_DATA"
 					responseJSON['StatusDescription'] = 'No record found with given mobile'
 					console.log("End of Execution:", responseJSON)
@@ -50,7 +50,13 @@ module.exports = (basicIO) => {
 					console.log("End of Execution:", responseJSON)
 					return JSON.stringify(responseJSON);
 				}
-			})
+			} catch(error){
+				result['OperationStatus']="ZCQL_ERR"
+				result['ErrorDescription']="Error in search prompts"
+				console.log("Execution Completed: ",result,error);
+				return JSON.stringify(result);
+			}
+			
 		}
 	}
 }

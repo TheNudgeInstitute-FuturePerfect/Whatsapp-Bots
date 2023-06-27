@@ -1,7 +1,7 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (basicIO) => {
+module.exports = async (basicIO) => {
 
 	const catalystApp = catalyst.initialize();
 	
@@ -55,17 +55,17 @@ module.exports = (basicIO) => {
 					}
 					else{
 						const jimp = require("jimp")
-						jimp.read(templateURL)
-						.then((img)=>{
+						try{
+							let img = await jimp.read(templateURL);
 							console.log("Read template image file")
-							jimp.loadFont(jimp.FONT_SANS_32_BLACK)
-							.then((font)=>{
+							try{
+								let font = await jimp.loadFont(jimp.FONT_SANS_32_BLACK);
 								console.log("Loaded fonts")
 								textMap.forEach(txt=>{
 									img.print(font,txt['x'],txt['y'],txt['text'])
 								})
-								img.getBufferAsync(jimp.MIME_JPEG)
-								.then((data)=>{
+								try{
+									let data = await img.getBufferAsync(jimp.MIME_JPEG);
 									console.log("Read Image as buffer")
 									const config = require("./application-config.json")
 									fileName = fileName+'.'+config['fileExtension']
@@ -78,62 +78,54 @@ module.exports = (basicIO) => {
 									const fileOptions = config['fileOptions']
 									const bucket = config['bucket']	
 									var file = storage.bucket(bucket).file(fileName)
-									file.save(data,options)
-									.then(async ()=>{
+									try{
+                                        await file.save(data,options);
 										await file.makePublic()
 										const publicURL = config["publicURLPath"].replace("{{bucket}}",bucket).replace("{{filename}}",fileName)
 										console.log("Stored the image file")
 										let table = catalystApp.datastore().table("Sessions")
-										table.updateRow({
-											ROWID:sessionROWID,
-											PerformanceReportURL:publicURL
-										})
-										.then((row)=>{
+										try{
+											let row = await table.updateRow({
+												ROWID:sessionROWID,
+												PerformanceReportURL:publicURL
+											})
 											response["OperationStatus"] = "SUCCESS";
 											response["PublicURL"] = publicURL
 											console.log("Returned: ",response)
 											return JSON.stringify(response);
-												
-										})
-										.catch(error =>{
+										} catch(error){
 											response['OperationStatus'] = "DATASTORE_ERR"
 											response['ErrorDescription'] = error
 											console.log('Technical Error in storing performace report url in sessions table: '+error+"\n\n Returned error response: ",response)
 											return JSON.stringify(response)
-											
-										})	
-									})
-									.catch(error =>{
+										}
+									} catch(error){
 										response['OperationStatus'] = "GCS_ERR"
 										response['ErrorDescription'] = error
 										console.log('Technical Error in storing file: '+error+"\n\n Returned error response: ",response)
 										return JSON.stringify(response)
-										
-									})
-								})
-								.catch(err=>{
+									}
+								} catch(error){
 									response['OperationStatus'] = "APP_ERR"
 									response['StatusDescription'] = "Error in getting file buffer"
-									console.log("End of execution:",response,"\n",err)
+									console.log("End of execution:",response,"\n",error)
 									return JSON.stringify(response)
-									 
-								})
-							})
-							.catch(err=>{
+								}
+							} catch(error){
 								response['OperationStatus'] = "APP_ERR"
 								response['StatusDescription'] = "Error in loading font"
-								console.log("End of execution:",response,"\n",err)
+								console.log("End of execution:",response,"\n",error)
 								return JSON.stringify(response)
-								 
-							})
-						})
-						.catch(err=>{
+							}
+							
+							
+
+						} catch(error){
 							response['OperationStatus'] = "APP_ERR"
 							response['StatusDescription'] = "Error in fetching template file"
-							console.log("End of execution:",response,"\n",err)
+							console.log("End of execution:",response,"\n",error)
 							return JSON.stringify(response)
-							 
-						})
+						}
 					}
 				}
 			}
