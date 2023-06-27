@@ -5,7 +5,7 @@ module.exports = (context, basicIO) => {
 
 	const catalystApp = catalyst.initialize(context);
 
-	let responseAVURL = basicIO("responseAVURL")
+	let responseAVURL = basicIO["responseAVURL"]
 	var responseJSON = {
 		OperationStatus:"REQ_ERR",
 		StatusDescription:null

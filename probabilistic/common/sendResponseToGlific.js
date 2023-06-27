@@ -4,9 +4,9 @@ const catalyst = require("zoho-catalyst-sdk");
 module.exports = (context, basicIO) => {
 	const env = process.env.CATALYST_USER_ENVIRONMENT
 	const catalystApp = catalyst.initialize(context);	
-	let flowID = basicIO("flowID")
-	let contactID = basicIO("contactID")
-	let resultJSON = basicIO("resultJSON")
+	let flowID = basicIO["flowID"]
+	let contactID = basicIO["contactID"]
+	let resultJSON = basicIO["resultJSON"]
 	console.log("Request: ",flowID," | ",contactID," | ",resultJSON)
 	var responseJSON = {
 		OperationStatus:"REQ_ERR",

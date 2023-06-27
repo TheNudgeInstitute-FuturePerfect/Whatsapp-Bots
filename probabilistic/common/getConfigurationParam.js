@@ -28,7 +28,7 @@ module.exports = (context, basicIO) => {
 		context.close();
 	}
 	else{*/
-		var systemPromptROWID = basicIO("id");
+		var systemPromptROWID = basicIO["id"];
 		if(typeof systemPromptROWID === 'undefined'){
 			result['OperationStatus']="REQ_ERR"
 			result['ErrorDescription']="Missing parameter : id. Need Topic Prompt's ROWID"
@@ -38,7 +38,7 @@ module.exports = (context, basicIO) => {
 		}
 		else
 		{
-			var name = basicIO("param");
+			var name = basicIO["param"];
 			var listOfParams = []
 			if(typeof name !== 'undefined'){
 				if(Array.isArray(name) == false)

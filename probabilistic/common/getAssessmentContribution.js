@@ -15,7 +15,7 @@ module.exports = (context, basicIO) => {
 
 	const catalystApp = catalyst.initialize(context);
 
-	const prompt = basicIO("prompt");
+	const prompt = basicIO["prompt"];
 	let query = "select ROWID, Name, Content, IsActive, SupportingText, SupportingAVURL, SupportingImageURL, Sequence, Persona from SystemPrompts"
 	var conditions = []
 	if(typeof prompt !== 'undefined'){
@@ -23,15 +23,15 @@ module.exports = (context, basicIO) => {
 		promptList = promptList.map(data=>data.toString().trim())
 		conditions.push("Name in ('"+promptList.join("','")+"')")
 	}
-	const isactive = basicIO("isactive");
+	const isactive = basicIO["isactive"];
 	if(typeof isactive !== 'undefined'){
 		conditions.push("IsActive = "+isactive)
 	}
-	const seqNo = basicIO("sequence");
+	const seqNo = basicIO["sequence"];
 	if(typeof seqNo !== 'undefined'){
 		conditions.push("Sequence = "+seqNo)
 	}
-	const type = basicIO("type");
+	const type = basicIO["type"];
 	if(typeof type !== 'undefined'){
 		conditions.push("Type = '"+type+"'")
 	}

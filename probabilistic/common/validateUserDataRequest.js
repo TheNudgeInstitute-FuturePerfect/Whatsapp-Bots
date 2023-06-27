@@ -7,8 +7,8 @@ module.exports = (context, basicIO) => {
 	var responseJSON = {
 		OperationStatus:"SUCCESS"
 	}
-	let userROWID = basicIO("UserROWID")
-	var mobile = basicIO("Mobile")
+	let userROWID = basicIO["UserROWID"]
+	var mobile = basicIO["Mobile"]
 	if((typeof userROWID === 'undefined') && (typeof mobile === 'undefined')){
 		responseJSON['OperationStatus'] = "REQ_ERR"
 		responseJSON['StatusDescription'] = 'Either UserROWID or Mobile field is required'
@@ -17,7 +17,7 @@ module.exports = (context, basicIO) => {
 		context.close();
 	}
 	else{
-		const flowID = basicIO("FlowID")
+		const flowID = basicIO["FlowID"]
 		if(typeof flowID === 'undefined'){
 			responseJSON['OperationStatus'] = "REQ_ERR"
 			responseJSON['StatusDescription'] = 'FlowID is required'
@@ -26,7 +26,7 @@ module.exports = (context, basicIO) => {
 			context.close();
 		}
 		else{
-			const segment = basicIO("Segment")
+			const segment = basicIO["Segment"]
 			if(typeof segment === 'undefined'){
 				responseJSON['OperationStatus'] = "REQ_ERR"
 				responseJSON['StatusDescription'] = 'Segment is required'
@@ -35,7 +35,7 @@ module.exports = (context, basicIO) => {
 				context.close();
 			}
 			else{
-				const question = basicIO("Question")
+				const question = basicIO["Question"]
 				if(typeof question === 'undefined'){
 					responseJSON['OperationStatus'] = "REQ_ERR"
 					responseJSON['StatusDescription'] = 'Question is required'

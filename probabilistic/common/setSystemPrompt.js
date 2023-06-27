@@ -22,7 +22,7 @@ module.exports = (context, basicIO) => {
 		OperationStatus : "SUCCESS"
 	}
 	
-	var prompt = basicIO("prompt");
+	var prompt = basicIO["prompt"];
 	if(typeof prompt === 'undefined'){
 		result['OperationStatus']="REQ_ERR"
 		result['StatusDescription']="Missing parameter: prompt"
@@ -40,7 +40,7 @@ module.exports = (context, basicIO) => {
 			context.close();
 		}
 		else{
-			var isActive = basicIO("isactive");
+			var isActive = basicIO["isactive"];
 			if(typeof isActive === 'undefined'){
 				result['OperationStatus']="REQ_ERR"
 				result['StatusDescription']="Missing parameter: isactive"
@@ -56,7 +56,7 @@ module.exports = (context, basicIO) => {
 				context.close();
 			}
 			else{
-				var content = basicIO("content")
+				var content = basicIO["content"]
 				if(typeof content === 'undefined'){
 					result['OperationStatus']="REQ_ERR"
 					result['StatusDescription']="Missing parameter: content"
@@ -65,7 +65,7 @@ module.exports = (context, basicIO) => {
 					context.close();
 				}
 				else{
-					var seqNO =  basicIO("sequence")
+					var seqNO =  basicIO["sequence"]
 					if(typeof seqNO === 'undefined'){
 						result['OperationStatus']="REQ_ERR"
 						result['StatusDescription']="Missing parameter: sequence"
@@ -82,12 +82,12 @@ module.exports = (context, basicIO) => {
 					}
 					else
 					{
-						var supportingText =  basicIO("helptext")
-						var supportingAVURL =  basicIO("helpurl")
-						var supportingImageURL = basicIO("helpimage")
-						var persona = basicIO("persona")
-						var objectiveMessage = basicIO("objmsg")
-						var type = basicIO("type")
+						var supportingText =  basicIO["helptext"]
+						var supportingAVURL =  basicIO["helpurl"]
+						var supportingImageURL = basicIO["helpimage"]
+						var persona = basicIO["persona"]
+						var objectiveMessage = basicIO["objmsg"]
+						var type = basicIO["type"]
 						if((typeof persona !== 'undefined')&&(persona != null)&&(persona.length>20)){
 							result['OperationStatus']="REQ_ERR"
 							result['StatusDescription']="Persona name in prompt can't exceed 20 characters including whitespace and can't have emojis"

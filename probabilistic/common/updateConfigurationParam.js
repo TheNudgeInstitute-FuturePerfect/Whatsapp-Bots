@@ -8,7 +8,7 @@ module.exports = (context, basicIO) => {
 	var result = {
 		OperationStatus : "SUCCESS"
 	}
-	var systemPromptROWID = basicIO("id");
+	var systemPromptROWID = basicIO["id"];
 	if(typeof systemPromptROWID === 'undefined'){
 		result['OperationStatus']="REQ_ERR"
 		result['ErrorDescription']="Missing parameter : id. Need Topic Prompt's ROWID"
@@ -17,7 +17,7 @@ module.exports = (context, basicIO) => {
 		context.close();
 	}
 	else{
-		var name = basicIO("param");
+		var name = basicIO["param"];
 		if(typeof name === 'undefined'){
 			result['OperationStatus']="REQ_ERR"
 			result['ErrorDescription']="Missing parameter: param"
@@ -27,7 +27,7 @@ module.exports = (context, basicIO) => {
 		}
 		else{
 			name = name.toString().toLowerCase()
-			var val = basicIO("value");
+			var val = basicIO["value"];
 			if(typeof val === 'undefined'){
 				result['OperationStatus']="REQ_ERR"
 				result['ErrorDescription']="Missing parameter: value"
@@ -36,7 +36,7 @@ module.exports = (context, basicIO) => {
 				context.close();
 			}
 			else{
-				var description = basicIO("description");
+				var description = basicIO["description"];
 				var updateQuery = "Update Configurations set Value = '"+encodeURI(val.replace(/'/g,"''"))+"' "+
 									((typeof description !== 'undefined') && (description!=null) && (description.length>0) ? ", Description = '"+encodeURI(description)+"' ":"")+
 									"where Name = '"+encodeURI(name)+"' and SystemPromptROWID="+systemPromptROWID

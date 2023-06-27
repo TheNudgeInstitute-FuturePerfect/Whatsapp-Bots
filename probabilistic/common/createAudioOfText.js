@@ -9,7 +9,7 @@ module.exports = (context, basicIO) => {
 		OperationStatus : "SUCCESS"
 	}
 
-	const text = basicIO("text")
+	const text = basicIO["text"]
 	if(typeof text === 'undefined'){
 		result['OperationStatus']="REQ_ERR"
 		result['ErrorDescription']="Missing parameter: text"
@@ -18,12 +18,12 @@ module.exports = (context, basicIO) => {
 		context.close();
 	}
 	else{
-		var language = basicIO("language")
+		var language = basicIO["language"]
 		if(typeof language === 'undefined'){
 			console.log("Missing parameter: language. Using the default value 'English'")
 			language = "English"
 		}
-		var fileName = basicIO("filename")
+		var fileName = basicIO["filename"]
 		if(typeof fileName === 'undefined'){
 			result['OperationStatus']="REQ_ERR"
 			result['ErrorDescription']="Missing parameter: filename"

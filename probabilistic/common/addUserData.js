@@ -7,17 +7,17 @@ module.exports = (context, basicIO) => {
 	var responseJSON = {
 		OperationStatus:"SUCCESS"
 	}
-	let userROWID = basicIO("UserROWID")
+	let userROWID = basicIO["UserROWID"]
 	if(typeof userROWID === 'undefined'){
-		const userData = basicIO("Users")
+		const userData = basicIO["Users"]
 		userROWID = userData['UserROWID']
 	}
 	const insertData = {
 		UserROWID	:	userROWID,
-		FlowID 		: 	basicIO("FlowID"),
-		Segment		:	basicIO("Segment"),
-		Question	:	basicIO("Question"),
-		Answer		:	basicIO("Answer")
+		FlowID 		: 	basicIO["FlowID"],
+		Segment		:	basicIO["Segment"],
+		Question	:	basicIO["Question"],
+		Answer		:	basicIO["Answer"]
 	}
 	
 	let table = catalystApp.datastore().table("UserData")

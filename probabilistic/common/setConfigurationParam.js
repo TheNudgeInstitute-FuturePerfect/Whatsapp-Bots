@@ -48,7 +48,7 @@ module.exports = (context, basicIO) => {
 			}
 			else{
 				const assessmentROWID = searchQueryResult[0]['Assessments']['ROWID']*/
-				var name = basicIO("param");
+				var name = basicIO["param"];
 				if(typeof name === 'undefined'){
 					result['OperationStatus']="REQ_ERR"
 					result['ErrorDescription']="Missing parameter: param"
@@ -58,7 +58,7 @@ module.exports = (context, basicIO) => {
 				}
 				else{
 					name = name.toString().toLowerCase().trim()
-					var val = basicIO("value");
+					var val = basicIO["value"];
 					if(typeof val === 'undefined'){
 						result['OperationStatus']="REQ_ERR"
 						result['ErrorDescription']="Missing parameter: value"
@@ -68,7 +68,7 @@ module.exports = (context, basicIO) => {
 					}
 					else{
 						val = val.toString().trim()
-						var systemPromptROWID = basicIO("id");
+						var systemPromptROWID = basicIO["id"];
 						if(typeof systemPromptROWID === 'undefined'){
 							result['OperationStatus']="REQ_ERR"
 							result['ErrorDescription']="Missing parameter: id. Please send the ID of System Prompt"
@@ -77,7 +77,7 @@ module.exports = (context, basicIO) => {
 							context.close();
 						}
 						else{
-							var desc = basicIO("description");
+							var desc = basicIO["description"];
 							if(typeof desc === 'undefined')
 								desc=null
 						

@@ -5,10 +5,10 @@ module.exports = (context, basicIO) => {
 
 	const catalystApp = catalyst.initialize(context);
 
-	let contentType = basicIO("contentType")
-	let fileData = basicIO("fileData")
-	let fileName = basicIO("fileName")
-	let fileType = basicIO("fileType")
+	let contentType = basicIO["contentType"]
+	let fileData = basicIO["fileData"]
+	let fileName = basicIO["fileName"]
+	let fileType = basicIO["fileType"]
 	var responseJSON = {
 		OperationStatus:"REQ_ERR",
 		ErrorDescription:null

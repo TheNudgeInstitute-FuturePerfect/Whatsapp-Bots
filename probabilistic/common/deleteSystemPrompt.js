@@ -18,7 +18,7 @@ module.exports = (context, basicIO) => {
 		OperationStatus : "SUCCESS"
 	}
 
-	var rowID = basicIO("id");
+	var rowID = basicIO["id"];
 	if(typeof rowID === 'undefined'){
 		result['OperationStatus']="REQ_ERR"
 		result['ErrorDescription']="Missing parameter: id"

@@ -8,7 +8,7 @@ module.exports = (context, basicIO) => {
 	var responseJSON = {
 		OperationStatus:"SUCCESS"
 	}
-	var userROWID = basicIO("UserROWID")
+	var userROWID = basicIO["UserROWID"]
 	if(typeof userROWID !== 'undefined'){
 		responseJSON['UserROWID']=userROWID
 		console.log("End of Execution:", responseJSON)
@@ -16,7 +16,7 @@ module.exports = (context, basicIO) => {
 		context.close();
 	}
 	else{
-		var mobile = basicIO("Mobile")
+		var mobile = basicIO["Mobile"]
 		if(typeof mobile === 'undefined'){
 			responseJSON['OperationStatus'] = "REQ_ERR"
 			responseJSON['StatusDescription'] = 'Mobile field is required'

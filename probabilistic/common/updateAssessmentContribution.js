@@ -18,7 +18,7 @@ module.exports = (context, basicIO) => {
 		OperationStatus : "SUCCESS"
 	}
 	var updateData = {}
-	var rowID = basicIO("id");
+	var rowID = basicIO["id"];
 	if(typeof rowID === 'undefined'){
 		result['OperationStatus']="REQ_ERR"
 		result['ErrorDescription']="Missing parameter: id. ID of the prompt of the topic is required."
@@ -43,7 +43,7 @@ module.exports = (context, basicIO) => {
 				context.close();
 			}
 			else{	
-				var isActive = basicIO("isactive");
+				var isActive = basicIO["isactive"];
 				if((typeof isActive !== 'undefined')&&(typeof isActive !== "boolean")){
 					result['OperationStatus']="REQ_ERR"
 					result['StatusDescription']="isactive must be true or false. It's "+(typeof isActive)
@@ -55,7 +55,7 @@ module.exports = (context, basicIO) => {
 					if(typeof isActive !== 'undefined')
 						updateData["IsActive"]=isActive
 			
-					var seqNO =  basicIO("sequence")
+					var seqNO =  basicIO["sequence"]
 					if((typeof seqNO !== 'undefined')&&(isNaN(parseInt(seqNO)))){
 						result['OperationStatus']="REQ_ERR"
 						result['StatusDescription']="sequence must be an integer. It's "+(typeof seqNO)
@@ -69,7 +69,7 @@ module.exports = (context, basicIO) => {
 						else
 							updateData["Sequence"]=seqNO
 			
-						var name = basicIO("prompt");
+						var name = basicIO["prompt"];
 						if(typeof name !== 'undefined'){
 							name = name.toString().trim()
 							updateData["Name"]= name
@@ -77,31 +77,31 @@ module.exports = (context, basicIO) => {
 						else
 							name = searchQuery[0]['SystemPrompts']['Name']
 
-						var prompt = basicIO("content");		
+						var prompt = basicIO["content"];		
 						if(typeof prompt !== 'undefined')
 							updateData["Content"]=prompt
 					
-						var supportingText = basicIO("helptext")
+						var supportingText = basicIO["helptext"]
 						if(typeof supportingText !== 'undefined')
 							updateData["SupportingText"]=supportingText
 					
-						var supportingAVURL = basicIO("helpurl")
+						var supportingAVURL = basicIO["helpurl"]
 						if(typeof supportingAVURL !== 'undfined')
 							updateData["SupportingAVURL"]=supportingAVURL
 					
-						var supportingImageURL = basicIO("helpimage")
+						var supportingImageURL = basicIO["helpimage"]
 							if(typeof supportingImageURL !== 'undefined')
 							updateData["SupportingImageURL"]=supportingImageURL
 						
-						var persona = basicIO("persona")
+						var persona = basicIO["persona"]
 							if(typeof persona !== 'undefined')
 							updateData["Persona"]=persona
 						
-						var objectiveMessage = basicIO("objmsg")
+						var objectiveMessage = basicIO["objmsg"]
 							if(typeof objectiveMessage !== 'undefined')
 							updateData["ObjectiveMessage"]=objectiveMessage
 						
-						var type = basicIO("type")
+						var type = basicIO["type"]
 							if(typeof type !== 'undefined')
 							updateData["Type"]=type
 						

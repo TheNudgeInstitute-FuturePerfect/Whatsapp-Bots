@@ -13,7 +13,7 @@ module.exports = (context, basicIO) => {
 		OperationStatus:"SUCCESS"
 	}
 
-	var mobile = basicIO("mobile")
+	var mobile = basicIO["mobile"]
 
 	if(typeof mobile === 'undefined'){
 		responseObject["OperationStatus"] = "REQ_ERR"

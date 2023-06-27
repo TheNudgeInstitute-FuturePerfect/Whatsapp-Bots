@@ -9,7 +9,7 @@ module.exports = (context, basicIO) => {
 		OperationStatus:"SUCCESS"
 	}
 
-	let sessionROWID = basicIO("sessionROWID");
+	let sessionROWID = basicIO["sessionROWID"];
 	if(typeof sessionROWID === 'undefined'){
 		response['OperationStatus'] = "REQ_ERR"
 		response['StatusDescription'] = "Missing param - sessionROWID"
@@ -18,7 +18,7 @@ module.exports = (context, basicIO) => {
 		context.close() 
 	}
 	else{
-		let templateURL = basicIO("templateurl");
+		let templateURL = basicIO["templateurl"];
 		if(typeof templateURL === 'undefined'){
 			response['OperationStatus'] = "REQ_ERR"
 			response['StatusDescription'] = "Missing param - templateurl"
@@ -27,7 +27,7 @@ module.exports = (context, basicIO) => {
 			context.close() 
 		}
 		else{
-			let textMap = basicIO("textmap");
+			let textMap = basicIO["textmap"];
 			if(typeof textMap === 'undefined'){
 				response['OperationStatus'] = "REQ_ERR"
 				response['StatusDescription'] = "Missing param - textmap"
@@ -45,7 +45,7 @@ module.exports = (context, basicIO) => {
 					context.close() 
 				}
 				else{
-					let fileName = basicIO("filename")
+					let fileName = basicIO["filename"]
 					if(typeof fileName === 'undefined'){
 						response['OperationStatus'] = "REQ_ERR"
 						response['StatusDescription'] = "Missing param - filename"
