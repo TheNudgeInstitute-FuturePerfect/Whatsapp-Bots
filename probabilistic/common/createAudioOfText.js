@@ -1,9 +1,9 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (context, basicIO) => {
+module.exports = (basicIO) => {
 
-	const catalystApp = catalyst.initialize(context);
+	const catalystApp = catalyst.initialize();
 
 	var result = {
 		OperationStatus : "SUCCESS"
@@ -14,8 +14,7 @@ module.exports = (context, basicIO) => {
 		result['OperationStatus']="REQ_ERR"
 		result['ErrorDescription']="Missing parameter: text"
 		console.log("Execution Completed: ",result);
-		basicIO.write(JSON.stringify(result));
-		context.close();
+		return JSON.stringify(result);
 	}
 	else{
 		var language = basicIO["language"]
@@ -28,8 +27,7 @@ module.exports = (context, basicIO) => {
 			result['OperationStatus']="REQ_ERR"
 			result['ErrorDescription']="Missing parameter: filename"
 			console.log("Execution Completed: ",result);
-			basicIO.write(JSON.stringify(result));
-			context.close();
+			return JSON.stringify(result);
 		}	
 		else{
 			const allConfig = require("./application-config.json")
@@ -77,23 +75,20 @@ module.exports = (context, basicIO) => {
 					result['StatusDescription']="Created and stored the audio file"
 					result['URL']=publicURL
 					console.log("Execution Completed: ",result);
-					basicIO.write(JSON.stringify(result));
-					context.close();
+					return JSON.stringify(result);
 				})
 				.catch(err =>{
 					result['OperationStatus']="GCS_ERR"
 					result['StatusDescription']="Error in storing audio file"
 					console.log("Execution Completed: ",result,err);
-					basicIO.write(JSON.stringify(result));
-					context.close();
+					return JSON.stringify(result);
 				})
 			})
 			.catch(err =>{
 				result['OperationStatus']="GTTS_ERR"
 				result['StatusDescription']="Error in converting text to audio"
 				console.log("Execution Completed: ",result,err);
-				basicIO.write(JSON.stringify(result));
-				context.close();
+				return JSON.stringify(result);
 			})
 	  	}
 	}

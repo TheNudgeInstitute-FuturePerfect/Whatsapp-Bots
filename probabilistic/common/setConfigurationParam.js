@@ -1,7 +1,7 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (context, basicIO) => {
+module.exports = (basicIO) => {
 	/*
 	Request:
 		name: <Name of the parameter. Case insensitive>,
@@ -22,18 +22,18 @@ module.exports = (context, basicIO) => {
 	*/
 
 
-	const catalystApp = catalyst.initialize(context);
+	const catalystApp = catalyst.initialize();
 
 	var result = {
 		OperationStatus : "SUCCESS"
 	}
-	/*var assessment = basicIO("version");
+	/*var assessment = basicIO["version"];
 	if(typeof assessment === 'undefined'){
 		result['OperationStatus']="REQ_ERR"
 		result['ErrorDescription']="Missing parameter: version"
 		console.log("Execution Completed: ",result);
-		basicIO.write(JSON.stringify(result));
-		context.close();
+		return JSON.stringify(result);
+		
 	}
 	else{
 		let zcql = catalystApp.zcql()
@@ -43,8 +43,7 @@ module.exports = (context, basicIO) => {
 				result['OperationStatus']="VERSN_ERR"
 				result['ErrorDescription']="Flow version not found: "+assessment
 				console.log("Execution Completed: ",result);
-				basicIO.write(JSON.stringify(result));
-				context.close();
+				return JSON.stringify(result);
 			}
 			else{
 				const assessmentROWID = searchQueryResult[0]['Assessments']['ROWID']*/
@@ -53,8 +52,8 @@ module.exports = (context, basicIO) => {
 					result['OperationStatus']="REQ_ERR"
 					result['ErrorDescription']="Missing parameter: param"
 					console.log("Execution Completed: ",result);
-					basicIO.write(JSON.stringify(result));
-					context.close();
+					return JSON.stringify(result);
+					
 				}
 				else{
 					name = name.toString().toLowerCase().trim()
@@ -63,8 +62,7 @@ module.exports = (context, basicIO) => {
 						result['OperationStatus']="REQ_ERR"
 						result['ErrorDescription']="Missing parameter: value"
 						console.log("Execution Completed: ",result);
-						basicIO.write(JSON.stringify(result));
-						context.close();
+						return JSON.stringify(result);
 					}
 					else{
 						val = val.toString().trim()
@@ -73,8 +71,7 @@ module.exports = (context, basicIO) => {
 							result['OperationStatus']="REQ_ERR"
 							result['ErrorDescription']="Missing parameter: id. Please send the ID of System Prompt"
 							console.log("Execution Completed: ",result);
-							basicIO.write(JSON.stringify(result));
-							context.close();
+							return JSON.stringify(result);
 						}
 						else{
 							var desc = basicIO["description"];
@@ -96,8 +93,7 @@ module.exports = (context, basicIO) => {
 								result['OperationStatus']="SUCCESS"
 								result['Configurations']=insertQueryResult
 								console.log("Execution Completed: ",result);
-								basicIO.write(JSON.stringify(result));
-								context.close();
+								return JSON.stringify(result);
 							})
 							.catch(err=>{
 								result['OperationStatus']="ZCQL_ERR"
@@ -105,8 +101,7 @@ module.exports = (context, basicIO) => {
 									result['OperationStatus']="DUP_RCRD"
 								result['ErrorDescription']="Error in execution insert query"
 								console.log("Execution Completed: ",result,err);
-								basicIO.write(JSON.stringify(result));
-								context.close();
+								return JSON.stringify(result);
 							})
 						}
 					}
@@ -117,8 +112,7 @@ module.exports = (context, basicIO) => {
 			result['OperationStatus']="ZCQL_ERR"
 			result['ErrorDescription']="Error in execution search query"
 			console.log("Execution Completed: ",result,err);
-			basicIO.write(JSON.stringify(result));
-			context.close();
+			return JSON.stringify(result);
 
 		})
 	}*/

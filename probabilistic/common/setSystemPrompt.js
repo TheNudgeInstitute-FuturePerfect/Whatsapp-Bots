@@ -1,7 +1,7 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (context, basicIO) => {
+module.exports = (basicIO) => {
 	/*
 	Request Params: 
 		{
@@ -16,7 +16,7 @@ module.exports = (context, basicIO) => {
 	}
 	*/
 
-	const catalystApp = catalyst.initialize(context);
+	const catalystApp = catalyst.initialize();
 
 	var result = {
 		OperationStatus : "SUCCESS"
@@ -27,8 +27,8 @@ module.exports = (context, basicIO) => {
 		result['OperationStatus']="REQ_ERR"
 		result['StatusDescription']="Missing parameter: prompt"
 		console.log("Execution Completed: ",result);
-		basicIO.write(JSON.stringify(result));
-		context.close();
+		return JSON.stringify(result);
+		
 	}
 	else{
 		prompt = prompt.toString()
@@ -36,8 +36,8 @@ module.exports = (context, basicIO) => {
 			result['OperationStatus']="REQ_ERR"
 			result['StatusDescription']="Topic name in prompt can't exceed 20 characters including whitespace and can't have emojis"
 			console.log("Execution Completed: ",result);
-			basicIO.write(JSON.stringify(result));
-			context.close();
+			return JSON.stringify(result);
+			
 		}
 		else{
 			var isActive = basicIO["isactive"];
@@ -45,15 +45,15 @@ module.exports = (context, basicIO) => {
 				result['OperationStatus']="REQ_ERR"
 				result['StatusDescription']="Missing parameter: isactive"
 				console.log("Execution Completed: ",result);
-				basicIO.write(JSON.stringify(result));
-				context.close();
+				return JSON.stringify(result);
+				
 			}
 			else if((typeof isActive !== "boolean")&&(!(['true','false',true,false].includes(isActive)))){
 				result['OperationStatus']="REQ_ERR"
 				result['StatusDescription']="isactive must be true or false. It's "+(typeof isActive)
 				console.log("Execution Completed: ",result,isActive);
-				basicIO.write(JSON.stringify(result));
-				context.close();
+				return JSON.stringify(result);
+				
 			}
 			else{
 				var content = basicIO["content"]
@@ -61,8 +61,8 @@ module.exports = (context, basicIO) => {
 					result['OperationStatus']="REQ_ERR"
 					result['StatusDescription']="Missing parameter: content"
 					console.log("Execution Completed: ",result);
-					basicIO.write(JSON.stringify(result));
-					context.close();
+					return JSON.stringify(result);
+					
 				}
 				else{
 					var seqNO =  basicIO["sequence"]
@@ -70,15 +70,15 @@ module.exports = (context, basicIO) => {
 						result['OperationStatus']="REQ_ERR"
 						result['StatusDescription']="Missing parameter: sequence"
 						console.log("Execution Completed: ",result);
-						basicIO.write(JSON.stringify(result));
-						context.close();
+						return JSON.stringify(result);
+						
 					}
 					else if(isNaN(parseInt(seqNO) == true)){
 						result['OperationStatus']="REQ_ERR"
 						result['StatusDescription']="sequence must be an integer. It's "+(typeof seqNO)
 						console.log("Execution Completed: ",result);
-						basicIO.write(JSON.stringify(result));
-						context.close();
+						return JSON.stringify(result);
+						
 					}
 					else
 					{
@@ -92,15 +92,14 @@ module.exports = (context, basicIO) => {
 							result['OperationStatus']="REQ_ERR"
 							result['StatusDescription']="Persona name in prompt can't exceed 20 characters including whitespace and can't have emojis"
 							console.log("Execution Completed: ",result);
-							basicIO.write(JSON.stringify(result));
-							context.close();
+							return JSON.stringify(result);
 						}
 						else if((typeof persona !== 'undefined')&&(persona != null)&&(persona.length == 0)){
 							result['OperationStatus']="REQ_ERR"
 							result['StatusDescription']="Persona name in prompt can't be empty string"
 							console.log("Execution Completed: ",result);
-							basicIO.write(JSON.stringify(result));
-							context.close();
+							return JSON.stringify(result);
+							
 						}
 						else{
 							var insertQuery = {
@@ -144,15 +143,15 @@ module.exports = (context, basicIO) => {
 										result['OperationStatus']="SUCCESS_NO_ACTV"
 										result['StatusDescription']="Prompt added. But none of the prompts are active for the topic '"+prompt+"'."
 										console.log("Execution Completed: ",result);
-										basicIO.write(JSON.stringify(result));
-										context.close();
+										return JSON.stringify(result);
+										
 									}
 									else if(searchQueryResult.length==0){
 										result['OperationStatus']="SUCCESS_NO_ACTV"
 										result['StatusDescription']="Prompt added. But none of the prompts are active for the topic '"+prompt+"'."
 										console.log("Execution Completed: ",result);
-										basicIO.write(JSON.stringify(result));
-										context.close();
+										return JSON.stringify(result);
+										
 									}
 									/*else if(searchQueryResult.length>1){
 										var updateQuery = searchQueryResult.filter(data=>data.SystemPrompts.ROWID != insertQueryResult.ROWID)
@@ -167,29 +166,29 @@ module.exports = (context, basicIO) => {
 											result['OperationStatus']="SUCCESS_MLTPL_ACTV"
 											result['StatusDescription']="Prompt added. Multiple prompts were active for topic - '"+prompt+"'. Thus deactivated all other prompts except the new one."
 											console.log("Execution Completed: ",result);
-											basicIO.write(JSON.stringify(result));
-											context.close();
+											return JSON.stringify(result);
+											
 										})
 										.catch(err=>{
 											result['OperationStatus']="SUCCESS_MLTPL_ACTV_ERR"
 											result['StatusDescription']="Prompt added. Multiple prompts are active for topic - '"+prompt+"'. Please mark only one as active."
 											console.log("Execution Completed: ",result,err);
-											basicIO.write(JSON.stringify(result));
-											context.close();
+											return JSON.stringify(result);
+											
 										})
 									}*/
 									else{
 										console.log("Execution Completed: ",result);
-										basicIO.write(JSON.stringify(result));
-										context.close();
+										return JSON.stringify(result);
+										
 									}
 								})
 								.catch(err=>{
 									result['OperationStatus']="ZCQL_ERR"
 									result['StatusDescription']="Error in execution search query"
 									console.log("Execution Completed: ",result,err);
-									basicIO.write(JSON.stringify(result));
-									context.close();
+									return JSON.stringify(result);
+									
 								})
 							})
 							.catch(err=>{
@@ -202,8 +201,8 @@ module.exports = (context, basicIO) => {
 									result['StatusDescription']="Error in inserting new record"
 								}
 								console.log("Execution Completed: ",result,err);
-								basicIO.write(JSON.stringify(result));
-								context.close();
+								return JSON.stringify(result);
+								
 							})
 						}
 					}

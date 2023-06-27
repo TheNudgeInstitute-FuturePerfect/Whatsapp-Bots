@@ -1,7 +1,7 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (context, basicIO) => {
+module.exports = (basicIO) => {
 	/*
 	Request:
 		param = <Name>
@@ -13,7 +13,7 @@ module.exports = (context, basicIO) => {
 		}
 	*/
 
-	const catalystApp = catalyst.initialize(context);
+	const catalystApp = catalyst.initialize();
 
 	var result = {
 		OperationStatus : "SUCCESS"
@@ -39,14 +39,12 @@ module.exports = (context, basicIO) => {
 			result['Values'] = null
 		}
 		console.log("Execution Completed: ",result);
-		basicIO.write(JSON.stringify(result));
-		context.close();
+		return JSON.stringify(result);
 	})
 	.catch(err=>{
 		result['OperationStatus']="ZCQL_ERR"
 		result['ErrorDescription']="Error in execution of search query"
 		console.log("Execution Completed: ",result,"\nError:",err,"\nQuery:",searchQuery);
-		basicIO.write(JSON.stringify(result));
-		context.close();
+		return JSON.stringify(result);
 	})	
 }

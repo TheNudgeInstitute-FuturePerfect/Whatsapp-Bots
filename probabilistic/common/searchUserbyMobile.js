@@ -1,9 +1,9 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (context, basicIO) => {
+module.exports = (basicIO) => {
 
-	const catalystApp = catalyst.initialize(context);
+	const catalystApp = catalyst.initialize();
 
 	var responseJSON = {
 		OperationStatus:"SUCCESS"
@@ -12,8 +12,7 @@ module.exports = (context, basicIO) => {
 	if(typeof userROWID !== 'undefined'){
 		responseJSON['UserROWID']=userROWID
 		console.log("End of Execution:", responseJSON)
-		basicIO.write(JSON.stringify(responseJSON));
-		context.close();
+		return JSON.stringify(responseJSON);
 	}
 	else{
 		var mobile = basicIO["Mobile"]
@@ -21,8 +20,7 @@ module.exports = (context, basicIO) => {
 			responseJSON['OperationStatus'] = "REQ_ERR"
 			responseJSON['StatusDescription'] = 'Mobile field is required'
 			console.log("End of Execution:", responseJSON)
-			basicIO.write(JSON.stringify(responseJSON));
-			context.close();
+			return JSON.stringify(responseJSON);
 		}
 		else{
 			mobile = mobile.toString().slice(-10)
@@ -33,28 +31,24 @@ module.exports = (context, basicIO) => {
 					responseJSON['OperationStatus'] = "NO_DATA"
 					responseJSON['StatusDescription'] = 'No record found with given mobile'
 					console.log("End of Execution:", responseJSON)
-					basicIO.write(JSON.stringify(responseJSON));
-					context.close();
+					return JSON.stringify(responseJSON);
 				}
 				else if(user.length==0){
 					responseJSON['OperationStatus'] = "NO_DATA"
 					responseJSON['StatusDescription'] = 'No record found with given mobile'
 					console.log("End of Execution:", responseJSON)
-					basicIO.write(JSON.stringify(responseJSON));
-					context.close();
+					return JSON.stringify(responseJSON);
 				}
 				else if(user.length!=1){
 					responseJSON['OperationStatus'] = "DUP_RECORD"
 					responseJSON['StatusDescription'] = 'Duplicate record found with given mobile'
 					console.log("End of Execution:", responseJSON)
-					basicIO.write(JSON.stringify(responseJSON));
-					context.close();
+					return JSON.stringify(responseJSON);
 				}
 				else{
 					responseJSON['UserROWID']=user[0]['Users']['ROWID']
 					console.log("End of Execution:", responseJSON)
-					basicIO.write(JSON.stringify(responseJSON));
-					context.close();
+					return JSON.stringify(responseJSON);
 				}
 			})
 		}

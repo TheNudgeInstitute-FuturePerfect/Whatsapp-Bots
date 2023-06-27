@@ -1,9 +1,9 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (context, basicIO) => {
+module.exports = (basicIO) => {
 
-	const catalystApp = catalyst.initialize(context);
+	const catalystApp = catalyst.initialize();
 	var responseJSON = {
 		OperationStatus:"SUCCESS"
 	}
@@ -13,8 +13,8 @@ module.exports = (context, basicIO) => {
 		responseJSON['OperationStatus'] = "REQ_ERR"
 		responseJSON['StatusDescription'] = 'Either UserROWID or Mobile field is required'
 		console.log("End of Execution:", responseJSON)
-		basicIO.write(JSON.stringify(responseJSON));
-		context.close();
+		return JSON.stringify(responseJSON);
+		
 	}
 	else{
 		const flowID = basicIO["FlowID"]
@@ -22,8 +22,8 @@ module.exports = (context, basicIO) => {
 			responseJSON['OperationStatus'] = "REQ_ERR"
 			responseJSON['StatusDescription'] = 'FlowID is required'
 			console.log("End of Execution:", responseJSON)
-			basicIO.write(JSON.stringify(responseJSON));
-			context.close();
+			return JSON.stringify(responseJSON);
+			
 		}
 		else{
 			const segment = basicIO["Segment"]
@@ -31,8 +31,8 @@ module.exports = (context, basicIO) => {
 				responseJSON['OperationStatus'] = "REQ_ERR"
 				responseJSON['StatusDescription'] = 'Segment is required'
 				console.log("End of Execution:", responseJSON)
-				basicIO.write(JSON.stringify(responseJSON));
-				context.close();
+				return JSON.stringify(responseJSON);
+				
 			}
 			else{
 				const question = basicIO["Question"]
@@ -40,8 +40,8 @@ module.exports = (context, basicIO) => {
 					responseJSON['OperationStatus'] = "REQ_ERR"
 					responseJSON['StatusDescription'] = 'Question is required'
 					console.log("End of Execution:", responseJSON)
-					basicIO.write(JSON.stringify(responseJSON));
-					context.close();
+					return JSON.stringify(responseJSON);
+					
 				}
 				else{
 					if(typeof userROWID === 'undefined')
@@ -49,8 +49,8 @@ module.exports = (context, basicIO) => {
 					else
 						responseJSON['UserROWIDPresent']=true
 					console.log("End of Execution:", responseJSON)
-					basicIO.write(JSON.stringify(responseJSON));
-					context.close();
+					return JSON.stringify(responseJSON);
+					
 				}
 			}
 		}

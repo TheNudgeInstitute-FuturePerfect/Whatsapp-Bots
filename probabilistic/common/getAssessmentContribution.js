@@ -1,7 +1,7 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (context, basicIO) => {
+module.exports = (basicIO) => {
 	/*
 	Request: None
 	Response: {
@@ -13,7 +13,7 @@ module.exports = (context, basicIO) => {
 	}
 	*/
 
-	const catalystApp = catalyst.initialize(context);
+	const catalystApp = catalyst.initialize();
 
 	const prompt = basicIO["prompt"];
 	let query = "select ROWID, Name, Content, IsActive, SupportingText, SupportingAVURL, SupportingImageURL, Sequence, Persona from SystemPrompts"
@@ -55,14 +55,12 @@ module.exports = (context, basicIO) => {
 			responseJSON['Prompts'] = retrunValues//.reduce(((r, c) => Object.assign(r, c)), {}) 
 			responseJSON['TotalPrompts'] = retrunValues.length
 		}
-		basicIO.write(JSON.stringify(responseJSON));
-		context.close();
+		return JSON.stringify(responseJSON);
 	})
 	.catch(err=>{
 		responseJSON['OperationStatus']="ZCQL_ERR"
 		responseJSON['ErrorDescription']=err
 		console.log("End of Execution. Error in executing ZCQL statement: ", query, "\nError: ",err)
-		basicIO.write(JSON.stringify(responseJSON));
-		context.close();
+		return JSON.stringify(responseJSON);
 	})
 }

@@ -1,8 +1,8 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (context, basicIO) => {
-	const catalystApp = catalyst.initialize(context);	
+module.exports = (basicIO) => {
+	const catalystApp = catalyst.initialize();	
 	let flowID = basicIO["flowID"]
 	let contactID = basicIO["contactID"]
 	var params = basicIO["params"]
@@ -14,20 +14,20 @@ module.exports = (context, basicIO) => {
 	if(typeof flowID === 'undefined'){
 		responseJSON["StatusDescription"] = "messageID missing";
 		console.log("Returned: ",responseJSON)
-		basicIO.write(JSON.stringify(responseJSON));
-		context.close();
+		return JSON.stringify(responseJSON);
+		
 	}
 	else if(typeof contactID === 'undefined'){
 		responseJSON["StatusDescription"] = "contactID missing";
 		console.log("Returned: ",responseJSON)
-		basicIO.write(JSON.stringify(responseJSON));
-		context.close();
+		return JSON.stringify(responseJSON);
+		
 	}
 	else if((typeof params !== 'undefined')&&(Array.isArray(params) == false)){
 		responseJSON["StatusDescription"] = "params must be an array";
 		console.log("Returned: ",responseJSON)
-		basicIO.write(JSON.stringify(responseJSON));
-		context.close();
+		return JSON.stringify(responseJSON);
+		
 	}
 	else{
 		if(typeof params === 'undefined'){
@@ -54,16 +54,16 @@ module.exports = (context, basicIO) => {
 				console.log("Request Parameters: "+JSON.stringify(options));
 				responseJSON['OperationStatus'] = "GLFC_AUTH_ERR"
 				responseJSON['StatusDescription'] = error
-				basicIO.write(JSON.stringify(responseJSON))
-				context.close()
+				return JSON.stringify(responseJSON)
+				
 			}
 			else if(response.body == 'Something went wrong'){
 				console.log("Error returned by Glific Authentication API: "+response.body);
 				console.log("Request Parameters: "+JSON.stringify(options));
 				responseJSON['OperationStatus'] = "GLFC_AUTH_ERR"
 				responseJSON['StatusDescription'] = response.body
-				basicIO.write(JSON.stringify(responseJSON))
-				context.close()
+				return JSON.stringify(responseJSON)
+				
 			}
 			else{
 				console.info("Successfully Authenticated with Glific");
@@ -103,8 +103,8 @@ module.exports = (context, basicIO) => {
 							console.log("Request Parameters: "+JSON.stringify(options));
 							responseJSON['OperationStatus'] = "GLFC_API_ERR"
 							responseJSON['StatusDescription'] = error
-							basicIO.write(JSON.stringify(responseJSON))
-							context.close()
+							return JSON.stringify(responseJSON)
+							
 						}
 						else{
 							console.log('Glific Response: '+response.body+"\n"+
@@ -117,8 +117,8 @@ module.exports = (context, basicIO) => {
 								console.log("Request Parameters: "+JSON.stringify(options));
 								responseJSON['OperationStatus'] = "GLFC_API_ERR"
 								responseJSON['StatusDescription'] = startFlowResponse.errors
-								basicIO.write(JSON.stringify(responseJSON))
-								context.close()
+								return JSON.stringify(responseJSON)
+								
 							}
 							else
 							{
@@ -131,15 +131,15 @@ module.exports = (context, basicIO) => {
 									console.log('Error returned by Glific API '+JSON.stringify(startFlowResponse))
 									responseJSON['OperationStatus'] = "GLFC_API_ERR"
 									responseJSON['StatusDescription'] = elementErrors
-									basicIO.write(JSON.stringify(responseJSON))
-									context.close()
+									return JSON.stringify(responseJSON)
+									
 								}
 								else
 								{
 									console.info("Successfully resumed flow in Glific");
 									responseJSON['OperationStatus'] = "SUCCESS"
-									basicIO.write(JSON.stringify(responseJSON))
-									context.close()
+									return JSON.stringify(responseJSON)
+									
 								}
 							}
 						}
@@ -150,8 +150,8 @@ module.exports = (context, basicIO) => {
 					console.log("Request Parameters: "+JSON.stringify(options));
 					responseJSON['OperationStatus'] = "GLFC_AUTH_API_ERR"
 					responseJSON['StatusDescription'] = error
-					basicIO.write(JSON.stringify(responseJSON))
-					context.close()
+					return JSON.stringify(responseJSON)
+					
 				}
 			}
 		});

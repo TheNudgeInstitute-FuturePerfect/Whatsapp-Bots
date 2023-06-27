@@ -5,9 +5,9 @@ const catalyst = require("zoho-catalyst-sdk");
 const unique = (value, index, self) => {
 	return self.indexOf(value) === index
 }
-module.exports = (context, basicIO) => {
+module.exports = (basicIO) => {
 
-	const catalystApp = catalyst.initialize(context);
+	const catalystApp = catalyst.initialize();
 
 	var responseObject = {
 		OperationStatus:"SUCCESS"
@@ -19,8 +19,7 @@ module.exports = (context, basicIO) => {
 		responseObject["OperationStatus"] = "REQ_ERR"
 		responseObject["StatusDescription"] = "Missing parameter - mobile"
 		console.log("End of Execution: ",responseObject)
-		basicIO.write(JSON.stringify(responseObject));
-		context.close();
+		return JSON.stringify(responseObject);
 	}
 	else{
 		mobile = mobile.slice(-10)
@@ -31,8 +30,7 @@ module.exports = (context, basicIO) => {
 				responseObject["OperationStatus"] = "USR_NT_FND"
 				responseObject["StatusDescription"] = "User could not be found or is inactive"
 				console.log("End of Execution: ",responseObject)
-				basicIO.write(JSON.stringify(responseObject));
-				context.close();
+				return JSON.stringify(responseObject);
 			}
 			else{
 				const today = new Date()
@@ -43,16 +41,14 @@ module.exports = (context, basicIO) => {
 						responseObject["PendingPracticeCount"] = process.env.MinDays
 						responseObject["PendingPracticeDays"] = process.env.Period
 						console.log("End of Execution: ",responseObject)
-						basicIO.write(JSON.stringify(responseObject));
-						context.close();
+						return JSON.stringify(responseObject);
 					}
 					else if(sessions.length == 0){
 						responseObject["StatusDescription"] = "User has not started any conversation"
 						responseObject["PendingPracticeCount"] = process.env.MinDays
 						responseObject["PendingPracticeDays"] = process.env.Period
 						console.log("End of Execution: ",responseObject)
-						basicIO.write(JSON.stringify(responseObject));
-						context.close();
+						return JSON.stringify(responseObject);
 					}
 					else{	
 						const allDates = sessions.map(data=> (data.Sessions.CREATEDTIME).toString().slice(0,10))
@@ -85,14 +81,12 @@ module.exports = (context, basicIO) => {
 						console.log('Resurrected: ',resurrected,'Days since Registration/Resurrection = '+daysSinceRegistration)			
 						deadline.setDate(deadline.getDate()+parseInt(process.env.Period))
 						responseObject['DeadlineDate'] = deadline.getFullYear()+"-"+('0'+(deadline.getMonth()+1)).slice(-2)+"-"+('0'+deadline.getDate()).slice(-2)
-						//basicIO.write(daysSinceRegistration);
-						//context.close();
+						//return daysSinceRegistration;
 						if(daysSinceRegistration >= process.env.Period){
 							responseObject["OperationStatus"] = "SSN_ABV_PERIOD"
 							responseObject["StatusDescription"] = "User registered "+daysSinceRegistration+" days ago"
 							console.log("End of Execution: ",responseObject)
-							basicIO.write(JSON.stringify(responseObject));
-							context.close();
+							return JSON.stringify(responseObject);
 						}
 						else{
 							const userSessions = sessions.filter(data=>!(data.Sessions.SessionID.endsWith('Hint')||data.Sessions.SessionID.endsWith('Translation')||data.Sessions.SessionID.endsWith('ObjectiveFeedback')||data.Sessions.SessionID.startsWith('Onboarding')||data.Sessions.SessionID.endsWith('Onboarding')||data.Sessions.SessionID.startsWith('onboarding')||data.Sessions.SessionID.endsWith('onboarding')))
@@ -105,15 +99,13 @@ module.exports = (context, basicIO) => {
 								responseObject["OperationStatus"] = "MIN_SSN_RCHD"
 								responseObject["StatusDescription"] = "User has completed the required days of practice"
 								console.log("End of Execution: ",responseObject,"\nTotal Days Practices = ",uniqueDates.length)
-								basicIO.write(JSON.stringify(responseObject));
-								context.close();
+								return JSON.stringify(responseObject);
 							}
 							else{
 								responseObject["PendingPracticeCount"] = process.env.MinDays - uniqueDates.length
 								responseObject["PendingPracticeDays"] = process.env.Period - daysSinceRegistration
 								console.log("End of Execution: ",responseObject)
-								basicIO.write(JSON.stringify(responseObject));
-								context.close();
+								return JSON.stringify(responseObject);
 							}
 						}
 					}
@@ -122,8 +114,7 @@ module.exports = (context, basicIO) => {
 					responseObject["OperationStatus"] = "ZCQL_ERR"
 					responseObject["StatusDescription"] = "Error in executing Sessions query"
 					console.log("End of Execution: ",responseObject, "\nError:",err)
-					basicIO.write(JSON.stringify(responseObject));
-					context.close();
+					return JSON.stringify(responseObject);
 				})
 			}
 		})
@@ -131,8 +122,7 @@ module.exports = (context, basicIO) => {
 			responseObject["OperationStatus"] = "ZCQL_ERR"
 			responseObject["StatusDescription"] = "Error in Users executing query"
 			console.log("End of Execution: ",responseObject, "\nError:",err)
-			basicIO.write(JSON.stringify(responseObject));
-			context.close();
+			return JSON.stringify(responseObject);
 		})
 	}
 }
