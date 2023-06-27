@@ -57,10 +57,10 @@ module.exports = async (basicIO) => {
 			responseJSON['TotalPrompts'] = retrunValues.length
 		}
 		return JSON.stringify(responseJSON);
-	} catch(err){
+	} catch(error){
 		responseJSON['OperationStatus']="ZCQL_ERR"
-		responseJSON['ErrorDescription']=err
-		console.log("End of Execution. Error in executing ZCQL statement: ", query, "\nError: ",err)
+		responseJSON['ErrorDescription']=error
+		console.log("End of Execution. Error in executing ZCQL statement: ", query, "\nError: ",error)
 		return JSON.stringify(responseJSON);
 	}
 }

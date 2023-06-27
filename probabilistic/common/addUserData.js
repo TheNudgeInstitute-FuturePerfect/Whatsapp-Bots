@@ -26,9 +26,9 @@ module.exports = async (basicIO) => {
 	   responseJSON["UserDataROWID"] = row['ROWID']
 	   console.log("End of Execution:", responseJSON)
 	   return JSON.stringify(responseJSON);
-	} catch (err) {
+	} catch (error) {
 		responseJSON["OperationStatus"] = "APP_ERR"
-		responseJSON["StatusDescription"] = err
+		responseJSON["StatusDescription"] = error
 		console.log("End of Execution:", responseJSON)
 		return JSON.stringify(responseJSON);
 	}

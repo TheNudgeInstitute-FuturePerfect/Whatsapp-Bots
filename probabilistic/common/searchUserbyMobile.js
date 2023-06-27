@@ -50,10 +50,10 @@ module.exports = async (basicIO) => {
 					console.log("End of Execution:", responseJSON)
 					return JSON.stringify(responseJSON);
 				}
-			} catch(err){
+			} catch(error){
 				result['OperationStatus']="ZCQL_ERR"
 				result['ErrorDescription']="Error in search prompts"
-				console.log("Execution Completed: ",result,err);
+				console.log("Execution Completed: ",result,error);
 				return JSON.stringify(result);
 			}
 			

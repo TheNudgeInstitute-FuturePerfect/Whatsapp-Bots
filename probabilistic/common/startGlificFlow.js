@@ -145,8 +145,8 @@ module.exports = async (basicIO) => {
 						}
 					});
 				}
-				catch(e){
-					console.log("Error in resuming flow in Glific: "+e,"\nGlific Response: ",response.body);
+				catch(error){
+					console.log("Error in resuming flow in Glific: "+error,"\nGlific Response: ",response.body);
 					console.log("Request Parameters: "+JSON.stringify(options));
 					responseJSON['OperationStatus'] = "GLFC_AUTH_API_ERR"
 					responseJSON['StatusDescription'] = error

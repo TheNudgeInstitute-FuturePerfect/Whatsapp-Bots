@@ -93,12 +93,12 @@ module.exports = async (basicIO) => {
 								result['Configurations']=insertQueryResult
 								console.log("Execution Completed: ",result);
 								return JSON.stringify(result);
-							} catch(err){
+							} catch(error){
                                 result['OperationStatus']="ZCQL_ERR"
-								if(err.includes("DUPLICATE"))
+								if(error.includes("DUPLICATE"))
 									result['OperationStatus']="DUP_RCRD"
 								result['ErrorDescription']="Error in execution insert query"
-								console.log("Execution Completed: ",result,err);
+								console.log("Execution Completed: ",result,error);
 								return JSON.stringify(result);
 							}
 							
@@ -107,10 +107,10 @@ module.exports = async (basicIO) => {
 				}
 		/*	}
 		})
-		.catch(err => {
+		.catch(error => {
 			result['OperationStatus']="ZCQL_ERR"
 			result['ErrorDescription']="Error in execution search query"
-			console.log("Execution Completed: ",result,err);
+			console.log("Execution Completed: ",result,error);
 			return JSON.stringify(result);
 
 		})

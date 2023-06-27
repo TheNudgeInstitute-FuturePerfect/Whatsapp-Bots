@@ -49,10 +49,10 @@ module.exports = async (basicIO) => {
 				}
 				console.log("Execution Completed: ",result);
 				return JSON.stringify(result);
-		} catch(err){
+		} catch(error){
 			result['OperationStatus']="ZCQL_ERR"
 			result['ErrorDescription']="Error in deleting prompts"
-			console.log("Execution Completed: ",result,err);
+			console.log("Execution Completed: ",result,error);
 			return JSON.stringify(result);
 		}
 	}

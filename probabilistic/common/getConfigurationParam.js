@@ -71,10 +71,10 @@ module.exports = async (basicIO) => {
 				}
 				console.log("Execution Completed: ",result);
 				return JSON.stringify(result);
-			} catch(err){
+			} catch(error){
                 result['OperationStatus']="ZCQL_ERR"
 				result['ErrorDescription']="Error in execution of search query"
-				console.log("Execution Completed: ",result,"\nError:",err,"\nQuery:",searchQuery);
+				console.log("Execution Completed: ",result,"\nError:",error,"\nQuery:",searchQuery);
 				return JSON.stringify(result);
 			}
 		}	

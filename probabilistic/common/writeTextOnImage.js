@@ -93,37 +93,37 @@ module.exports = async (basicIO) => {
 											response["PublicURL"] = publicURL
 											console.log("Returned: ",response)
 											return JSON.stringify(response);
-										} catch(err){
+										} catch(error){
 											response['OperationStatus'] = "DATASTORE_ERR"
 											response['ErrorDescription'] = error
 											console.log('Technical Error in storing performace report url in sessions table: '+error+"\n\n Returned error response: ",response)
 											return JSON.stringify(response)
 										}
-									} catch(err){
+									} catch(error){
 										response['OperationStatus'] = "GCS_ERR"
 										response['ErrorDescription'] = error
 										console.log('Technical Error in storing file: '+error+"\n\n Returned error response: ",response)
 										return JSON.stringify(response)
 									}
-								} catch(err){
+								} catch(error){
 									response['OperationStatus'] = "APP_ERR"
 									response['StatusDescription'] = "Error in getting file buffer"
-									console.log("End of execution:",response,"\n",err)
+									console.log("End of execution:",response,"\n",error)
 									return JSON.stringify(response)
 								}
-							} catch(err){
+							} catch(error){
 								response['OperationStatus'] = "APP_ERR"
 								response['StatusDescription'] = "Error in loading font"
-								console.log("End of execution:",response,"\n",err)
+								console.log("End of execution:",response,"\n",error)
 								return JSON.stringify(response)
 							}
 							
 							
 
-						} catch(err){
+						} catch(error){
 							response['OperationStatus'] = "APP_ERR"
 							response['StatusDescription'] = "Error in fetching template file"
-							console.log("End of execution:",response,"\n",err)
+							console.log("End of execution:",response,"\n",error)
 							return JSON.stringify(response)
 						}
 					}

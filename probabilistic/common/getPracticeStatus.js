@@ -109,17 +109,17 @@ module.exports = async (basicIO) => {
 							}
 						}
 					}
-				} catch(err) {
+				} catch(error) {
 					responseObject["OperationStatus"] = "ZCQL_ERR"
 					responseObject["StatusDescription"] = "Error in executing Sessions query"
-					console.log("End of Execution: ",responseObject, "\nError:",err)
+					console.log("End of Execution: ",responseObject, "\nError:",error)
 					return JSON.stringify(responseObject);
 				}
 			}
-		} catch(err) {
+		} catch(error) {
 			responseObject["OperationStatus"] = "ZCQL_ERR"
 			responseObject["StatusDescription"] = "Error in Users executing query"
-			console.log("End of Execution: ",responseObject, "\nError:",err)
+			console.log("End of Execution: ",responseObject, "\nError:",error)
 			return JSON.stringify(responseObject);
 		}
 	}

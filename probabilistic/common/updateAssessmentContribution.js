@@ -117,19 +117,19 @@ module.exports = async (basicIO) => {
 						   result['OperationStatus']="SUCCESS"
 							console.log("Execution Completed: ",result);
 							return JSON.stringify(result);
-						} catch(err){
+						} catch(error){
                             result['OperationStatus']="ZCQL_ERR"
 							result['ErrorDescription']="Error in execution update query"
-							console.log("Execution Completed: ",result,err);
+							console.log("Execution Completed: ",result,error);
 							return JSON.stringify(result);
 						}
 					}
 				}
 			}
-		} catch(err){
+		} catch(error){
 			result['OperationStatus']="ZCQL_ERR"
 			result['ErrorDescription']="Error in marking prompts inactive"
-			console.log("Execution Completed: ",result,err);
+			console.log("Execution Completed: ",result,error);
 			return JSON.stringify(result);
 		}
 	}

@@ -76,16 +76,16 @@ module.exports = async (basicIO) => {
 					result['URL']=publicURL
 					console.log("Execution Completed: ",result);
 					return JSON.stringify(result);
-				} catch (err){
+				} catch (error){
 					result['OperationStatus']="GCS_ERR"
 					result['StatusDescription']="Error in storing audio file"
-					console.log("Execution Completed: ",result,err);
+					console.log("Execution Completed: ",result,error);
 					return JSON.stringify(result);
 				}
-			} catch(err) {
+			} catch(error) {
 				result['OperationStatus']="GTTS_ERR"
 				result['StatusDescription']="Error in converting text to audio"
-				console.log("Execution Completed: ",result,err);
+				console.log("Execution Completed: ",result,error);
 				return JSON.stringify(result);
 			}
 	  	}

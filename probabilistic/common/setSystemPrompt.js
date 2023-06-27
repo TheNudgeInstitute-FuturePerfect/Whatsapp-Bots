@@ -132,8 +132,8 @@ module.exports = async (basicIO) => {
 																		}
 																	})
 										console.log(" default configuration:",addedCFG)						
-								   } catch(err){
-									console.log("Error in adding default configuration:",err)
+								   } catch(error){
+									console.log("Error in adding default configuration:",error)
 								   }
 							   })
 
@@ -172,10 +172,10 @@ module.exports = async (basicIO) => {
 										   return JSON.stringify(result);
 										   
 									   })
-									   .catch(err=>{
+									   .catch(error=>{
 										   result['OperationStatus']="SUCCESS_MLTPL_ACTV_ERR"
 										   result['StatusDescription']="Prompt added. Multiple prompts are active for topic - '"+prompt+"'. Please mark only one as active."
-										   console.log("Execution Completed: ",result,err);
+										   console.log("Execution Completed: ",result,error);
 										   return JSON.stringify(result);
 										   
 									   })
@@ -185,14 +185,14 @@ module.exports = async (basicIO) => {
 									   return JSON.stringify(result);
 									   
 								   }
-							   } catch(err) {
+							   } catch(error) {
 									result['OperationStatus']="ZCQL_ERR"
 									result['StatusDescription']="Error in execution search query"
-									console.log("Execution Completed: ",result,err);
+									console.log("Execution Completed: ",result,error);
 									return JSON.stringify(result);
 							   }   
-							} catch(err){
-								if(err.indexOf("DUPLICATE")!=-1){
+							} catch(error){
+								if(error.indexOf("DUPLICATE")!=-1){
 									result['OperationStatus']="DUP_ERR"
 									result['StatusDescription']="A prompt with same name and sequene number exists. Please use a different sequence number"
 								}
@@ -200,7 +200,7 @@ module.exports = async (basicIO) => {
 									result['OperationStatus']="ZCQL_ERR"
 									result['StatusDescription']="Error in inserting new record"
 								}
-								console.log("Execution Completed: ",result,err);
+								console.log("Execution Completed: ",result,error);
 								return JSON.stringify(result);
 							}
 						}

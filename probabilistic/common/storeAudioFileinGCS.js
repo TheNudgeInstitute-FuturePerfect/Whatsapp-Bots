@@ -89,13 +89,13 @@ module.exports = async (basicIO) => {
 				responseJSON["PublicURL"] = publicURL
 				console.log("Returned: ",responseJSON)
 				return JSON.stringify(responseJSON)
-			} catch(err){
+			} catch(error){
 				responseJSON['OperationStatus'] = "GCS_ERR"
 				responseJSON['ErrorDescription'] = error
 				console.log('Technical Error in storing file: '+error+"\n\n Returned error response: ",responseJSON)
 				return responseJSON
 			}
-		} catch(err){
+		} catch(error){
 			responseJSON['OperationStatus'] = "REST_API_ERR"
 			responseJSON['ErrorDescription'] = error
 			console.log('Technical Error in HTTP Request: '+error+"\n\n Returned error response: ",responseJSON)
