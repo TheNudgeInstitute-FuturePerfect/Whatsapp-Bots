@@ -1,9 +1,9 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (context, basicIO) => {
+module.exports = (basicIO) => {
 
-	const catalystApp = catalyst.initialize(context);
+	const catalystApp = catalyst.initialize();
 
 	var result = {
 		OperationStatus : "SUCCESS"
@@ -13,8 +13,8 @@ module.exports = (context, basicIO) => {
 		result['OperationStatus']="REQ_ERR"
 		result['ErrorDescription']="Missing parameter : id. Need Topic Prompt's ROWID"
 		console.log("Execution Completed: ",result);
-		basicIO.write(JSON.stringify(result));
-		context.close();
+		return JSON.stringify(result);
+		
 	}
 	else{
 		var name = basicIO["param"];
@@ -22,8 +22,8 @@ module.exports = (context, basicIO) => {
 			result['OperationStatus']="REQ_ERR"
 			result['ErrorDescription']="Missing parameter: param"
 			console.log("Execution Completed: ",result);
-			basicIO.write(JSON.stringify(result));
-			context.close();
+			return JSON.stringify(result);
+			
 		}
 		else{
 			name = name.toString().toLowerCase()
@@ -32,8 +32,8 @@ module.exports = (context, basicIO) => {
 				result['OperationStatus']="REQ_ERR"
 				result['ErrorDescription']="Missing parameter: value"
 				console.log("Execution Completed: ",result);
-				basicIO.write(JSON.stringify(result));
-				context.close();
+				return JSON.stringify(result);
+				
 			}
 			else{
 				var description = basicIO["description"];
@@ -52,15 +52,15 @@ module.exports = (context, basicIO) => {
 						result['StatusDescription']="There is no record for given configuration param and systemprompt"
 					}
 					console.log("Execution Completed: ",result);
-					basicIO.write(JSON.stringify(result));
-					context.close();
+					return JSON.stringify(result);
+					
 				})
 				.catch(err=>{
 					result['OperationStatus']="ZCQL_ERR"
 					result['ErrorDescription']="Error in execution update query"
 					console.log("Execution Completed: ",result,err,updateQuery);
-					basicIO.write(JSON.stringify(result));
-					context.close();
+					return JSON.stringify(result);
+					
 				})
 			}
 		}

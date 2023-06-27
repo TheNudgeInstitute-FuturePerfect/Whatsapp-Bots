@@ -1,7 +1,7 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (context, basicIO) => {
+module.exports = (basicIO) => {
 	/*
 	Request Params: 
 		prompt: <Flow Version>
@@ -12,7 +12,7 @@ module.exports = (context, basicIO) => {
 	}
 	*/
 
-	const catalystApp = catalyst.initialize(context);
+	const catalystApp = catalyst.initialize();
 
 	var result = {
 		OperationStatus : "SUCCESS"
@@ -23,8 +23,8 @@ module.exports = (context, basicIO) => {
 		result['OperationStatus']="REQ_ERR"
 		result['ErrorDescription']="Missing parameter: id. ID of the prompt of the topic is required."
 		console.log("Execution Completed: ",result);
-		basicIO.write(JSON.stringify(result));
-		context.close();
+		return JSON.stringify(result);
+		
 	}
 	else{
 		rowID = rowID
@@ -39,8 +39,8 @@ module.exports = (context, basicIO) => {
 				result['OperationStatus']="REQ_ERR"
 				result['StatusDescription']="There is no record for id="+rowID
 				console.log("Execution Completed: ",result);
-				basicIO.write(JSON.stringify(result));
-				context.close();
+				return JSON.stringify(result);
+				
 			}
 			else{	
 				var isActive = basicIO["isactive"];
@@ -48,8 +48,8 @@ module.exports = (context, basicIO) => {
 					result['OperationStatus']="REQ_ERR"
 					result['StatusDescription']="isactive must be true or false. It's "+(typeof isActive)
 					console.log("Execution Completed: ",result);
-					basicIO.write(JSON.stringify(result));
-					context.close();
+					return JSON.stringify(result);
+					
 				}
 				else{
 					if(typeof isActive !== 'undefined')
@@ -60,8 +60,8 @@ module.exports = (context, basicIO) => {
 						result['OperationStatus']="REQ_ERR"
 						result['StatusDescription']="sequence must be an integer. It's "+(typeof seqNO)
 						console.log("Execution Completed: ",result);
-						basicIO.write(JSON.stringify(result));
-						context.close();
+						return JSON.stringify(result);
+						
 					}
 					else{
 						if(typeof seqNO === 'undefined')
@@ -116,15 +116,15 @@ module.exports = (context, basicIO) => {
 						.then(updateQueryResult=>{
 							result['OperationStatus']="SUCCESS"
 							console.log("Execution Completed: ",result);
-							basicIO.write(JSON.stringify(result));
-							context.close();
+							return JSON.stringify(result);
+							
 						})
 						.catch(err=>{
 							result['OperationStatus']="ZCQL_ERR"
 							result['ErrorDescription']="Error in execution update query"
 							console.log("Execution Completed: ",result,err);
-							basicIO.write(JSON.stringify(result));
-							context.close();
+							return JSON.stringify(result);
+							
 						})
 					}
 				}
@@ -134,8 +134,8 @@ module.exports = (context, basicIO) => {
 			result['OperationStatus']="ZCQL_ERR"
 			result['ErrorDescription']="Error in marking prompts inactive"
 			console.log("Execution Completed: ",result,err);
-			basicIO.write(JSON.stringify(result));
-			context.close();
+			return JSON.stringify(result);
+			
 		})
 	}
 }

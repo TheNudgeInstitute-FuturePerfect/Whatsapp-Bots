@@ -1,7 +1,7 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (context, basicIO) => {
+module.exports = (basicIO) => {
 	/*
 	Request Params: 
 		prompt: <Flow Version>
@@ -12,7 +12,7 @@ module.exports = (context, basicIO) => {
 	}
 	*/
 
-	const catalystApp = catalyst.initialize(context);
+	const catalystApp = catalyst.initialize();
 
 	var result = {
 		OperationStatus : "SUCCESS"
@@ -23,8 +23,7 @@ module.exports = (context, basicIO) => {
 		result['OperationStatus']="REQ_ERR"
 		result['ErrorDescription']="Missing parameter: id"
 		console.log("Execution Completed: ",result);
-		basicIO.write(JSON.stringify(result));
-		context.close();
+		return JSON.stringify(result);
 	}
 	else{
 		if(Array.isArray(rowID)==false)
@@ -49,15 +48,13 @@ module.exports = (context, basicIO) => {
 				result['deletedIDs']=deleteQueryResult
 			}
 			console.log("Execution Completed: ",result);
-			basicIO.write(JSON.stringify(result));
-			context.close();
+			return JSON.stringify(result);
 		})
 		.catch(err=>{
 			result['OperationStatus']="ZCQL_ERR"
 			result['ErrorDescription']="Error in deleting prompts"
 			console.log("Execution Completed: ",result,err);
-			basicIO.write(JSON.stringify(result));
-			context.close();
+			return JSON.stringify(result);
 		})
 	}
 }

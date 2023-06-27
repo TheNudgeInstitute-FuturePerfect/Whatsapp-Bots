@@ -1,9 +1,9 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (context, basicIO) => {
+module.exports = (basicIO) => {
 
-	const catalystApp = catalyst.initialize(context);
+	const catalystApp = catalyst.initialize();
 	
 	var response = {
 		OperationStatus:"SUCCESS"
@@ -14,8 +14,8 @@ module.exports = (context, basicIO) => {
 		response['OperationStatus'] = "REQ_ERR"
 		response['StatusDescription'] = "Missing param - sessionROWID"
 		console.log("End of execution:",response)
-		basicIO.write(JSON.stringify(response))
-		context.close() 
+		return JSON.stringify(response)
+		 
 	}
 	else{
 		let templateURL = basicIO["templateurl"];
@@ -23,8 +23,8 @@ module.exports = (context, basicIO) => {
 			response['OperationStatus'] = "REQ_ERR"
 			response['StatusDescription'] = "Missing param - templateurl"
 			console.log("End of execution:",response)
-			basicIO.write(JSON.stringify(response))
-			context.close() 
+			return JSON.stringify(response)
+			 
 		}
 		else{
 			let textMap = basicIO["textmap"];
@@ -32,8 +32,8 @@ module.exports = (context, basicIO) => {
 				response['OperationStatus'] = "REQ_ERR"
 				response['StatusDescription'] = "Missing param - textmap"
 				console.log("End of execution:",response)
-				basicIO.write(JSON.stringify(response))
-				context.close() 
+				return JSON.stringify(response)
+				 
 			}
 			else{
 				textMap = JSON.parse(textMap)
@@ -41,8 +41,8 @@ module.exports = (context, basicIO) => {
 					response['OperationStatus'] = "REQ_ERR"
 					response['StatusDescription'] = "textMap must be an array of object: [{'text':<>,'x':<>,'y':<>,}]"
 					console.log("End of execution:",response)
-					basicIO.write(JSON.stringify(response))
-					context.close() 
+					return JSON.stringify(response)
+					 
 				}
 				else{
 					let fileName = basicIO["filename"]
@@ -50,8 +50,8 @@ module.exports = (context, basicIO) => {
 						response['OperationStatus'] = "REQ_ERR"
 						response['StatusDescription'] = "Missing param - filename"
 						console.log("End of execution:",response)
-						basicIO.write(JSON.stringify(response))
-						context.close() 
+						return JSON.stringify(response)
+						 
 					}
 					else{
 						const jimp = require("jimp")
@@ -92,47 +92,47 @@ module.exports = (context, basicIO) => {
 											response["OperationStatus"] = "SUCCESS";
 											response["PublicURL"] = publicURL
 											console.log("Returned: ",response)
-											basicIO.write(JSON.stringify(response));
-											context.close();	
+											return JSON.stringify(response);
+												
 										})
 										.catch(error =>{
 											response['OperationStatus'] = "DATASTORE_ERR"
 											response['ErrorDescription'] = error
 											console.log('Technical Error in storing performace report url in sessions table: '+error+"\n\n Returned error response: ",response)
-											basicIO.write(JSON.stringify(response))
-											context.close()
+											return JSON.stringify(response)
+											
 										})	
 									})
 									.catch(error =>{
 										response['OperationStatus'] = "GCS_ERR"
 										response['ErrorDescription'] = error
 										console.log('Technical Error in storing file: '+error+"\n\n Returned error response: ",response)
-										basicIO.write(JSON.stringify(response))
-										context.close()
+										return JSON.stringify(response)
+										
 									})
 								})
 								.catch(err=>{
 									response['OperationStatus'] = "APP_ERR"
 									response['StatusDescription'] = "Error in getting file buffer"
 									console.log("End of execution:",response,"\n",err)
-									basicIO.write(JSON.stringify(response))
-									context.close() 
+									return JSON.stringify(response)
+									 
 								})
 							})
 							.catch(err=>{
 								response['OperationStatus'] = "APP_ERR"
 								response['StatusDescription'] = "Error in loading font"
 								console.log("End of execution:",response,"\n",err)
-								basicIO.write(JSON.stringify(response))
-								context.close() 
+								return JSON.stringify(response)
+								 
 							})
 						})
 						.catch(err=>{
 							response['OperationStatus'] = "APP_ERR"
 							response['StatusDescription'] = "Error in fetching template file"
 							console.log("End of execution:",response,"\n",err)
-							basicIO.write(JSON.stringify(response))
-							context.close() 
+							return JSON.stringify(response)
+							 
 						})
 					}
 				}

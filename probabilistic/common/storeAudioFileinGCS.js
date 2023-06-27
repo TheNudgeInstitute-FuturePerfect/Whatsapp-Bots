@@ -1,9 +1,9 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (context, basicIO) => {
+module.exports = (basicIO) => {
 
-	const catalystApp = catalyst.initialize(context);
+	const catalystApp = catalyst.initialize();
 
 	let contentType = basicIO["contentType"]
 	let fileData = basicIO["fileData"]
@@ -16,20 +16,20 @@ module.exports = (context, basicIO) => {
 	if(typeof contentType === 'undefined'){
 		responseJSON["ErrorDescription"] = "contentType missing";
 		console.log("Returned: ",responseJSON)
-		basicIO.write(JSON.stringify(responseJSON));
-		context.close();
+		return JSON.stringify(responseJSON)
+		
 	}
 	else if(typeof fileData === 'undefined'){
 		responseJSON["ErrorDescription"] = "fileData missing";
 		console.log("Returned: ",responseJSON)
-		basicIO.write(JSON.stringify(responseJSON));
-		context.close();
+		return JSON.stringify(responseJSON)
+		
 	}
 	else if(typeof fileName === 'undefined'){
 		responseJSON["ErrorDescription"] = "fileName missing";
 		console.log("Returned: ",responseJSON)
-		basicIO.write(JSON.stringify(responseJSON));
-		context.close();
+		return JSON.stringify(responseJSON)
+		
 	}
 	else{
 		fileType = (typeof fileType === 'undefined') ?  contentType : fileType
@@ -88,23 +88,23 @@ module.exports = (context, basicIO) => {
 				responseJSON["OperationStatus"] = "SUCCESS";
 				responseJSON["PublicURL"] = publicURL
 				console.log("Returned: ",responseJSON)
-				basicIO.write(JSON.stringify(responseJSON));
-				context.close();
+				return JSON.stringify(responseJSON)
+				
 			})
 			.catch(error =>{
 				responseJSON['OperationStatus'] = "GCS_ERR"
 				responseJSON['ErrorDescription'] = error
 				console.log('Technical Error in storing file: '+error+"\n\n Returned error response: ",responseJSON)
-				basicIO.write(responseJSON)
-				context.close()
+				return responseJSON
+				
 			})
 		})
 		.catch(error=>{
 			responseJSON['OperationStatus'] = "REST_API_ERR"
 			responseJSON['ErrorDescription'] = error
 			console.log('Technical Error in HTTP Request: '+error+"\n\n Returned error response: ",responseJSON)
-			basicIO.write(responseJSON)
-			context.close()
+			return responseJSON
+			
 		})
 	}
 }

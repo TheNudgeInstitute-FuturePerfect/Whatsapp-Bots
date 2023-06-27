@@ -1,9 +1,9 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (context, basicIO) => {
+module.exports = (basicIO) => {
 
-	const catalystApp = catalyst.initialize(context);
+	const catalystApp = catalyst.initialize();
 
 	let responseAVURL = basicIO["responseAVURL"]
 	var responseJSON = {
@@ -13,8 +13,7 @@ module.exports = (context, basicIO) => {
 	if(typeof responseAVURL === 'undefined'){
 		responseJSON["StatusDescription"] = "responseAVURL missing";
 		console.log("Returned: ",responseJSON)
-		basicIO.write(JSON.stringify(responseJSON));
-		context.close();
+		return JSON.stringify(responseJSON);
 	}
 	else{
 		responseJSON['OperationStatus'] = "SUCCESS"
@@ -38,8 +37,7 @@ module.exports = (context, basicIO) => {
 				responseJSON['OperationStatus'] = "REST_API_ERR"
 				responseJSON['StatusDescription'] = error
 				console.log('Technical Error in call audio URL: '+error+"\n\n Returned error response: ",responseJSON)
-				basicIO.write(responseJSON)
-				context.close()
+				return responseJSON;
 			}
 			else if(response.statusCode == 200){
 				const config = require("./application-config.json")
@@ -83,8 +81,7 @@ module.exports = (context, basicIO) => {
 				responseJSON["AudioTranscript"] = audioTranscript
 				responseJSON["Confidence"] = confidence
 				console.log("Returned: ",responseJSON)
-				basicIO.write(JSON.stringify(responseJSON));
-				context.close();
+				return JSON.stringify(responseJSON);
 				/*client.recognize(gSTTrequest)
 				.then(([gSTTresponse]) => {
 					console.log(JSON.stringify(gSTTresponse))
@@ -103,8 +100,7 @@ module.exports = (context, basicIO) => {
 				responseJSON['OperationStatus'] = "REST_API_ERR"
 				responseJSON['StatusDescription'] = 'Error returned by API: '+response.statusCode
 				console.log('Error returned by API: '+response.statusCode+' | '+JSON.stringify(response.body)+"\n\Returned error response: ",responseJSON)
-				basicIO.write(responseJSON)
-				context.close()
+				return responseJSON;
 			}
 		})
 	}

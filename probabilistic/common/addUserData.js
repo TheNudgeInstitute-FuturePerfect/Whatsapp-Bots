@@ -1,9 +1,9 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (context, basicIO) => {
+module.exports = (basicIO) => {
 
-	const catalystApp = catalyst.initialize(context);
+	const catalystApp = catalyst.initialize();
 	var responseJSON = {
 		OperationStatus:"SUCCESS"
 	}
@@ -25,14 +25,12 @@ module.exports = (context, basicIO) => {
 	.then((row)=>{
 		responseJSON["UserDataROWID"] = row['ROWID']
 		console.log("End of Execution:", responseJSON)
-		basicIO.write(JSON.stringify(responseJSON));
-		context.close();
+		return JSON.stringify(responseJSON);
 	})
 	.catch((err)=>{
 		responseJSON["OperationStatus"] = "APP_ERR"
 		responseJSON["StatusDescription"] = err
 		console.log("End of Execution:", responseJSON)
-		basicIO.write(JSON.stringify(responseJSON));
-		context.close();
+		return JSON.stringify(responseJSON);
 	})
 }

@@ -1,9 +1,9 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (context, basicIO) => {
+module.exports = (basicIO) => {
 	const env = process.env.CATALYST_USER_ENVIRONMENT
-	const catalystApp = catalyst.initialize(context);	
+	const catalystApp = catalyst.initialize();	
 	let flowID = basicIO["flowID"]
 	let contactID = basicIO["contactID"]
 	let resultJSON = basicIO["resultJSON"]
@@ -15,20 +15,17 @@ module.exports = (context, basicIO) => {
 	if(typeof flowID === 'undefined'){
 		responseJSON["ErrorDescription"] = "flowID missing";
 		console.log("Returned: ",responseJSON)
-		basicIO.write(responseJSON);
-		context.close();
+		return responseJSON;
 	}
 	else if(typeof contactID === 'undefined'){
 		responseJSON["ErrorDescription"] = "contactID missing";
 		console.log("Returned: ",responseJSON)
-		basicIO.write(responseJSON);
-		context.close();
+		return responseJSON;
 	}
 	else if(typeof resultJSON === 'undefined'){
 		responseJSON["ErrorDescription"] = "resultJSON missing";
 		console.log("Returned: ",responseJSON)
-		basicIO.write(responseJSON);
-		context.close();
+		return responseJSON;
 	}
 	else{
 		responseJSON['OperationStatus'] = "SUCCESS"
@@ -54,16 +51,14 @@ module.exports = (context, basicIO) => {
 				console.log("Request Parameters: "+JSON.stringify(options));
 				responseJSON['OperationStatus'] = "GLFC_AUTH_ERR"
 				responseJSON['ErrorDescription'] = error
-				basicIO.write(JSON.stringify(responseJSON))
-				context.close()
+				return JSON.stringify(responseJSON)
 			}
 			else if(response.body == 'Something went wrong'){
 				console.log("Error returned by Glific Authentication API: "+response.body);
 				console.log("Request Parameters: "+JSON.stringify(options));
 				responseJSON['OperationStatus'] = "GLFC_AUTH_ERR"
 				responseJSON['ErrorDescription'] = response.body
-				basicIO.write(JSON.stringify(responseJSON))
-				context.close()
+				return JSON.stringify(responseJSON)
 			}
 			else{
 				console.info("Successfully Authenticated with Glific");
@@ -102,8 +97,7 @@ module.exports = (context, basicIO) => {
 						console.log("Request Parameters: "+JSON.stringify(options));
 						responseJSON['OperationStatus'] = "GLFC_API_ERR"
 						responseJSON['ErrorDescription'] = error
-						basicIO.write(JSON.stringify(responseJSON))
-						context.close()
+						return JSON.stringify(responseJSON)
 					}
 					else{
 						console.log('Glific Response: '+response.body)
@@ -115,8 +109,7 @@ module.exports = (context, basicIO) => {
 							console.log("Request Parameters: "+JSON.stringify(options));
 							responseJSON['OperationStatus'] = "GLFC_API_ERR"
 							responseJSON['ErrorDescription'] = resumeFlowResponse.errors
-							basicIO.write(JSON.stringify(responseJSON))
-							context.close()
+							return JSON.stringify(responseJSON)
 						}
 						else{
 							const elementData = resumeFlowResponse.data
@@ -127,15 +120,13 @@ module.exports = (context, basicIO) => {
 								console.log('Error returned by Glific API '+JSON.stringify(resumeFlowResponse))
 								responseJSON['OperationStatus'] = "GLFC_API_ERR"
 								responseJSON['ErrorDescription'] = elementErrors
-								basicIO.write(JSON.stringify(responseJSON))
-								context.close()
+								return JSON.stringify(responseJSON)
 							}
 							else
 							{
 								console.info("Successfully resumed flow in Glific");
 								responseJSON['OperationStatus'] = "SUCCESS"
-								basicIO.write(JSON.stringify(responseJSON))
-								context.close()
+								return JSON.stringify(responseJSON)
 							}
 						}
 					}
