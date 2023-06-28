@@ -120,7 +120,7 @@ module.exports = async (basicIO) => {
 							try{
                                const insertQueryResult = await table.insertRow(insertQuery);
 							   const allConfig = require("./application-config.json")
-							   let setConfigurationParam = require("./setConfigurationParam");
+							   let setConfigurationParam = require("./setConfigurationParam.js");
 							   allConfig['defaultConfig'].forEach( async (cfg)=>{
 								   try{
                                      let addedCFG = await setConfigurationParam({

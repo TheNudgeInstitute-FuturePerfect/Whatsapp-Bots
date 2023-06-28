@@ -124,7 +124,7 @@ app.post("/latestsession", (req, res) => {
 			const sendResponse = () => {
 				console.log("End of Execution. Response: ",responseBody)
 				res.status(200).json(responseBody);//Send the response
-				let sendResponseToGlific = require("./common/sendResponseToGlific");
+				let sendResponseToGlific = require("./common/sendResponseToGlific.js");
 				sendResponseToGlific({
 						"flowID":requestBody["FlowId"],
 						"contactID": requestBody["contact"]["id"],
