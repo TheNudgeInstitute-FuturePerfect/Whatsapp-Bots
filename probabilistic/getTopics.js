@@ -23,9 +23,9 @@ app.post("/topiclist", (req, res) => {
 	}
 
 	//Get table meta object without details.
-	let functions = catalystApp.functions()
+	let getAssessmentContribution = require("./common/getAssessmentContribution.js");
 
-	functions.execute('getAssessmentContribution',{args:{isactive:true,type:'Topic Prompt'}})
+	getAssessmentContribution({isactive:true,type:'Topic Prompt'})
 	.then(promptsResult => {
 		const allPrompts= JSON.parse(promptsResult)
 		if(allPrompts['OperationStatus']=="SUCCESS"){
@@ -244,9 +244,9 @@ app.post("/topicpersonas", (req, res) => {
 	}
 
 	//Get table meta object without details.
-	let functions = catalystApp.functions()
+	let getAssessmentContribution = require("./common/getAssessmentContribution.js");
 
-	functions.execute('getAssessmentContribution',{args:{isactive:true,prompt:topic}})
+	getAssessmentContribution({isactive:true,prompt:topic})
 	.then(promptsResult => {
 		var allPrompts= JSON.parse(promptsResult)
 		if(allPrompts['OperationStatus']=="SUCCESS"){

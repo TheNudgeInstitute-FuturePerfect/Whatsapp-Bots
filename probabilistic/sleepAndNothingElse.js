@@ -51,16 +51,14 @@ app.get("/sleep", (req, res) => {
 			console.log("Received sleep request for "+sleepTime.toString()+" seconds and returned afterwards");
 			const reply = {'status':'OK'}
 			res.status(200).json(reply);
-			let functions = catalystApp.functions()
-			functions.execute("sendResponseToGlific",{
-				arg:{
+			let sendResponseToGlific = require("./common/sendResponseToGlific.js");
+			sendResponseToGlific({
 					"flowID":requestBody["FlowId"],
                 	"contactID": requestBody["ContactID"],
                 	"resultJSON": JSON.stringify({
                     	"result":{}
                 	})
-				}
-			}).then(glificResponse=>{})
+				}).then(glificResponse=>{})
 			.catch(err=>console.log("Error returned from Glific: ",err))
 		})
 });
@@ -82,16 +80,14 @@ app.post("/sleep", (req, res) => {
 			console.log("Received sleep request for "+sleepTime.toString()+" seconds and returned afterwards");
 			const reply = {'status':'OK'}
 			res.status(200).json(reply);
-			let functions = catalystApp.functions()
-			functions.execute("sendResponseToGlific",{
-				args:{
+			let sendResponseToGlific = require("./common/sendResponseToGlific.js");
+			sendResponseToGlific({
 					"flowID":requestBody["FlowID"],
                 	"contactID": requestBody["ContactID"],
                 	"resultJSON": JSON.stringify({
                     	"result":reply
                 	})
-				}
-			}).then(glificResponse=>{})
+				}).then(glificResponse=>{})
 			.catch(err=>console.log("Error returned from Glific: ",err))
 		})
 });

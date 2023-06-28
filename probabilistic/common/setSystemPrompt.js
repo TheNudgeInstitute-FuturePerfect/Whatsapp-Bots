@@ -120,17 +120,16 @@ module.exports = async (basicIO) => {
 							try{
                                const insertQueryResult = await table.insertRow(insertQuery);
 							   const allConfig = require("./application-config.json")
-							   let functions = catalystApp.functions()
+							   let setConfigurationParam = require("./setConfigurationParam");
 							   allConfig['defaultConfig'].forEach( async (cfg)=>{
 								   try{
-                                     let addedCFG = await functions.execute("setConfigurationParam",{
-																		args:{
+                                     let addedCFG = await setConfigurationParam({
 																			param:cfg.Name,
 																			value:cfg.Value,
 																			description:cfg.Description,
 																			id:insertQueryResult['ROWID']
 																		}
-																	})
+																	)
 										console.log(" default configuration:",addedCFG)						
 								   } catch(error){
 									console.log("Error in adding default configuration:",error)

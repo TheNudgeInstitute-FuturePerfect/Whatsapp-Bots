@@ -62,19 +62,18 @@ app.post("/feedback/store", async(req, res) => {
 			GPTFeedback : requestBody['GPTFeedbackType'] == "Text" ? requestBody['GPTFeedback']:null,
 			GPTFeedbackURL : requestBody['GPTFeedbackType'] == "Audio" ? requestBody['GPTFeedback']:null
 		}
-		let functions = catalystApp.functions()
+		let storeAudioFileinGCS = require("./common/storeAudioFileinGCS.js");
+		let convertSpeechToText = require("./common/convertSpeechToText.js");
 				
 		if(feedbackRecord['FeedbackType'] == "Audio" ){
 			
 			try{
 				//Store Audio file in GCS
-				const gcsResponse = JSON.parse(await functions.execute("storeAudioFileinGCS",{
-															args:{
+				const gcsResponse = JSON.parse(await storeAudioFileinGCS({
 																contentType:"URL",
 																fileData:feedbackRecord['FeedbackURL'],
 																fileName:feedbackRecord['Mobile']+"-"+feedbackRecord['SessionID'].toString().replace(/ /g,"_")
 															}
-														}
 													)
 												)
 				if(gcsResponse['OperationStatus']=="SUCCESS"){
@@ -85,11 +84,9 @@ app.post("/feedback/store", async(req, res) => {
 					console.log("Couldn't stored the audio feedback file in GCS")
 
 				//Convert Speech to text		
-				const transcription = JSON.parse(await functions.execute("convertSpeechToText",{
-															args:{
+				const transcription = JSON.parse(await convertSpeechToText({
 																"responseAVURL":feedbackRecord['FeedbackURL']
 															}
-														}
 													)
 												)
 				if(transcription['OperationStatus']=="SUCCESS"){
@@ -108,14 +105,12 @@ app.post("/feedback/store", async(req, res) => {
 			
 			try{
 				//Store Audio file in GCS
-				const gcsResponse = JSON.parse(await functions.execute("storeAudioFileinGCS",{
-															args:{
+				const gcsResponse = JSON.parse(await storeAudioFileinGCS({
 																contentType:"URL",
 																fileData:feedbackRecord['GPTFeedbackURL'],
 																fileName:feedbackRecord['Mobile']+"-"+feedbackRecord['SessionID'].toString().replace(/ /g,"_"),
 																fileType:"Audio"
 															}
-														}
 													)
 												)
 				if(gcsResponse['OperationStatus']=="SUCCESS"){
@@ -126,10 +121,8 @@ app.post("/feedback/store", async(req, res) => {
 					console.log("Couldn't stored the audio gpt feedback file in GCS")
 
 				//Convert Speech to text		
-				const transcription = JSON.parse(await functions.execute("convertSpeechToText",{
-															args:{
+				const transcription = JSON.parse(await convertSpeechToText({
 																"responseAVURL":feedbackRecord['GPTFeedbackURL']
-															}
 														}
 													)
 												)
@@ -150,19 +143,18 @@ app.post("/feedback/store", async(req, res) => {
 
 		//Use Table Meta Object to insert the row which returns a promise
 		let insertPromise = table.insertRow(feedbackRecord);
+		let sendResponseToGlific = require("./common/sendResponseToGlific.js");
 		insertPromise
 			.then((row) => {
 				console.log("\nInserted Row : " + JSON.stringify(row));
 				res.status(200).json(responseJSON);
-				functions.execute("sendResponseToGlific",{
-															args:{
+				sendResponseToGlific({
 																"flowID":requestBody["flowId"],
 																"contactID": requestBody["contact"]["id"],
 																"resultJSON": JSON.stringify({
 																	"feedbackresult":responseJSON
 																})
 															}
-														}
 													)
 
 			})
