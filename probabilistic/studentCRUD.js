@@ -345,8 +345,8 @@ app.post("/createuserdata", (req, res) => {
 		console.log(err);
 		res.status(500).send(err);
 	})*/
-	let functions = catalystApp.functions()
-	functions.execute("validateUserDataRequest",{args:requestBody})
+	let validateUserDataRequest = require("./common/validateUserDataRequest.js");
+	validateUserDataRequest(requestBody)
 	.then((validationResultString)=>{
 		const validationResult = JSON.parse(validationResultString)
 		if(validationResult['OperationStatus']=='SUCCESS'){

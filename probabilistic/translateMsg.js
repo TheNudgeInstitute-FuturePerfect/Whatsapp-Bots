@@ -184,16 +184,15 @@ app.post("/translate", async (req, res) => {
 									const endTimeStamp = new Date()
 									const executionSeconds = (endTimeStamp-startTimeStamp)/1000
 									if((executionSeconds>2)&&(typeof requestBody['FlowID'] !== 'undefined')&&(typeof requestBody['contact']['id'] !== 'undefined')){
-										let functions = catalystApp.functions()
-										functions.execute("sendResponseToGlific",{
-										args:{
+										let sendResponseToGlific = require("./common/sendResponseToGlific.js");
+										sendResponseToGlific({
 											"flowID":requestBody["FlowID"],
 											"contactID": requestBody["contact"]["id"],
 											"resultJSON": JSON.stringify({
 												"translation":responseObject
 											})
 										}
-										}).then(glificResponse=>{})
+										).then(glificResponse=>{})
 										.catch(err=>console.log("Error returned from Glific: ",err))
 									}
 								})
@@ -343,15 +342,13 @@ app.post("/translateattempts", async (req, res) => {
 			const endTimeStamp = new Date()
 			const executionSeconds = (endTimeStamp-startTimeStamp)/1000
 			if((executionSeconds>2)&&(typeof requestBody['FlowID'] !== 'undefined')&&(typeof requestBody['contact']['id'] !== 'undefined')){
-				let functions = catalystApp.functions()
-				functions.execute("sendResponseToGlific",{
-				args:{
+				let sendResponseToGlific = require("./common/sendResponseToGlific.js");
+				sendResponseToGlific({
 					"flowID":requestBody["FlowID"],
 					"contactID": requestBody["contact"]["id"],
 					"resultJSON": JSON.stringify({
 						"attempts":responseObject
 					})
-				}
 				}).then(glificResponse=>{})
 				.catch(err=>console.log("Error returned from Glific: ",err))
 			}

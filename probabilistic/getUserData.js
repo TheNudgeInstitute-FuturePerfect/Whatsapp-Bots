@@ -99,12 +99,10 @@ app.post("/getuserdata", (req, res) => {
 	}
 	/*
 	//Get table meta object without details.
-	let functions = catalystApp.functions()
-	functions.execute("calculateEnglishProficiency",{
-		args:{
+	let calculateEnglishProficiency = require("./common/calculateEnglishProficiency.js");
+	calculateEnglishProficiency({
 			Mobile:requestBody['Mobile'],
 			Texts:JSON.stringify(requestBody['Texts'])
-		}
 	})
 	.then((result) => {
 		console.log("\End of Execution : " , result);

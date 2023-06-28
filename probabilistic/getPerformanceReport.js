@@ -70,9 +70,8 @@ app.post("/getperformancereport", (req, res) => {
 				responseObject['wordcount'] = totalWords
 				responseObject['PerformanceReportType'] = "Text"
 
-				let functions = catalystApp.functions()
-				functions.execute("writeTextOnImage", {
-					args:{
+				let writeTextOnImage = require("./common/writeTextOnImage.js")
+				writeTextOnImage({
 						sessionROWID:row[0]['Sessions']['ROWID'],
 						textmap: JSON.stringify([
 							{
@@ -88,8 +87,7 @@ app.post("/getperformancereport", (req, res) => {
 						]),
 						filename: "probabilisticbot/" + row[0]['Sessions']['ROWID'],
 						templateurl: process.env.PerfReportTemplate
-					}
-            	}).then(async (perfReport)=>{
+					}).then(async (perfReport)=>{
 					const performanceReport = JSON.parse(perfReport)
 					if(performanceReport['OperationStatus']=="SUCCESS"){
 						responseObject['PerformanceReportType'] = "Image"

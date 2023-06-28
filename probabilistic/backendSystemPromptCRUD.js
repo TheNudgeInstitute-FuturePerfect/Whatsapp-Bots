@@ -15,7 +15,7 @@ app.post("/backendprompt", (req, res) => {
 	const requestBody = req.body;
 
 	//Get table meta object without details.
-	let functions = catalystApp.functions();
+	let setSystemPrompt = require("./common/setSystemPrompt.js");
 
 	//Use Table Meta Object to insert the row which returns a promise
 	let argument = requestBody
@@ -24,7 +24,7 @@ app.post("/backendprompt", (req, res) => {
 	argument["isactive"]=true
 	argument["sequence"]=1
 	
-	functions.execute("setSystemPrompt",{args:argument})
+	setSystemPrompt(argument)
 		.then((result) => {
 			const responseJSON = JSON.parse(result)
 			console.log("\nEnd of Execution : " + responseJSON);
