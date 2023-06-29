@@ -48,16 +48,14 @@ app.post("/latestsession", (req, res) => {
 			}
 			console.log("End of Execution. Response: ",responseBody)
 			res.status(200).json(responseBody);//Send the response
-			let functions = catalystApp.functions()
-			functions.execute("sendResponseToGlific",{
-				args:{
+			let sendResponseToGlific = require("./common/sendResponseToGlific.js");
+			sendResponseToGlific({
 					"flowID":requestBody["FlowId"],
 					"contactID": requestBody["contact"]["id"],
 					"resultJSON": JSON.stringify({
 						"closedsession":responseBody
 					})
-				}
-			}).then(glificResponse=>{})
+				}).then(glificResponse=>{})
 			.catch(err=>console.log("Error returned from Glific: ",err))
 		})
 		.catch((err) => {//On error in execution
@@ -105,16 +103,14 @@ app.post("/endsession", (req, res) => {
 			}
 			console.log("End of Execution. Response: ",responseBody)
 			res.status(200).json(responseBody);//Send the response
-			let functions = catalystApp.functions()
-			functions.execute("sendResponseToGlific",{
-				args:{
+			let sendResponseToGlific = require("./common/sendResponseToGlific.js");
+			sendResponseToGlific({
 					"flowID":requestBody["FlowId"],
 					"contactID": requestBody["contact"]["id"],
 					"resultJSON": JSON.stringify({
 						"closedsession":responseBody
 					})
-				}
-			}).then(glificResponse=>{})
+				}).then(glificResponse=>{})
 			.catch(err=>console.log("Error returned from Glific: ",err))
 		})
 		.catch((err) => {//On error in execution

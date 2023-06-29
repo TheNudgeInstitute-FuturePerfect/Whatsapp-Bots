@@ -124,16 +124,14 @@ app.post("/latestsession", (req, res) => {
 			const sendResponse = () => {
 				console.log("End of Execution. Response: ",responseBody)
 				res.status(200).json(responseBody);//Send the response
-				let functions = catalystApp.functions()
-				functions.execute("sendResponseToGlific",{
-					arg:{
+				let sendResponseToGlific = require("./common/sendResponseToGlific.js");
+				sendResponseToGlific({
 						"flowID":requestBody["FlowId"],
 						"contactID": requestBody["contact"]["id"],
 						"resultJSON": JSON.stringify({
 							"activesession":responseBody
 						})
-					}
-				}).then(glificResponse=>{})
+					}).then(glificResponse=>{})
 				.catch(err=>console.log("Error returned from Glific: ",err))
 			}
 		})
