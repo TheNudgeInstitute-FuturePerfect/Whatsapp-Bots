@@ -3,6 +3,7 @@
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
+const sendResponseToGlific = require("./common/sendResponseToGlific.js");
 
 // const app = express();
 // app.use(express.json());
@@ -30,17 +31,13 @@ app.get("/sleep", (req, res) => {
     );
     const reply = { status: "OK" };
     res.status(200).json(reply);
-    let functions = catalystApp.functions();
-    functions
-      .execute("sendResponseToGlific", {
-        arg: {
-          flowID: requestBody["FlowId"],
-          contactID: requestBody["ContactID"],
-          resultJSON: JSON.stringify({
-            result: {},
-          }),
-        },
-      })
+    sendResponseToGlific({
+      flowID: requestBody["FlowId"],
+      contactID: requestBody["ContactID"],
+      resultJSON: JSON.stringify({
+        result: {},
+      }),
+    })
       .then((glificResponse) => {})
       .catch((err) => console.log("Error returned from Glific: ", err));
   });
@@ -66,17 +63,13 @@ app.post("/sleep", (req, res) => {
     );
     const reply = { status: "OK" };
     res.status(200).json(reply);
-    let functions = catalystApp.functions();
-    functions
-      .execute("sendResponseToGlific", {
-        args: {
-          flowID: requestBody["FlowID"],
-          contactID: requestBody["ContactID"],
-          resultJSON: JSON.stringify({
-            result: reply,
-          }),
-        },
-      })
+    sendResponseToGlific({
+      flowID: requestBody["FlowID"],
+      contactID: requestBody["ContactID"],
+      resultJSON: JSON.stringify({
+        result: reply,
+      }),
+    })
       .then((glificResponse) => {})
       .catch((err) => console.log("Error returned from Glific: ", err));
   });

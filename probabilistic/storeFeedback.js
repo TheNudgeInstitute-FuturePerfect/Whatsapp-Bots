@@ -3,6 +3,9 @@
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
+const storeAudioFileinGCS = require("./common/storeAudioFileinGCS.js");
+const convertSpeechToText = require("./common/convertSpeechToText.js");
+const sendResponseToGlific = require("./common/sendResponseToGlific.js");
 
 // const app = express();
 // app.use(express.json());
@@ -59,21 +62,18 @@ app.post("/feedback/store", async (req, res) => {
           ? requestBody["GPTFeedback"]
           : null,
     };
-    let functions = catalystApp.functions();
 
     if (feedbackRecord["FeedbackType"] == "Audio") {
       try {
         //Store Audio file in GCS
         const gcsResponse = JSON.parse(
-          await functions.execute("storeAudioFileinGCS", {
-            args: {
-              contentType: "URL",
-              fileData: feedbackRecord["FeedbackURL"],
-              fileName:
-                feedbackRecord["Mobile"] +
-                "-" +
-                feedbackRecord["SessionID"].toString().replace(/ /g, "_"),
-            },
+          await storeAudioFileinGCS({
+            contentType: "URL",
+            fileData: feedbackRecord["FeedbackURL"],
+            fileName:
+              feedbackRecord["Mobile"] +
+              "-" +
+              feedbackRecord["SessionID"].toString().replace(/ /g, "_"),
           })
         );
         if (gcsResponse["OperationStatus"] == "SUCCESS") {
@@ -86,10 +86,8 @@ app.post("/feedback/store", async (req, res) => {
 
         //Convert Speech to text
         const transcription = JSON.parse(
-          await functions.execute("convertSpeechToText", {
-            args: {
-              responseAVURL: feedbackRecord["FeedbackURL"],
-            },
+          await convertSpeechToText({
+            responseAVURL: feedbackRecord["FeedbackURL"],
           })
         );
         if (transcription["OperationStatus"] == "SUCCESS") {
@@ -108,16 +106,14 @@ app.post("/feedback/store", async (req, res) => {
       try {
         //Store Audio file in GCS
         const gcsResponse = JSON.parse(
-          await functions.execute("storeAudioFileinGCS", {
-            args: {
-              contentType: "URL",
-              fileData: feedbackRecord["GPTFeedbackURL"],
-              fileName:
-                feedbackRecord["Mobile"] +
-                "-" +
-                feedbackRecord["SessionID"].toString().replace(/ /g, "_"),
-              fileType: "Audio",
-            },
+          await storeAudioFileinGCS({
+            contentType: "URL",
+            fileData: feedbackRecord["GPTFeedbackURL"],
+            fileName:
+              feedbackRecord["Mobile"] +
+              "-" +
+              feedbackRecord["SessionID"].toString().replace(/ /g, "_"),
+            fileType: "Audio",
           })
         );
         if (gcsResponse["OperationStatus"] == "SUCCESS") {
@@ -131,10 +127,8 @@ app.post("/feedback/store", async (req, res) => {
 
         //Convert Speech to text
         const transcription = JSON.parse(
-          await functions.execute("convertSpeechToText", {
-            args: {
-              responseAVURL: feedbackRecord["GPTFeedbackURL"],
-            },
+          await convertSpeechToText({
+            responseAVURL: feedbackRecord["GPTFeedbackURL"],
           })
         );
         if (transcription["OperationStatus"] == "SUCCESS") {
@@ -158,14 +152,12 @@ app.post("/feedback/store", async (req, res) => {
       .then((row) => {
         console.log("\nInserted Row : " + JSON.stringify(row));
         res.status(200).json(responseJSON);
-        functions.execute("sendResponseToGlific", {
-          args: {
-            flowID: requestBody["flowId"],
-            contactID: requestBody["contact"]["id"],
-            resultJSON: JSON.stringify({
-              feedbackresult: responseJSON,
-            }),
-          },
+        sendResponseToGlific({
+          flowID: requestBody["flowId"],
+          contactID: requestBody["contact"]["id"],
+          resultJSON: JSON.stringify({
+            feedbackresult: responseJSON,
+          }),
         });
       })
       .catch((err) => {

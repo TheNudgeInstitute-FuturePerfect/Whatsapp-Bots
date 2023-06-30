@@ -87,3 +87,19 @@ calculateEnglishProficiency({
   Texts: JSON.stringify(requestBody["Texts"]),
 });
 ```
+
+**glific flows**
+Probabilistic Bot - Main Menu Flow - 4.4
+Probabilistic Bot - Ask For Help Flow - 4.4
+Probabilistic Bot - Self Introduction Flow - 4.4
+Probabilistic Bot - Consent Manager - 4.4
+Probabilistic Bot - Master Flow - 4.4
+Probabilistic Bot - Nudge Preference Flow - 4.4
+Probabilistic Bot - New Topic - 4.4
+Probabilistic Bot - Dynamic List - 4.4
+Probabilistic Bot - Dynamic Personas - 4.4
+Probabilistic Bot - Start Session - 4.4
+Probabilistic Bot - Interaction Flow - 4.4
+Probabilistic Bot - Hint Flow - 4.4
+Probabilistic Bot - Translation Flow - 4.4
+Probabilistic Bot - Self Introduction Topic Allocation - 4.4
