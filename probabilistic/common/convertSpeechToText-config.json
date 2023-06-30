@@ -1,0 +1,16 @@
+{
+  "options": { "keyFilename": "fluted-karma-340707-166017125675.json" },
+  "model": "default",
+  "enableWordInfo": false,
+  "speechModelVariant": "USE_BEST_AVAILABLE",
+  "audioEncoding": "OGG_OPUS",
+  "sampleRateHertz": 16000,
+  "languageCode": "en-IN",
+  "altLanguageCodes": ["hi-IN", "kn-IN", "tn-IN"],
+  "speechContexts": [
+    {
+      "phrases": [],
+      "boost": 0
+    }
+  ]
+}

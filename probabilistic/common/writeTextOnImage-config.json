@@ -1,0 +1,15 @@
+{
+  "fileExtension": "jpg",
+  "options": { "keyFilename": "fluted-karma-340707-166017125675.json" },
+  "projectId": "fluted-karma-340707",
+  "fileOptions": {
+    "metadata": {
+      "contentType": "image/jpeg",
+      "metadata": {
+        "source": "File Pointer"
+      }
+    }
+  },
+  "bucket": "nudgevoicebotbket",
+  "publicURLPath": "https://storage.googleapis.com/{{bucket}}/{{filename}}"
+}
