@@ -1,0 +1,37 @@
+{
+  "fileExtension": {
+    "Audio": "mp3",
+    "Image": "jpg",
+    "Text": "txt"
+  },
+  "options": { "keyFilename": "fluted-karma-340707-166017125675.json" },
+  "projectId": "fluted-karma-340707",
+  "fileOptions": {
+    "Audio": {
+      "metadata": {
+        "contentType": "audio/mp3",
+        "metadata": {
+          "source": "URL"
+        }
+      }
+    },
+    "Image": {
+      "metadata": {
+        "contentType": "image/jpeg",
+        "metadata": {
+          "source": "File Pointer"
+        }
+      }
+    },
+    "Text": {
+      "metadata": {
+        "contentType": "text/plain",
+        "metadata": {
+          "source": "File Pointer"
+        }
+      }
+    }
+  },
+  "bucket": "nudgevoicebotbket",
+  "publicURLPath": "https://storage.googleapis.com/{{bucket}}/{{filename}}"
+}

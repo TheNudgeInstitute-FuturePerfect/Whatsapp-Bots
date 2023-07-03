@@ -15,6 +15,6 @@ app.use(cors());
 
 app.use("/whatsapp/probabilistic", probabilistic);
 
-app.listen(process.env.API_PORT, () => {
-  console.log(`API listening on port ${process.env.API_PORT}!`);
+app.listen(process.env.WHATSAPP_PORT, () => {
+  console.log(`API listening on port ${process.env.WHATSAPP_PORT}!`);
 });

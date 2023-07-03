@@ -1,0 +1,34 @@
+{
+  "defaultConfig": [
+    {
+      "Name": "model",
+      "Description": "OpenAI model for chat completion",
+      "Value": "gpt-3.5-turbo"
+    },
+    {
+      "Name": "temperature",
+      "Description": "OpenAI randomness. As the value approaches 0, the output becomes deterministic and repititive",
+      "Value": "0.7"
+    },
+    {
+      "Name": "maxlinesofchat",
+      "Description": "limit the conversation to the given line chat",
+      "Value": "11"
+    },
+    {
+      "Name": "terminationprompt",
+      "Description": "user prompt to be sent to direct ChatGPT to end conversation",
+      "Value": "Give a 1 line response and wind up this conversation"
+    },
+    {
+      "Name": "responsetype",
+      "Description": "Allowed Values: Text/Audio/Text+Audio/Same as Input",
+      "Value": "Same as Input"
+    },
+    {
+      "Name": "performance template",
+      "Descriiption": "Public URL of the prformance template image",
+      "Value": "https://storage.googleapis.com/nudgevoicebotbket/probabilisticbot/performance_template.jpg"
+    }
+  ]
+}

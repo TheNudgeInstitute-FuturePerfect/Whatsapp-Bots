@@ -9,10 +9,17 @@
   "author": "Aashutosh Chaudhary",
   "license": "ISC",
   "dependencies": {
+    "@google-cloud/speech": "^5.5.1",
+    "@google-cloud/storage": "^6.11.0",
+    "@google-cloud/text-to-speech": "^4.2.3",
+    "@google-cloud/translate": "^7.2.2",
     "axios": "^1.4.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
+    "emoji-regex": "^10.2.1",
     "express": "^4.18.2",
-    "zoho-catalyst-sdk": "^1.0.0"
+    "jimp": "^0.22.8",
+    "request": "^2.88.2",
+    "zoho-catalyst-sdk": "^1.0.3"
   }
 }
