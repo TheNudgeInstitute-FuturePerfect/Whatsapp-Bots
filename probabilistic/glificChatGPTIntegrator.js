@@ -9,7 +9,7 @@ const logger = require("winston");
 // app.use(express.json());
 const app = express.Router();
 
-const transcribeAudio = async (audioURL, functions, logger) => {
+const transcribeAudio = async (audioURL, logger) => {
     let returnValue = null;
     try {
       const convertSpeechToText = require("./common/convertSpeechToText.js");  
@@ -28,7 +28,7 @@ const transcribeAudio = async (audioURL, functions, logger) => {
     }
   };  
 
-const saveContentInGCS = async (fileData, fileName, contentType, functions, logger) => {
+const saveContentInGCS = async (fileData, fileName, contentType, logger) => {
     let publicURL = null;
     if (!["Text", "Audio", "Image", "Video"].includes(contentType)) {
       return publicURL;
@@ -75,16 +75,14 @@ const runQuery = (query, zcql, logger) => {
     }
 };
 
-
-const handler = async (request) => {
-  const app = catalyst.initialize();
-  const functions = app.functions();
+app.post("/chatgpt", async (request, response) => {
+  const app = catalyst.initialize(request, {type: catalyst.type.applogic});
   const zcql = app.zcql();
 
   if (request.path === "/chatgpt") {
     const startTimeStamp = new Date();
-    const requestBody = request.get_json();
 
+    const requestBody = request.body;
     const mobile = parseInt(requestBody.mobile);
     if (mobile > 90999999999) {
       mobile = mobile - 910000000000;
@@ -102,7 +100,6 @@ const handler = async (request) => {
       messageURL = message;
       const messageAudioDetails = transcribeAudio(
         messageURL,
-        functions,
         logger
       );
       if (messageAudioDetails !== null) {
@@ -111,13 +108,12 @@ const handler = async (request) => {
         logger.debug(messageAudioDetails);
       } else {
         logger.info("Encountered error in speech recognition");
-        const response = make_response("Encountered error in speech recognition", 500);
-        return response;
+        response.status(500).json("Encountered error in speech recognition");
       }
     }
 
-    logger.info("Session ID in Request: " + requestBody.sessionId);
-    const requestSessionIDTokens = requestBody.sessionId.split(" - ");
+    logger.info("Session ID in Request: " + requestBody["SessionID"]);
+    const requestSessionIDTokens = requestBody["SessionID"].split(" - ");
     const sessionId = requestSessionIDTokens[0];
     logger.info("Session ID: " + sessionId);
     const sessionType =
@@ -147,14 +143,13 @@ const handler = async (request) => {
       systemPromptROWID = systemPromptsResult[0].SystemPrompts.ROWID;
       systemPrompt = systemPromptsResult[0].SystemPrompts.Content;
     } else {
-      const response = make_response("Encountered error in executing query", 500);
-      return response;
+      response.status(500).json("Encountered error in executing query");
     }
 
     logger.info("systemPromptROWID: " + systemPromptROWID);
-
+    let getConfigurationParam = require("./common/getConfigurationParam.js");
     const messagePrompt = JSON.parse(
-      functions.execute("getConfigurationParam", {
+      await getConfigurationParam({
         id: systemPromptROWID,
         param: [message, "model", "temperature", "maxlinesofchat", "terminationprompt", "responsetype", "performance template"]
       })
@@ -180,9 +175,7 @@ const handler = async (request) => {
     } else {
         logger.info("Encountered error in getting configuration parameters");
         logger.error(messagePrompt);
-        // Send Response
-        const response = makeResponse("Encountered error in getting configuration parameters", 500);
-        return response;
+        response.status(500).json("Encountered error in getting configuration parameters");
     }
     // ##############################################
     logger.info("Input Type: " + inputType);
@@ -219,8 +212,7 @@ if (sessionType === 'SentenceFeedback') {
     if (maxRowsResult !== null) {
         maxRows = parseInt(maxRowsResult[0]['Sessions']['ROWID']);
     } else {
-        const response = make_response("Encountered error in executing query", 500);
-        return response;
+        response.status(500).json("Encountered error in executing query");
     }
 }
 
@@ -350,7 +342,8 @@ const openai = require('openai');
 
             // If responseType configuration == Audio or Text+Audio, then create audio else not
             if (responseType === "Audio" || responseType === "Text+Audio") {
-            const audioDetails = JSON.parse(functions.execute("createAudioOfText", {
+            let createAudioOfText = require("./common/createAudioOfText.js");
+            const audioDetails = JSON.parse(await createAudioOfText({
                 text: reply,
                 filename: storedSessionRecord.ROWID,
                 language: "English"
@@ -423,18 +416,17 @@ const openai = require('openai');
               };
               
               // Send Response
-              const response = make_response(jsonify(responseJSON), 200);
-              
               logger.info("Sent Response");
               
               // Call Glific Wait for Result Node
               const endTimeStamp = dt.now();
               const executionTime = endTimeStamp - startTimeStamp;
 
-              
+              let sendResponseToGlific = require("./common/sendResponseToGlific.js");
+
               if (executionTime.total_seconds() > 2 && requestBody.flowId) {
                 time.sleep(3);
-                functions.execute("sendResponseToGlific", {
+                await sendResponseToGlific({
                   flowID: requestBody.flowId,
                   contactID: requestBody.contact.id,
                   resultJSON: JSON.stringify({
@@ -447,8 +439,8 @@ const openai = require('openai');
               let messagePublicURL = null;
               if (messageType === "Audio") {
                 const messageURL = message;
-                const messageAudioPublicURL = save_content_in_gcs(fileData = messageURL, contentType = "Audio",
-                  fileName = storedSessionRecord.ROWID, functions = functions,
+                const messageAudioPublicURL = saveContentInGCS(fileData = messageURL, contentType = "Audio",
+                  fileName = storedSessionRecord.ROWID,
                   logger = logger);
                 if (messageAudioPublicURL !== null) {
                   sessionsTable.update_row({
@@ -473,7 +465,7 @@ const openai = require('openai');
                 };
                 delete newRequestBody.topicId;
                 // logger.info(newRequestBody);
-                requests.request("POST", os.getenv("SentenceFeedbackURL"), {
+                request.request("POST", os.getenv("SentenceFeedbackURL"), {
                   headers: {
                     "Content-Type": "application/json",
                     Accept: "application/json",
@@ -484,10 +476,7 @@ const openai = require('openai');
               }
               
               logger.info('End of Execution');
-              return response;
-
-              
-
+              response.status(200).json(jsonify(responseJSON));
 
     }
 }
@@ -497,16 +486,15 @@ const openai = require('openai');
 
         
   } else {
-    response = make_response('Unknown path')
-    response.status_code = 400
-    return response
+    response.status(400).json('Unknown path');
+
   }
-}
+});
 
 
 app.all("/", (req,res) => {
-
-	res.status(403).send("Error.");
+  console.log("hello")
+	res.status(200).send("hello");
 
 });
 
