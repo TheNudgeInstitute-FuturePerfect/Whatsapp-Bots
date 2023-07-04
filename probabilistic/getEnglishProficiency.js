@@ -130,7 +130,7 @@ app.post("/getproficiency", (req, res) => {
 
 app.all("/", (req,res) => {
 
-	res.status(403).send("Error 500.");
+	res.status(403).send("Error.");
 
 });
 
