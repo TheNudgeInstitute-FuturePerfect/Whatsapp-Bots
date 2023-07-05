@@ -2,6 +2,7 @@ const express = require("express");
 const app = express.Router();
 
 // Advanced I/O const
+const glificChatGPTIntegrator = require("./glificChatGPTIntegrator.js");
 const getEnglishProficiency = require("./getEnglishProficiency.js");
 const reportData = require("./ReportData.js");
 const translateMsg = require("./translateMsg.js");
@@ -42,6 +43,7 @@ const validateUserDataRequest = require("./common/validateUserDataRequest.js");
 const searchUserbyMobile = require("./common/searchUserbyMobile.js");
 
 // Advanced I/O routes
+app.use("/glificChatGPTIntegrator",glificChatGPTIntegrator);
 app.use("/getEnglishProficiency", getEnglishProficiency);
 app.use("/ReportData", reportData);
 app.use("/translateMsg", translateMsg);
