@@ -8,6 +8,9 @@ const logger = require("winston");
 // const app = express();
 // app.use(express.json());
 const app = express.Router();
+var bodyParser = require('body-parser');
+app.use(bodyParser.urlencoded({ extended: false }));
+
 
 const transcribeAudio = async (audioURL, logger) => {
     let returnValue = null;
@@ -57,11 +60,11 @@ const saveContentInGCS = async (fileData, fileName, contentType, logger) => {
 };
   
 
-const runQuery = (query, zcql, logger) => {
+const runQuery = async (query, zcql, logger) => {
     let queryData = null;
     try {
       logger.debug('Executing Query: ' + query);
-      const queryResult = zcql.execute_query(query);
+      const queryResult = await zcql.executeZCQLQuery(query);
       if (!queryResult || queryResult.length === 0) {
         logger.info('No data returned from ZCQL Query');
       } else {
@@ -78,12 +81,14 @@ const runQuery = (query, zcql, logger) => {
 app.post("/chatgpt", async (request, response) => {
   const app = catalyst.initialize(request, {type: catalyst.type.applogic});
   const zcql = app.zcql();
-
+  
   if (request.path === "/chatgpt") {
     const startTimeStamp = new Date();
 
     const requestBody = request.body;
-    const mobile = parseInt(requestBody.mobile);
+    console.log("request body ......",requestBody);
+    console.log(requestBody.sessionId);
+    let mobile = parseInt(requestBody.mobile);
     if (mobile > 90999999999) {
       mobile = mobile - 910000000000;
     }
@@ -112,8 +117,8 @@ app.post("/chatgpt", async (request, response) => {
       }
     }
 
-    logger.info("Session ID in Request: " + requestBody["SessionID"]);
-    const requestSessionIDTokens = requestBody["SessionID"].split(" - ");
+    logger.info("Session ID in Request: " + requestBody.sessionId);
+    const requestSessionIDTokens = requestBody.sessionId.split(" - ");
     const sessionId = requestSessionIDTokens[0];
     logger.info("Session ID: " + sessionId);
     const sessionType =
@@ -121,10 +126,11 @@ app.post("/chatgpt", async (request, response) => {
     logger.info("Session Type: " + sessionType);
 
     let systemPromptROWID = null;
+    let systemPrompt = null;
     let query = null;
     if (
       "topicId" in requestBody &&
-      requestBody.topicId.isnumeric()
+      !isNaN(requestBody.topicId)
     ) {
       systemPromptROWID = requestBody.topicId;
       query =
@@ -138,8 +144,9 @@ app.post("/chatgpt", async (request, response) => {
         "'";
     }
 
-    const systemPromptsResult = runQuery(query, zcql, logger);
+    const systemPromptsResult = await runQuery(query, zcql, logger);
     if (systemPromptsResult !== null) {
+      console.log("systemPromptsResult",systemPromptsResult);
       systemPromptROWID = systemPromptsResult[0].SystemPrompts.ROWID;
       systemPrompt = systemPromptsResult[0].SystemPrompts.Content;
     } else {
@@ -148,12 +155,10 @@ app.post("/chatgpt", async (request, response) => {
 
     logger.info("systemPromptROWID: " + systemPromptROWID);
     let getConfigurationParam = require("./common/getConfigurationParam.js");
-    const messagePrompt = JSON.parse(
-      await getConfigurationParam({
-        id: systemPromptROWID,
-        param: [message, "model", "temperature", "maxlinesofchat", "terminationprompt", "responsetype", "performance template"]
-      })
-    );
+    const messagePrompt = JSON.parse(await getConfigurationParam({
+      id: systemPromptROWID,
+      param: [message, "model", "temperature", "maxlinesofchat", "terminationprompt", "responsetype", "performance template"]
+    }));
 
     let isConfigMsg = false;
     let commandMsg = null;
@@ -161,8 +166,9 @@ app.post("/chatgpt", async (request, response) => {
     if ("inputType" in requestBody) {
       inputType = requestBody.inputType;
     }
-
-    if (messagePrompt.OperationStatus === 'SUCCESS') {
+    
+    console.log("messagePrompt",messagePrompt);
+    if (messagePrompt.OperationStatus == 'SUCCESS') {
         if ('Values' in messagePrompt) {
             if (message.toLowerCase().trim() === messagePrompt.Values) {
                 isConfigMsg = true;
@@ -174,7 +180,7 @@ app.post("/chatgpt", async (request, response) => {
         }
     } else {
         logger.info("Encountered error in getting configuration parameters");
-        logger.error(messagePrompt);
+        console.log("status .... ",messagePrompt);
         response.status(500).json("Encountered error in getting configuration parameters");
     }
     // ##############################################
@@ -186,7 +192,7 @@ const sessionsTable = app.datastore().table("Sessions");
 let storedSessionRecord = {};
 if (sessionType !== 'SentenceFeedback') {
     // Store User's Message in Session Table
-    storedSessionRecord = sessionsTable.insert_row({
+    storedSessionRecord = await sessionsTable.insertRow({
         "Mobile": mobile,
         "Message": encodeURIComponent(message),
         "SessionID": requestBody.sessionId,
@@ -208,7 +214,7 @@ if (sessionType === 'SentenceFeedback') {
     maxRows = 1;
 } else {
     const query = "select count(ROWID) from Sessions where Mobile = " + mobile + " and SessionID = '" + sessionId + "'";
-    const maxRowsResult = run_query(query, zcql, logger);
+    const maxRowsResult = await runQuery(query, zcql, logger);
     if (maxRowsResult !== null) {
         maxRows = parseInt(maxRowsResult[0]['Sessions']['ROWID']);
     } else {
@@ -244,7 +250,7 @@ for (let i = startIndex; i < maxRows; i += 300) {
     }
 
     logger.debug('Query: ' + query);
-    const queryOutput = zcql.execute_query(query);
+    const queryOutput = await zcql.executeZCQLQuery(query);
 
     const delimeterStartToken = process.env.DelimiterStartToken;
     const delimeterEndToken = process.env.DelimiterEndToken;
@@ -294,13 +300,19 @@ for (let i = startIndex; i < maxRows; i += 300) {
             // messages=sessionRecords
         // )
 
-        const { retry } = require('async-retry');
-const openai = require('openai');
+        const _retry  = require('async-retry');
+        const { Configuration, OpenAIApi } = require("openai");
+        const configuration = new Configuration({
+          apiKey: process.env.openAIKey,
+        });
+        const openai = new OpenAIApi(configuration);
 
         async function completionWithBackoff(model, temperature, messages) {
-        const openAIKey = process.env.openAIKey;
-        openai.api_key = openAIKey;
-        return await openai.ChatCompletion.create({ model, temperature, messages });
+            return await openai.createChatCompletion({
+              model: model,
+              temperature,
+              messages
+            })
         }
 
         const retryOptions = {
@@ -310,7 +322,7 @@ const openai = require('openai');
         randomize: true
         };
 
-        const chatGPTResponse = await retry(async () => {
+        const chatGPTResponse = await _retry(async () => {
         return await completionWithBackoff(
             messagePrompt['Values']['model'],
             parseFloat(messagePrompt['Values']['temperature']),
@@ -318,7 +330,7 @@ const openai = require('openai');
         );
         }, retryOptions);
         // Read ChatGPT's Response
-            const reply = chatGPTResponse.choices[0].message.content;
+            const reply = chatGPTResponse.data.choices[0].message.content;
             logger.info("Reply received from Chat GPT: " + reply);
 
             // Initialize Public URL of audio/image of response
@@ -363,7 +375,8 @@ const openai = require('openai');
 
 
             if (sessionType === 'SentenceFeedback') {
-                const replyTokens = reply.splitlines().filter(Boolean);
+                console.log("reply",reply);
+                const replyTokens = reply.split(/\r?\n/).filter(Boolean);
                 sentenceFeedbackClassification = replyTokens[0].toLowerCase().replace(".", "").replace("-", "").trim() !== "perfect" ? "Could be Improved" : replyTokens[0].replace(".", "").replace("-", "").trim();
                 sentenceFeedbackImprovement = replyTokens.length > 1 ? replyTokens[1].replace("-", "").replace(delimeterStartToken, "").replace(delimeterEndToken, "").trim() : null;
               }
@@ -371,19 +384,19 @@ const openai = require('openai');
               // Update the latest session record with the reply
               let updatedSessionRecord;
               if (sessionType === "SentenceFeedback") {
-                updatedSessionRecord = sessionsTable.update_row({
+                updatedSessionRecord = await sessionsTable.updateRow({
                   ROWID: storedSessionRecord.ROWID,
                   Classification: sentenceFeedbackClassification,
                   Improvement: sentenceFeedbackImprovement,
-                  SentenceLevelFeedback: urllib.parse.quote(reply)
+                  SentenceLevelFeedback: encodeURIComponent(reply)
                 });
               } else {
                 if (sessionId === "Onboarding") {
                   isActive = false;
                 }
-                updatedSessionRecord = sessionsTable.update_row({
+                updatedSessionRecord = await sessionsTable.updateRow({
                   ROWID: storedSessionRecord.ROWID,
-                  Reply: urllib.parse.quote(reply),
+                  Reply: encodeURIComponent(reply),
                   IsActive: sessionType !== 'ObjectiveFeedback' ? isActive : false,
                   ReplyAudioURL: publicURL,
                   Classification: sentenceFeedbackClassification,
@@ -396,12 +409,14 @@ const openai = require('openai');
               
               if (operationStatus === "END_OF_CNVRSSN") {
                 const query = "Update Sessions set IsActive = false where Mobile = " + mobile + " and ROWID !=" + storedSessionRecord.ROWID + " and SessionID = '" + sessionId + "'";
-                zcql.execute_query(query);
+                await zcql.executeZCQLQuery(query);
                 logger.info('Marked the session inactive');
               }
               
               // Prepare response JSON
-              let replyText = urllib.parse.unquote(updatedSessionRecord.Reply);
+              console.log("storedSessionRecord.....",storedSessionRecord);
+              console.log("updatedSessionRecord ----",updatedSessionRecord);
+              let replyText = decodeURIComponent(updatedSessionRecord['Reply']);
               if (commandMsg === 'objective prompt') {
                 replyText = "Please wait while we prepare your performance report";
                 operationStatus = "OBJ_PRMPT";
@@ -419,13 +434,14 @@ const openai = require('openai');
               logger.info("Sent Response");
               
               // Call Glific Wait for Result Node
-              const endTimeStamp = dt.now();
+              const endTimeStamp = new Date();
               const executionTime = endTimeStamp - startTimeStamp;
+              const secondsDiff = Math.floor(executionTime / 1000);
 
               let sendResponseToGlific = require("./common/sendResponseToGlific.js");
 
-              if (executionTime.total_seconds() > 2 && requestBody.flowId) {
-                time.sleep(3);
+              if (secondsDiff > 2 && requestBody.flowId) {
+                await new Promise(resolve => setTimeout(resolve, 3000));
                 await sendResponseToGlific({
                   flowID: requestBody.flowId,
                   contactID: requestBody.contact.id,
@@ -464,19 +480,19 @@ const openai = require('openai');
                   inputType: "SystemMessage",
                 };
                 delete newRequestBody.topicId;
-                // logger.info(newRequestBody);
-                request.request("POST", os.getenv("SentenceFeedbackURL"), {
-                  headers: {
-                    "Content-Type": "application/json",
-                    Accept: "application/json",
-                  },
-                  data: JSON.stringify(newRequestBody),
+                console.log("newRequestBody .... ",newRequestBody);
+                const axios = require('axios');
+                
+                const requestResponce = await axios.post(process.env.SentenceFeedbackURL, newRequestBody,{
+                  "Content-Type": "application/json",
+                  "Accept": "application/json",
                 });
+                
                 logger.info("Request sent for sentence level feedback");
               }
               
               logger.info('End of Execution');
-              response.status(200).json(jsonify(responseJSON));
+              response.status(200).json(responseJSON);
 
     }
 }
