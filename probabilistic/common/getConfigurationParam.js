@@ -47,7 +47,7 @@ module.exports = async (basicIO) => {
 			var searchQuery = "select Name, Value from Configurations where SystemPromptROWID = "+systemPromptROWID
 			let zcql = catalystApp.zcql()
 			try {
-              const searchQueryResult = zcql.executeZCQLQuery(searchQuery);
+              const searchQueryResult = await zcql.executeZCQLQuery(searchQuery);
 			  result['OperationStatus']="SUCCESS"
 				if(searchQueryResult.length > 0){
 					var filteredValues = searchQueryResult
