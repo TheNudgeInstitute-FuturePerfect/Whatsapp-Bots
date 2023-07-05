@@ -89,6 +89,7 @@ calculateEnglishProficiency({
 ```
 
 **glific flows**
+Probabilistic Bot - Self Introduction Topic Allocation - 4.4
 Probabilistic Bot - Main Menu Flow - 4.4
 Probabilistic Bot - Ask For Help Flow - 4.4
 Probabilistic Bot - Self Introduction Flow - 4.4
@@ -102,4 +103,10 @@ Probabilistic Bot - Start Session - 4.4
 Probabilistic Bot - Interaction Flow - 4.4
 Probabilistic Bot - Hint Flow - 4.4
 Probabilistic Bot - Translation Flow - 4.4
-Probabilistic Bot - Self Introduction Topic Allocation - 4.4
+Probabilistic Bot - Response Format Choice - 4.4
+Probabilistic Bot - Get GPT Response - 4.4
+Probabilistic Bot - Feedback Flow - 4.4
+Probabilistic Bot - Feedback on GPTFeedback Flow - 4.4
+Probabilistic Bot - Nudge Flow - 4.4
+Probabilistic Bot - Show Persona - 4.4
+Probabilistic Bot - Topic Allocation - 4.4
