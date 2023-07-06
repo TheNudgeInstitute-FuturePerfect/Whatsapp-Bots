@@ -1,13 +1,13 @@
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (cronDetails, context) => {
+module.exports = (cronDetails) => {
 	
 	/*let cronParams = cronDetails.getCronParam("name");
 	if(typeof cronParams === 'undefined'){
 		cronParams = 'DefaultName';
 	}*/
 	
-    const catalystApp = catalyst.initialize(context);
+    const catalystApp = catalyst.initialize();
 	let zcql = catalystApp.zcql();
 
 	//Get the current time
@@ -50,12 +50,11 @@ module.exports = (cronDetails, context) => {
 				if(users == null){
 					//Send the response
 					console.log('No user who has opted for this hour');
-					context.closeWithSuccess();
+					
 				}
 				else if(users.length == 0){
 					//Send the response
 					console.log('No user who has opted for this hour');
-					context.closeWithSuccess();
 				}
 				else{
 					const mobiles = users.map(data=>data.Users.Mobile)
@@ -104,11 +103,9 @@ module.exports = (cronDetails, context) => {
 								await timer(5*60*1000)
 								if(success==false){
 									console.log('Execution completed with some error.')
-									context.closeWithFailure();
 								}
 								else{
 									console.log('Execution completed successfully.')
-									context.closeWithSuccess();
 								}
 							}
 						}
@@ -227,17 +224,14 @@ module.exports = (cronDetails, context) => {
 					})
 					.catch(err => {
 						console.log('Closing Execution. Encountered Error in getting session records: '+err)
-						context.closeWithFailure()
 					})
 				}
 			});
 		}
 		else{
 			console.log("Closing Execution. No records retruned by query")
-			context.closeWithSuccess()
 		}
 	}).catch(err => {
 		console.log('Closing Execution. Encountered Error in getting count of records: '+err)
-		context.closeWithFailure()
 	})
 }

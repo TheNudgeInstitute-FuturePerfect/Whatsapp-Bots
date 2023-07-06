@@ -1,13 +1,13 @@
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = (cronDetails, context) => {
+module.exports = (cronDetails) => {
 
     let cronParams = cronDetails.getCronParam("name");
 	if(typeof cronParams === 'undefined'){
 		cronParams = 'DefaultName';
 	}
 
-    const catalystApp = catalyst.initialize(context);
+    const catalystApp = catalyst.initialize();
 	
 	let zcql = catalystApp.zcql()
 
@@ -29,11 +29,9 @@ module.exports = (cronDetails, context) => {
 						await timer(5*60*1000)
 						if(success==false){
 							console.log('Execution completed with some error.')
-							context.closeWithFailure();
 						}
 						else{
 							console.log('Execution completed successfully.')
-							context.closeWithSuccess();
 						}
 					}
 				}
@@ -98,15 +96,13 @@ module.exports = (cronDetails, context) => {
 			})
 			.catch(err=>{
 				console.log(err)
-				context.closeWithFailure()
 			})
 		}
 		else{
-			context.closeWithSuccess()
+            console.log("Success");
 		}
 	})
 	.catch(err=>{
 		console.log(err)
-		context.closeWithFailure()
 	})
 }

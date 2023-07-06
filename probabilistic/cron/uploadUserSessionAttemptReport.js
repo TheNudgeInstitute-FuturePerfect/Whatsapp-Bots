@@ -2,9 +2,9 @@ const catalyst = require("zoho-catalyst-sdk");
 const emojiRegex = require('emoji-regex');
 
 
-module.exports = (cronDetails, context) => {
+module.exports = (cronDetails) => {
 
-    const catalystApp = catalyst.initialize(context);
+    const catalystApp = catalyst.initialize();
 
 	//Filter unique elements in an array
 	const unique = (value, index, self) => {
@@ -258,40 +258,32 @@ module.exports = (cronDetails, context) => {
 									}
 									tableIndex = tableIndex+200
 								}
-								context.closeWithSuccess()
 							})
 							.catch((err) => {
 								console.log(err);
-								context.closeWithFailure()
 							});
 						})
 						.catch((err) => {
 							console.log(err);
-							context.closeWithFailure()
 						});	
 					}
 					else{
 						console.log("No Session Data")
-						context.closeWithSuccess()
 					}
 				})
 				.catch((err) => {
 					console.log(err);
-					context.closeWithFailure()
 				});
 			}
 			else{
 				console.log("No user found")
-				context.closeWithSuccess()
 			}
 		})
 		.catch((err) => {
 			console.log(err);
-			context.closeWithFailure()
 		});
 	})
 	.catch((err) => {
 		console.log(err);
-		context.closeWithFailure()
 	});
 }
