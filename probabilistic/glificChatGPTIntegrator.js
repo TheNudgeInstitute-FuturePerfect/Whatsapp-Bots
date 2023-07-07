@@ -509,9 +509,9 @@ app.post("/chatgpt", async (request, response) => {
           await sendResponseToGlific({
             flowID: requestBody.flowId,
             contactID: requestBody.contact.id,
-            resultJSON: {
+            resultJSON: JSON.stringify({
               gptresponse: responseJSON,
-            },
+            }),
           });
         }
 
