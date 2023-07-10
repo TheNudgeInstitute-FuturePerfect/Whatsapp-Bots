@@ -110,3 +110,15 @@ Probabilistic Bot - Feedback on GPTFeedback Flow - 4.4
 Probabilistic Bot - Nudge Flow - 4.4
 Probabilistic Bot - Show Persona - 4.4
 Probabilistic Bot - Topic Allocation - 4.4
+
+**crontab**
+
+```
+15 20 * * *  /whatsapp/probabilistic/cron/sendDailyNudge
+0 1 * * * /whatsapp/probabilistic/cron/uploadUserSessionAttemptReport
+0 14 * * * /whatsapp/probabilistic/cron/uploadUserSessionAttemptReport
+0 5 * * * /whatsapp/probabilistic/cron/uploadUserSessionAttemptReport
+0 1 * * * /whatsapp/probabilistic/cron/uploadUsersReport
+0 14 * * * /whatsapp/probabilistic/cron/uploadUsersReport
+0 5 * * * /whatsapp/probabilistic/cron/uploadUsersReport
+```

@@ -24,7 +24,6 @@
     "nodemon": "^2.0.22",
     "openai": "^3.3.0",
     "request": "^2.88.2",
-    "winston": "^3.9.0",
     "zoho-catalyst-sdk": "^1.0.3"
   }
 }
