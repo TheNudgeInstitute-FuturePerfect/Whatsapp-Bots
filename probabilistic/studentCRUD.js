@@ -169,7 +169,8 @@ app.post("/update", async (req, res) => {
   if (typeof requestBody["EnglishProficiency"] !== "undefined")
     if (requestBody["EnglishProficiency"] == null) {
       updateFields.push("EnglishProficiency=null");
-    } else if (requestBody["EnglishProficiency"].length > 0)
+    } 
+    else if (requestBody["EnglishProficiency"].length > 0)
       if (
         ["Decent", "Beginner", "Intermediate", "Advanced"].includes(
           requestBody["EnglishProficiency"]
@@ -178,10 +179,13 @@ app.post("/update", async (req, res) => {
         updateFields.push(
           "EnglishProficiency='" + requestBody["EnglishProficiency"] + "'"
         );
-      else {
+      else if(!requestBody["EnglishProficiency"].startsWith("@result")){
         requestOK = false;
         errorDescription +=
           "EnglishProficiency not one of Beginner,Intermediate and Advanced. ";
+      }
+      else{
+        console.log("No value in English Proficiency")
       }
 
   //Unsubscribed/Re-Subscribed
@@ -202,6 +206,43 @@ app.post("/update", async (req, res) => {
       errorDescription += "OnboardingComplete is not a boolean value. ";
     }
   }
+
+  //Update SourcingChannel
+  if (typeof requestBody["SourcingChannel"] !== "undefined")
+    if (requestBody["SourcingChannel"].length > 0)
+      updateFields.push("SourcingChannel='" + requestBody["SourcingChannel"] + "'");
+    else {
+      requestOK = false;
+      errorDescription += "SourcingChannel is empty. ";
+    }
+  
+  //Set Registration Date
+  if (typeof requestBody["SetRegistrationDate"] !== "undefined")
+    if (typeof requestBody["SetRegistrationDate"] === "boolean") {
+      if(requestBody["SetRegistrationDate"]==true){
+        //Prepare Date
+        const currentDate = new Date();
+        const regDate =
+          currentDate.getFullYear() +
+          "-" +
+          ("0" + (currentDate.getMonth() + 1)).slice(-2) +
+          "-" +
+          ("0" + currentDate.getDate()).slice(-2) +
+          " " +
+          ("0" + currentDate.getHours()).slice(-2) +
+          ":" +
+          ("0" + currentDate.getMinutes()).slice(-2) +
+          ":" +
+          ("0" + currentDate.getSeconds()).slice(-2);
+        updateFields.push("RegisteredTime='" + regDate + "'");
+      }
+    }
+    else {
+      requestOK = false;
+      errorDescription += "SetRegistrationDate is not boolean. ";
+    }
+  
+
 
   //Final fields to update
   console.log("Final fields to update: " + updateFields.join(","));

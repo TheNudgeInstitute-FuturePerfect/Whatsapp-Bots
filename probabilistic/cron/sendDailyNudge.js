@@ -20,7 +20,7 @@ module.exports = (cronDetails) => {
 	let query = "select {} from Users where NudgeTime = '"+currentHour+"'"
 	if(currentHour==process.env.DefaultNudgeHour)
 		query = query + " or NudgeTime = '"+process.env.DefaultNudgeTime+"'"
-	//console.log(query)
+    //console.log(query)
 	zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"))
 	.then((maxRowsResult) => {
 		let maxRows = parseInt(maxRowsResult[0].Users.ROWID)
@@ -110,13 +110,141 @@ module.exports = (cronDetails) => {
 							}
 						}
 
-						let functions = catalystApp.functions()
 						let table = catalystApp.datastore().table("SessionEvents")
 						const systemPrompt = await zcql.executeZCQLQuery("Select ROWID from SystemPrompts where Name = 'Dummy' and IsActive = true")
 						const topicID = systemPrompt[0]['SystemPrompts']['ROWID']
 
+						const request = require("request");
+
+						var authToken = null;
+						var renewToken = null;
+						var tokenExpiryTime = null
+
+						//Get Auth Token
+						const checkAccessTokenStatus = (renew) => {
+							return new Promise((resolve, reject)=>{
+								const options = {
+									'method': renew==false ? process.env.authMethod : process.env.renewalMethod,
+									'url': renew==false ? process.env.authURL.toString().replace('{1}',process.env.authUser.toString()).replace('{2}',process.env.authPwd.toString()) : process.env.renewalURL.toString().replace('{1}',process.env.renewalUser.toString()).replace('{2}',process.env.renewalPwd.toString()),
+									'headers': renew==false ? {'Content-Type': 'application/json'} : {"Authorization": renewToken},
+									body: JSON.stringify({
+										query: ``,
+										variables: {}
+									})
+								};
+								request(options, function (error, response) {
+									if (error){
+										console.log("Error in Glific Authentication API Call: "+error);
+										console.log("Request Parameters: "+JSON.stringify(options));
+										reject("GLFC_AUTH_ERR")                            
+									}
+									else if(response.body == 'Something went wrong'){
+										console.log("Error returned by Glific Authentication API: "+response.body);
+										console.log("Request Parameters: "+JSON.stringify(options));
+										reject("GLFC_AUTH_ERR")
+									}
+									else{
+										let responseBody = JSON.parse(response.body)
+										//console.log(responseBody)
+										authToken = responseBody.data.access_token;
+										renewToken = responseBody.data.renewal_token;
+										tokenExpiryTime = new Date(responseBody.data.token_expiry_time)
+										console.info("Extracted access token from response. Valid till: "+tokenExpiryTime);
+										resolve(authToken)
+									}
+								})
+							})
+						}
+						
+						const invokeGlificAPI = (type='HSM',id,contactID,params=[]) =>{
+							return new Promise(async (resolve, reject)=>{
+								const currentDateTime = new Date();
+								const options = {
+									'method': process.env.operationMethod.toString(),
+									'url': process.env.operationURL.toString(),
+									'headers': {
+										'Authorization': authToken==null ? await checkAccessTokenStatus(false) : ((tokenExpiryTime-currentDateTime) > 60000 ? authToken : await checkAccessTokenStatus(true)),
+										'Content-Type': 'application/json'
+									},
+									body: type=='Flow' ? JSON.stringify({
+										query: `mutation startContactFlow($flowId: ID!, $contactId: ID!) {
+													startContactFlow(flowId: $flowId, contactId: $contactId) {
+														success
+														errors {
+															key
+															message
+														}
+													}
+												}`,
+										variables: {
+											"flowId": id,
+											"contactId": contactID
+										}
+									}) : JSON.stringify({
+										query: `mutation sendHsmMessage($templateId: ID!, $receiverId: ID!, $parameters: [String]) {
+											sendHsmMessage(templateId: $templateId, receiverId: $receiverId, parameters: $parameters) {
+												message{
+													id
+													body
+													isHsm
+												}
+												errors {
+													key
+													message
+												}
+											}
+										}`,
+										variables: {
+											"templateId": id,
+											"receiverId": contactID,
+											"parameters": params
+										}
+									})
+								};
+								request(options, async function (error, response) {
+									//If any error in API call throw error
+									if (error){
+										console.log((type=='Flow' ? "Error in resuming flow in Glific: " : "Error in sending HSM Message")+error);
+										console.log("Request Parameters: "+JSON.stringify(options));
+										reject("GLFC_API_ERR")
+									}
+									else{
+										//console.log('Glific Response: '+response.body+"\n"+
+										//			"\nRequest Parameters: "+JSON.stringify(options));
+										const apiResponse = JSON.parse(response.body)
+										//If any error retruned by Glific API throw error
+										if(apiResponse.errors != null)
+										{
+											console.log("Error returned by Glific API: "+JSON.stringify(apiResponse.errors));
+											console.log("Request Parameters: "+JSON.stringify(options));
+											reject("GLFC_API_ERR")
+										}
+										else
+										{
+											const elementData = apiResponse.data
+											const elementMessage = type=='Flow' ? elementData.startContactFlow : elementData.sendHsmMessage
+											const elementErrors = elementMessage.errors
+											if(elementErrors != null) 
+											{
+												console.log('Error returned by Glific API '+JSON.stringify(apiResponse))
+												reject("GLFC_API_ERR")
+											}
+											else
+											{
+												console.info(type=='Flow' ? "Successfully started Nudge Flow in Glific" : "Successfully sent HSM Message");
+												resolve("SUCCESS")
+											}
+
+										}
+									}
+								});
+							})
+						}
+
 						users.forEach(async (record,i)=>{
 							const userSessionData = userSessions.filter(data=>data.Mobile == record.Users.Mobile)
+							var type = null
+							var id = null
 							if(userSessionData[0]['DaysSinceLastActivity']>process.env.MaxInactivityDaysForNudge){
 								console.log(i+": Nudge not to be sent to "+ record.Users.Mobile+". Not active for "+userSessionData[0]['DaysSinceLastActivity']+" days");
 								closeContext(i,true)
@@ -124,7 +252,9 @@ module.exports = (cronDetails) => {
 							else if(userSessionData[0]['DaysSinceLastActivity']==process.env.MaxInactivityDaysForNudge){
 								await timer(Math.max(300,(i*1000)/users.length))
 								console.log(i+": Last Nudge to be sent to "+ record.Users.Mobile+". Not active for "+userSessionData[0]['DaysSinceLastActivity']+" days");
-								while(true){
+								type = "HSM"
+								id = process.env.TemplateID_sendDailyNudge
+								/*while(true){
 									try{
                                         const sendGlificHSMMsg = require("../common/sendGlificHSMMsg.js");
 										const output = await sendGlificHSMMsg({
@@ -172,29 +302,45 @@ module.exports = (cronDetails) => {
 											break;
 										}
 									}
-								}
+								}*/
 							}
 							else if(userSessionData[0]['IsRecentActivity']==false){
 								await timer(Math.max(300,(i*1000)/users.length))
 								console.log(i+":Sending Nudge to "+ record.Users.Mobile);
-								while(true){
+								type = "Flow"
+								id = process.env.FlowID
+							}
+							if(type!=null){
+								for(var index = 0 ; index < 100; index++){
 									try{
-                                        const startGlificFlow = require("../common/startGlificFlow.js");
-										const output = await startGlificFlow({
+                                        //const startGlificFlow = require("../common/startGlificFlow.js");
+										const output = await invokeGlificAPI(type,id,record.Users.GlificID)
+										/*startGlificFlow({
 											args:{
 												"flowID":process.env.FlowID,
 												"contactID":record.Users.GlificID
 											}
 										})
 										const nudgeStatus = JSON.parse(output)
-										if(nudgeStatus['OperationStatus']=="SUCCESS"){
+										if(nudgeStatus['OperationStatus']=="SUCCESS"){*/
+										if(output=='SUCCESS'){
 											console.log(i+":Nudge sent to "+record.Users.Mobile)
 											closeContext(i,true)
+											if(type=='HSM'){
+												try{
+													let eventData = {
+														SessionID: "Nudge Flow",
+														Event : "Nudge Sent (HSM Message)",
+														SystemPromptROWID: topicID,
+														Mobile:record.Users.Mobile
+													}
+													await table.insertRow(eventData)
+												}
+												catch(e){
+													console.log(i+": Could not update event table for "+ record.Users.Mobile)
+												}
+											}
 											break;
-										}
-										else if(["GLFC_AUTH_API_ERR","GLFC_AUTH_ERR","GLFC_API_ERR"].includes(nudgeStatus['OperationStatus'])){
-											await timer(Math.max(500,(i*1000)/users.length))
-											console.log(i+":Retrying Nudge for "+ record.Users.Mobile);
 										}
 										else{
 											console.log(i+":Nudge not sent to "+record.Users.Mobile+" as OperationStatus = "+nudgeStatus['OperationStatus'])
@@ -203,7 +349,11 @@ module.exports = (cronDetails) => {
 										}
 									}
 									catch(err){
-										if(err.indexOf("TOO_MANY_REQUEST")!=0){
+										if(err.toString().includes("TOO_MANY_REQUEST")){
+											await timer(Math.max(500,(i*1000)/users.length))
+											console.log(i+":Retrying Nudge for "+ record.Users.Mobile);
+										}
+										else if(["GLFC_AUTH_API_ERR","GLFC_AUTH_ERR","GLFC_API_ERR"].includes(err)){
 											await timer(Math.max(500,(i*1000)/users.length))
 											console.log(i+":Retrying Nudge for "+ record.Users.Mobile);
 										}
@@ -214,10 +364,6 @@ module.exports = (cronDetails) => {
 										}
 									}
 								}
-							}
-							else{
-								console.log(i+": Nudge not to be sent to "+ record.Users.Mobile+". Attempted the flow within 10 minutes.");
-								closeContext(i,true)
 							}
 						})
 					
