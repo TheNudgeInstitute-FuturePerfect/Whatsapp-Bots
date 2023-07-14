@@ -1,6 +1,7 @@
 "use strict"
 
 const express = require("express");
+const englishWordChecker = require("word-exists")
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
@@ -8,6 +9,7 @@ const catalyst = require("zoho-catalyst-sdk");
 // app.use(express.json());
 const app = express.Router();
 
+/*Version 4.2 Code
 app.post("/getproficiency", (req, res) => {
 
     let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
@@ -125,8 +127,77 @@ app.post("/getproficiency", (req, res) => {
 	.catch((err) => {
 		console.log(err);
 		res.status(500).send(err);
-	});*/
+	});*//*
+});*/
+
+//Version 5.0 Code
+app.post("/getproficiency", (req, res) => {
+
+    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+
+	const requestBody = req.body;
+	
+	var result = {
+		OperationStatus:"SUCCESS"
+	}
+
+	let sessionID = requestBody["SessionID"];
+	if(typeof sessionID === 'undefined'){
+		result['OperationStatus'] = "REQ_ERR"
+		result['StatusDescription'] = "Missing required parameter - SessionID"
+		console.log("End of Execution: ",result)
+		res.status(200).json(result)
+	}
+	else{
+		let zcql = catalystApp.zcql()
+		zcql.executeZCQLQuery("Select Message from Sessions where Reply is not null and MessageType = 'UserMessage' and SessionID = '"+sessionID+"'")
+		.then((sessiondata)=>{
+			if(typeof sessiondata === 'undefined'){
+				result['OperationStatus'] = "NO_DATA"
+				result['StatusDescription'] = "No record for the given SessionID"
+				console.log("End of Execution: ",result)
+				res.status(200).json(result)
+			}
+			else if(sessiondata == null){
+				result['OperationStatus'] = "NO_DATA"
+				result['StatusDescription'] = "No record for the given SessionID"
+				console.log("End of Execution: ",result)
+				res.status(200).json(result)
+			}
+			else if(sessiondata.length == 0){
+				result['OperationStatus'] = "NO_DATA"
+				result['StatusDescription'] = "No record for the given SessionID"
+				console.log("End of Execution: ",result)
+				res.status(200).json(result)
+			}
+			else{
+				let texts = sessiondata.map(data=>decodeURIComponent(data.Sessions.Message))
+				const tokens = texts.join(" ").split(" ")
+				result['TotalWords'] = tokens.length
+				
+				const englishTokens = tokens.filter(word=>englishWordChecker(word.toLowerCase()))
+				result['TotalEnglishWords'] = englishTokens.length
+				result['TotalTexts'] = sessiondata.length
+				result['AvgWordsPerText'] = Math.ceil(result['TotalEnglishWords']/result['TotalTexts'])
+				result['EnglishProficiency'] = null
+				const criteria = JSON.parse(process.env.EnglishProficiencyCriteria)
+				for(var i=0; i<criteria.length; i++){
+					if((result['AvgWordsPerText'] >= criteria[i]['MinWords'])&&(result['AvgWordsPerText'] <= criteria[i]['MaxWords'])){
+						result['EnglishProficiency'] = criteria[i]['EnglishProficiency']
+						break;
+					}
+				}
+				console.log("End of Execution: ",result)
+				res.status(200).json(result)
+			}
+		})
+		.catch((err) => {
+			console.log("End of Execution: ",err);
+			res.status(500).send(err);
+		});		
+	}
 });
+
 
 app.all("/", (req,res) => {
 

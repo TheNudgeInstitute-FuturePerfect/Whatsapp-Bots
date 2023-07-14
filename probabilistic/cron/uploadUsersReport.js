@@ -35,7 +35,7 @@ module.exports = (cronDetails) => {
 	getAllRows("ROWID, Mobile",query,zcql)
 	.then((currentReport)=>{
 		query = "select {} from Users"
-		getAllRows("Mobile, Consent, RegisteredTime, NudgeTime, Excluded, EnglishProficiency",query,zcql)
+		getAllRows("Name, Mobile, Consent, RegisteredTime, NudgeTime, Excluded, EnglishProficiency, SourcingChannel",query,zcql)
 		.then((users)=>{
 			const mobiles = users.map(user=>user.Users.Mobile)
 			query = "Select {} "+
@@ -72,6 +72,7 @@ module.exports = (cronDetails) => {
 						var report = []
 						for(var i=0; i<users.length; i++){
 							var userReport = {}
+							userReport['Name'] = decodeURIComponent(users[i]["Users"]["Name"])
 							userReport['Mobile'] = users[i]["Users"]["Mobile"]
 							const rowID = currentReport.length == 0 ? null : currentReport.filter(data=>data['UsersReport']['Mobile']==userReport['Mobile'])
 							if((rowID!=null)&&(rowID.length>0))
@@ -197,6 +198,8 @@ module.exports = (cronDetails) => {
 							const uniqueActiveTopics = allActiveTopics.filter(unique)
 							userReport['TotalTopicsCompleted'] = uniqueActiveTopics.length
 							//uniqueDates.forEach(data=>console.log(users[i]["Users"]["Mobile"],' | data | ',data,' | regDate | ',regDate,' | ',data > regDate))
+							userReport['EnglishProficiency'] = users[i]["Users"]["EnglishProficiency"]
+							userReport['SourcingChannel'] = users[i]["Users"]["SourcingChannel"]
 							report.push(userReport)
 						}
 						let table = catalystApp.datastore().table("UsersReport")
