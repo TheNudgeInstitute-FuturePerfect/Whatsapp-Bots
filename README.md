@@ -121,4 +121,5 @@ Probabilistic Bot - Topic Allocation - 4.4
 0 1 * * * /whatsapp/probabilistic/cron/uploadUsersReport
 0 14 * * * /whatsapp/probabilistic/cron/uploadUsersReport
 0 5 * * * /whatsapp/probabilistic/cron/uploadUsersReport
+30 19 14 7 * /whatsapp/probabilistic/cron/sendCohortWelcomeMsg
 ```
