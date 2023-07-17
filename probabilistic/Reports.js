@@ -1118,7 +1118,7 @@ app.get("/usertopicmsgs", (req, res) => {
 
 	let zcql = catalystApp.zcql()
 
-	const startDate = req.query.startDate ? req.query.startDate : (req.query.date ? req.query.date : '1970-01-01')
+	const startDate = req.query.startDate ? req.query.startDate : '1970-01-01'
 	var today = new Date()
 	today.setHours(today.getHours()+5)
 	today.setMinutes(today.getMinutes()+30)
