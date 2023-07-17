@@ -1129,7 +1129,7 @@ app.get("/usertopicmsgs", (req, res) => {
 					"from Sessions "+
 					"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
 					"where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59' "+
-					"and ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) or ((SystemPrompts.Type = 'Backend Prompt') and (SystemPrompts.Name = 'Self Introduction'))"+
+					"and (((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) or ((SystemPrompts.Type = 'Backend Prompt') and (SystemPrompts.Name = 'Self Introduction')))"+
 					"order by Sessions.SessionID, Sessions.CREATEDTIME asc"
 	getAllRows("IsActive, MessageType, Classification, Improvement, UserFeedback, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name, Sessions.Message, MessageAudioURL, Sessions.Reply, ReplyAudioURL, Sessions.PerformanceReportURL, Sessions.SentenceLevelFeedback, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens	",query,zcql,dataLimit)
 	.then((allSessions)=>{
