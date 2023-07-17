@@ -815,8 +815,8 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
 	const dataLimit = req.query.limit ? req.query.limit : null
 
-	let query = "select {} from Users where CREATEDTIME >= '2023-06-15 19:00:00'"
-	getAllRows("Mobile",query,zcql,dataLimit)
+	let query = "select {} from Users where RegisteredTime >= '2023-06-15 19:00:00'"
+	getAllRows("Name, Mobile, EnglishProficiency",query,zcql,dataLimit)
 	.then((users)=>{
 		if(users.length>0){
 			const mobiles = users.map(user=>user.Users.Mobile)
@@ -877,7 +877,9 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 									const uniqueTopics = userSessionsTopics.filter(unique)
 									if(uniqueTopics.length==0){
 										var userReport = {}
+										userReport['Name'] = users[i]['Users']['Name']
 										userReport['Mobile'] = users[i]['Users']['Mobile']
+										userReport['EnglishProficiency'] = users[i]['Users']['EnglishProficiency']
 										userReport['Topic'] = ""
 										userReport['Persona'] = ""
 										userReport['Attempt'] = ""
@@ -916,7 +918,9 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 											for(var k=0; k<uniqueTopicSessions.length; k++)
 											{
 												var userReport = {}
+												userReport['Name'] = users[i]["Users"]["Name"]
 												userReport['Mobile'] = users[i]["Users"]["Mobile"]
+												userReport['EnglishProficiency'] = users[i]["Users"]["EnglishProficiency"]
 												userReport['Topic'] = uniqueTopics[j] == null ? "":uniqueTopics[j]
 												userReport['Persona'] = topicSessionsData[0].SystemPrompts.Persona == null ? "":topicSessionsData[0].SystemPrompts.Persona
 												userReport['SessionID'] = uniqueTopicSessions[k]
@@ -1030,7 +1034,9 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 					console.log("No session found")
 					const report = users.map(user=>{
 						return {
+							Name:user.Users.Name,
 							Mobile:user.Users.Mobile,
+							EnglishProficiency:user.Users.EnglishProficiency,
 							Topic:"",
 							Persona:"",
 							Attempt:"",
@@ -1069,7 +1075,9 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 		else{
 			console.log("No user found")
 			res.status(200).json([{
+				Name:'',
 				Mobile:'',
+				EnglishProficiency:'',
 				Topic:"",
 				Persona:"",
 				Attempt:"",
