@@ -144,7 +144,7 @@ app.post("/userstatus", (req, res) => {
                         console.info((new Date()).toString()+"|"+prependToLog,"Got wordle of day")
                         responseObject['Word'] = wordleofday[0]['WordleConfiguration']['Word']
                         responseObject['Translation'] = wordleofday[0]['WordleConfiguration']['WordTranslation']
-                        responseObject['Description'] = wordleofday[0]['WordleConfiguration']['Description']
+                        responseObject['Definition'] = wordleofday[0]['WordleConfiguration']['Definition']
                         responseObject['Example'] = wordleofday[0]['WordleConfiguration']['Example']
                         responseObject['RecommendedTopic'] = wordleofday[0]['WordleConfiguration']['RecommendedTopic']
                         responseObject['WordleID'] = wordleofday[0]['WordleConfiguration']['ROWID']
@@ -169,7 +169,9 @@ app.post("/userstatus", (req, res) => {
                                 var hintText = ''
                                 var noMatch = true
                                 for(var j=0; j<wordleofday[0]['WordleConfiguration']['Word'].length; j++){
-                                    if(wordleofday[0]['WordleConfiguration']['Word'][j].toLowerCase()==wordleAttempts[i]['WordleAttempts']['Answer'][j].toLowerCase()){
+                                    if(typeof wordleAttempts[i]['WordleAttempts']['Answer'][j]==='undefined')
+                                        hintText += '_'
+                                    else if(wordleofday[0]['WordleConfiguration']['Word'][j].toLowerCase()==wordleAttempts[i]['WordleAttempts']['Answer'][j].toLowerCase()){
                                         hintText += wordleofday[0]['WordleConfiguration']['Word'][j]
                                         noMatch = false
                                     }
@@ -256,7 +258,7 @@ app.post("/storeuserresponse", (req, res) => {
     else {
         //Getting ROWID of Student
         let zcql = catalystApp.zcql()
-        let query = "Select ROWID, WordleLevel from Users where Mobile = "+requestBody['Mobile']
+        let query = "Select ROWID, WordleLevel from Users where Mobile = "+requestBody['Mobile'].slice(-10)
         zcql.executeZCQLQuery(query)
         .then((user)=>{
             console.debug((new Date()).toString()+"|"+prependToLog,"Query=",query)
