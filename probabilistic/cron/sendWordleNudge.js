@@ -21,8 +21,8 @@ let zcql = catalystApp.zcql();
 
 //Get the current time
 let currentDate = new Date()
-//currentDate.setHours(currentDate.getHours()+5)
-//currentDate.setMinutes(currentDate.getMinutes()+30)
+currentDate.setHours(currentDate.getHours()+5)
+currentDate.setMinutes(currentDate.getMinutes()+30)
 console.info((new Date()).toString()+"|"+prependToLog,"Current TimeStamp = ",currentDate)
 const currentHour = ("0"+currentDate.getHours()).slice(-2) + ":00"
 
