@@ -1,13 +1,23 @@
 const catalyst = require("zoho-catalyst-sdk");
 
 const catalystApp = catalyst.initialize();
+
+const executionID = Math.random().toString(36).slice(2)
+  
+//Prepare text to prepend with logs
+const params = ["sendCohortWelcomeMsg",executionID,""]
+const prependToLog = params.join(" | ")
+    
+console.info((new Date()).toString()+"|"+prependToLog,"Execution Started")
+
+
 let zcql = catalystApp.zcql();
 
 //Get the current time
 let currentDate = new Date();
 currentDate.setHours(currentDate.getHours() + 5);
 currentDate.setMinutes(currentDate.getMinutes() + 30);
-console.log("Current TimeStamp = ", currentDate);
+console.info((new Date()).toString()+"|"+prependToLog,"Current TimeStamp = ", currentDate);
 const currentHour = ("0" + currentDate.getHours()).slice(-2) + ":00";
 const currentDt =
   currentDate.getFullYear() +
@@ -55,8 +65,8 @@ endDt =
     ? "December"
     : "");
 
-let query = "select {} from Users where Tags is not null";
-//console.log(query)
+let query = "select {} from SessionEvents where SessionID = 'Welcome Message'";
+//console.debug((new Date()).toString()+"|"+prependToLog,query)
 const getAllRows = (fields) => {
   return new Promise(async (resolve) => {
     var jsonReport = [];
@@ -64,16 +74,16 @@ const getAllRows = (fields) => {
     var i = 0;
     while (true) {
       query = dataQuery + " LIMIT " + i + ", 300";
-      console.log(
+      console.info((new Date()).toString()+"|"+prependToLog,
         "Fetching records from " +
-          i +
-          " to " +
-          (i + 300 - 1) +
-          "\nQuery: " +
-          query
+        i +
+        " to " +
+        (i + 300 - 1) +
+        "\nQuery: " +
+        query
       );
       const queryResult = await zcql.executeZCQLQuery(query);
-      //console.log(queryResult)
+      //console.debug((new Date()).toString()+"|"+prependToLog,queryResult)
       if (queryResult.length == 0) break;
       jsonReport = jsonReport.concat(queryResult);
       i = i + 300;
@@ -81,20 +91,25 @@ const getAllRows = (fields) => {
     resolve(jsonReport);
   });
 };
-getAllRows("Name, Mobile, GlificID, Tags")
+getAllRows("distinct Mobile")
+.then(async (events) => {
+  const mobiles = events.length > 0 ? events.map(data=>data.SessionEvents.Mobile) : []
+  query = "select {} from Users where Tags is not null" + (mobiles.length>0?" and Mobile not in ("+mobiles.join(",")+")":"");
+  getAllRows("Name, Mobile, GlificID, Tags")
   .then(async (users) => {
-    console.log("Fetched Records");
     //If there is no record, then the mobile number does not exist in system. Return error
     if (users == null) {
       //Send the response
-      console.log("No user");
+      console.info((new Date()).toString()+"|"+prependToLog,"No user");
     } else if (users.length == 0) {
       //Send the response
-      console.log("No user");
+      console.info((new Date()).toString()+"|"+prependToLog,"No user");
     } else {
+      console.info((new Date()).toString()+"|"+prependToLog,"Fetched User Records");
+    
       const timer = (sleepTime) => {
         return new Promise(async (resolve, reject) => {
-          //console.log('Wait for '+sleepTime)
+          //console.info((new Date()).toString()+"|"+prependToLog,'Wait for '+sleepTime)
           setTimeout(resolve, sleepTime);
         });
       };
@@ -140,26 +155,32 @@ getAllRows("Name, Mobile, GlificID, Tags")
           };
           request(options, function (error, response) {
             if (error) {
-              console.log("Error in Glific Authentication API Call: " + error);
-              console.log("Request Parameters: " + JSON.stringify(options));
+              console.error((new Date()).toString()+"|"+prependToLog,"Error in Glific Authentication API Call: " + error);
+              console.error((new Date()).toString()+"|"+prependToLog,"Request Parameters: " + JSON.stringify(options));
               reject("GLFC_AUTH_ERR");
             } else if (response.body == "Something went wrong") {
-              console.log(
+              console.error((new Date()).toString()+"|"+prependToLog,
                 "Error returned by Glific Authentication API: " + response.body
               );
-              console.log("Request Parameters: " + JSON.stringify(options));
+              console.error((new Date()).toString()+"|"+prependToLog,"Request Parameters: " + JSON.stringify(options));
               reject("GLFC_AUTH_ERR");
             } else {
-              let responseBody = JSON.parse(response.body);
-              //console.log(responseBody)
-              authToken = responseBody.data.access_token;
-              renewToken = responseBody.data.renewal_token;
-              tokenExpiryTime = new Date(responseBody.data.token_expiry_time);
-              console.info(
-                "Extracted access token from response. Valid till: " +
-                  tokenExpiryTime
-              );
-              resolve(authToken);
+              try{
+                let responseBody = JSON.parse(response.body);
+                //console.debug((new Date()).toString()+"|"+prependToLog,responseBody)
+                authToken = responseBody.data.access_token;
+                renewToken = responseBody.data.renewal_token;
+                tokenExpiryTime = new Date(responseBody.data.token_expiry_time);
+                console.info(
+                  "Extracted access token from response. Valid till: " +
+                    tokenExpiryTime
+                );
+                resolve(authToken);
+              }
+              catch(e){
+                console.error((new Date()).toString()+"|"+prependToLog,"Error in getting Auth Token from Glific: "+e,"\nGlific Response: ",response.body,"Request Parameters: "+JSON.stringify(options));
+                resolve(authToken);							
+              }
             }
           });
         });
@@ -204,36 +225,42 @@ getAllRows("Name, Mobile, GlificID, Tags")
           request(options, async function (error, response) {
             //If any error in API call throw error
             if (error) {
-              console.log("Error in resuming flow in Glific: " + error);
-              console.log("Request Parameters: " + JSON.stringify(options));
+              console.error((new Date()).toString()+"|"+prependToLog,"Error in resuming flow in Glific: " + error);
+              console.error((new Date()).toString()+"|"+prependToLog,"Request Parameters: " + JSON.stringify(options));
               reject("GLFC_API_ERR");
             } else {
-              //console.log('Glific Response: '+response.body+"\n"+
+              //console.debug((new Date()).toString()+"|"+prependToLog,'Glific Response: '+response.body+"\n"+
               //			"\nRequest Parameters: "+JSON.stringify(options));
-              const hsmMsgResponse = JSON.parse(response.body);
-              //If any error retruned by Glific API throw error
-              if (hsmMsgResponse.errors != null) {
-                console.log(
-                  "Error returned by HSM Message API: " +
-                    JSON.stringify(hsmMsgResponse.errors)
-                );
-                console.log("Request Parameters: " + JSON.stringify(options));
-                reject("GLFC_API_ERR");
-              } else {
-                const elementData = hsmMsgResponse.data;
-                const elementSendHsmMessage = elementData.sendHsmMessage;
-                const elementErrors = elementSendHsmMessage.errors;
-                if (elementErrors != null) {
-                  console.log(
-                    "Error returned by Glific API " +
-                      JSON.stringify(hsmMsgResponse)
+              try{
+                const hsmMsgResponse = JSON.parse(response.body);
+                //If any error retruned by Glific API throw error
+                if (hsmMsgResponse.errors != null) {
+                  console.error((new Date()).toString()+"|"+prependToLog,
+                    "Error returned by HSM Message API: " +
+                      JSON.stringify(hsmMsgResponse.errors)
                   );
+                  console.debug((new Date()).toString()+"|"+prependToLog,"Request Parameters: " + JSON.stringify(options));
                   reject("GLFC_API_ERR");
                 } else {
-                  console.info("Successfully sent HSM Message");
-                  resolve("SUCCESS");
+                  const elementData = hsmMsgResponse.data;
+                  const elementSendHsmMessage = elementData.sendHsmMessage;
+                  const elementErrors = elementSendHsmMessage.errors;
+                  if (elementErrors != null) {
+                    console.error((new Date()).toString()+"|"+prependToLog,
+                      "Error returned by Glific API " +
+                        JSON.stringify(hsmMsgResponse)
+                    );
+                    reject("GLFC_API_ERR");
+                  } else {
+                    console.info("Successfully sent HSM Message");
+                    resolve("SUCCESS");
+                  }
                 }
               }
+              catch(e){
+                console.error((new Date()).toString()+"|"+prependToLog,"Error in sending HSM in Glific: "+e,"\nGlific Response: ",response.body,"Request Parameters: "+JSON.stringify(options));
+                reject("GLFC_API_ERR")
+              }	
             }
           });
         });
@@ -265,10 +292,33 @@ getAllRows("Name, Mobile, GlificID, Tags")
                 Accept: "application/json",
               }
             );
-            if (pendingPractices.data.OperationStatus != "SUCCESS")
-              console.log(
-                i + ":Failed to pending practices for " + record.Users.Mobile
+            if (["SUCCESS","SSN_ABV_PERIOD","MIN_SSN_RCHD"].includes(pendingPractices.data.OperationStatus)==false)
+              console.info((new Date()).toString()+"|"+prependToLog,
+                i + ":Failed to get pending practices for " + record.Users.Mobile
               );
+            else if (typeof pendingPractices.data.PendingPracticeCount <= 0) {
+              console.info((new Date()).toString()+"|"+prependToLog,
+                i + ":No pending practices for " + record.Users.Mobile
+              );
+              try {
+                let eventData = {
+                  SessionID: "Welcome Message",
+                  Event:
+                    "Cohort " +
+                    cohort +
+                    " Welcome Message Not Sent (No Pending Practice)",
+                  SystemPromptROWID: topicID,
+                  Mobile: record.Users.Mobile,
+                };
+                await table.insertRow(eventData);
+              } catch (e) {
+                console.error((new Date()).toString()+"|"+prependToLog,
+                i +
+                  ": Could not update event table for " +
+                  record.Users.Mobile
+                );
+              }
+            }
             else {
               cohort = 1;
               param.push(pendingPractices.data.PendingPracticeCount.toString());
@@ -276,7 +326,7 @@ getAllRows("Name, Mobile, GlificID, Tags")
           }
           if (cohort != null) {
             await timer(Math.max(300, (i * 1000) / users.length));
-            console.log(
+            console.info((new Date()).toString()+"|"+prependToLog,
               i +
                 ": Nudge to be sent to Cohort " +
                 cohort +
@@ -298,7 +348,7 @@ getAllRows("Name, Mobile, GlificID, Tags")
                             const nudgeStatus = JSON.parse(output)
                             if(nudgeStatus['OperationStatus']=="SUCCESS"){*/
                 if (output == "SUCCESS") {
-                  console.log(
+                  console.info((new Date()).toString()+"|"+prependToLog,
                     i +
                       ":Nudge sent to Cohort " +
                       cohort +
@@ -317,7 +367,7 @@ getAllRows("Name, Mobile, GlificID, Tags")
                     };
                     await table.insertRow(eventData);
                   } catch (e) {
-                    console.log(
+                    console.error((new Date()).toString()+"|"+prependToLog,
                       i +
                         ": Could not update event table for " +
                         record.Users.Mobile
@@ -325,7 +375,7 @@ getAllRows("Name, Mobile, GlificID, Tags")
                   }
                   break;
                 } else {
-                  console.log(
+                  console.info((new Date()).toString()+"|"+prependToLog,
                     i +
                       ":Nudge not sent to " +
                       record.Users.Mobile +
@@ -337,7 +387,7 @@ getAllRows("Name, Mobile, GlificID, Tags")
               } catch (err) {
                 if (err.toString().includes("TOO_MANY_REQUEST")) {
                   await timer(Math.max(500, (i * 1000) / users.length));
-                  console.log(i + ":Retrying Nudge for " + record.Users.Mobile);
+                  console.info((new Date()).toString()+"|"+prependToLog,i + ":Retrying Nudge for " + record.Users.Mobile);
                 } else if (
                   [
                     "GLFC_AUTH_API_ERR",
@@ -346,9 +396,9 @@ getAllRows("Name, Mobile, GlificID, Tags")
                   ].includes(err)
                 ) {
                   await timer(Math.max(500, (i * 1000) / users.length));
-                  console.log(i + ":Retrying Nudge for " + record.Users.Mobile);
+                  console.info((new Date()).toString()+"|"+prependToLog,i + ":Retrying Nudge for " + record.Users.Mobile);
                 } else {
-                  console.log(
+                  console.error((new Date()).toString()+"|"+prependToLog,
                     i +
                       ":Nudge not sent to " +
                       record.Users.Mobile +
@@ -360,7 +410,7 @@ getAllRows("Name, Mobile, GlificID, Tags")
               }
             }
           } else {
-            console.log(
+            console.info((new Date()).toString()+"|"+prependToLog,
               i +
                 ": Nudge not to be sent to " +
                 record.Users.Mobile +
@@ -369,16 +419,16 @@ getAllRows("Name, Mobile, GlificID, Tags")
             );
           }
         })
-        .catch((err) => {
-          console.log(
-            "Closing Execution. Encountered Error in getting session records: " +
-              err
-          );
-        });
     }
   })
   .catch((err) => {
-    console.log(
+    console.error((new Date()).toString()+"|"+prependToLog,
       "Closing Execution. Encountered Error in getting count of records: " + err
     );
-  });
+  })
+})
+.catch((err) => {
+    console.error((new Date()).toString()+"|"+prependToLog,
+    "Closing Execution. Encountered Error in getting Session Events data: " + err
+  )
+})
