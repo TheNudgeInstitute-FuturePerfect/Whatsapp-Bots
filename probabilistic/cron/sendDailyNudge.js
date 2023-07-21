@@ -8,23 +8,33 @@ module.exports = (cronDetails) => {
 	}*/
 	
     const catalystApp = catalyst.initialize();
+
+	const executionID = Math.random().toString(36).slice(2)
+    
+	//Prepare text to prepend with logs
+	const params = ["sendDailyNudge",executionID,""]
+	const prependToLog = params.join(" | ")
+		
+	console.info((new Date()).toString()+"|"+prependToLog,(new Date()).toString()+"|"+prependToLog,"Execution Started")
+	
+
 	let zcql = catalystApp.zcql();
 
 	//Get the current time
 	let currentDate = new Date()
 	currentDate.setHours(currentDate.getHours()+5)
 	currentDate.setMinutes(currentDate.getMinutes()+30)
-	console.log("Current TimeStamp = ",currentDate)
+	console.info((new Date()).toString()+"|"+prependToLog,"Current TimeStamp = ",currentDate)
 	const currentHour = ("0"+currentDate.getHours()).slice(-2) + ":00"
 
 	let query = "select {} from Users where NudgeTime = '"+currentHour+"'"
 	if(currentHour==process.env.DefaultNudgeHour)
 		query = query + " or NudgeTime = '"+process.env.DefaultNudgeTime+"'"
-    //console.log(query)
+    //console.debug((new Date()).toString()+"|"+prependToLog,query)
 	zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"))
 	.then((maxRowsResult) => {
 		let maxRows = parseInt(maxRowsResult[0].Users.ROWID)
-		console.log('Total Users: '+maxRows)
+		console.info((new Date()).toString()+"|"+prependToLog,'Total Users: '+maxRows)
 		if(maxRows>0)
 		{
 			const recordsToFetch = 300
@@ -35,7 +45,7 @@ module.exports = (cronDetails) => {
 					const dataQuery = query.replace("{}",fields)
 					for(var i = startingRow; i <= maxRows ; i=i+recordsToFetch){
 						query = dataQuery+" LIMIT "+i+", "+recordsToFetch
-						console.log('Fetching records from '+i+" to "+(i+recordsToFetch-1)+
+						console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+recordsToFetch-1)+
 									'\nQuery: '+query)
 						const queryResult = await zcql.executeZCQLQuery(query)
 							jsonReport = jsonReport.concat(queryResult)
@@ -45,16 +55,16 @@ module.exports = (cronDetails) => {
 			}
 			getAllRows("Mobile, GlificID, RegisteredTime, NudgeTime")
 			.then((users) =>	{
-				console.log("Fetched Records")
+				console.info((new Date()).toString()+"|"+prependToLog,"Fetched Records")
                 //If there is no record, then the mobile number does not exist in system. Return error				
 				if(users == null){
 					//Send the response
-					console.log('No user who has opted for this hour');
+					console.info((new Date()).toString()+"|"+prependToLog,'No user who has opted for this hour');
 					
 				}
 				else if(users.length == 0){
 					//Send the response
-					console.log('No user who has opted for this hour');
+					console.info((new Date()).toString()+"|"+prependToLog,'No user who has opted for this hour');
 				}
 				else{
 					const mobiles = users.map(data=>data.Users.Mobile)
@@ -69,13 +79,13 @@ module.exports = (cronDetails) => {
 					})
 					query = "select {} from Sessions where Mobile in ("+mobiles.join(",")+") group by Mobile"
 					maxRows = parseInt(users.length)
-					console.log('Total Sessions Data: '+maxRows)
+					console.info((new Date()).toString()+"|"+prependToLog,'Total Sessions Data: '+maxRows)
 					getAllRows("Mobile, max(CREATEDTIME)")
 					.then(async (sessions) =>	{
-						console.log("Fetched Sessions Records")
+						console.info((new Date()).toString()+"|"+prependToLog,"Fetched Sessions Records")
 						//If there is no record, then the mobile number does not exist in system. Return error				
 						if(!((typeof sessions !== 'undefined')&&(sessions != null)&&(sessions.length > 0))){
-							console.log('No session data. Using RegisteredTime of user');
+							console.info((new Date()).toString()+"|"+prependToLog,'No session data. Using RegisteredTime of user');
 						}
 						else{
 							//Calculate days since last activity for each user
@@ -90,10 +100,10 @@ module.exports = (cronDetails) => {
 								}
 							})
 						}		
-						console.log(userSessions)			
+						console.debug((new Date()).toString()+"|"+prependToLog,userSessions)			
 						const timer = (sleepTime) => {
 							return new Promise( async (resolve,reject) => {
-								//console.log('Wait for '+sleepTime)
+								//console.info((new Date()).toString()+"|"+prependToLog,'Wait for '+sleepTime)
 								setTimeout(resolve, sleepTime)
 							});
 						}
@@ -102,10 +112,10 @@ module.exports = (cronDetails) => {
 							if(i==(users.length-1)){
 								await timer(5*60*1000)
 								if(success==false){
-									console.log('Execution completed with some error.')
+									console.info((new Date()).toString()+"|"+prependToLog,'Execution completed with some error.')
 								}
 								else{
-									console.log('Execution completed successfully.')
+									console.info((new Date()).toString()+"|"+prependToLog,'Execution completed successfully.')
 								}
 							}
 						}
@@ -134,23 +144,29 @@ module.exports = (cronDetails) => {
 								};
 								request(options, function (error, response) {
 									if (error){
-										console.log("Error in Glific Authentication API Call: "+error);
-										console.log("Request Parameters: "+JSON.stringify(options));
+										console.error((new Date()).toString()+"|"+prependToLog,"Error in Glific Authentication API Call: "+error);
+										console.error((new Date()).toString()+"|"+prependToLog,"Request Parameters: "+JSON.stringify(options));
 										reject("GLFC_AUTH_ERR")                            
 									}
 									else if(response.body == 'Something went wrong'){
-										console.log("Error returned by Glific Authentication API: "+response.body);
-										console.log("Request Parameters: "+JSON.stringify(options));
+										console.error((new Date()).toString()+"|"+prependToLog,"Error returned by Glific Authentication API: "+response.body);
+										console.error((new Date()).toString()+"|"+prependToLog,"Request Parameters: "+JSON.stringify(options));
 										reject("GLFC_AUTH_ERR")
 									}
 									else{
-										let responseBody = JSON.parse(response.body)
-										//console.log(responseBody)
-										authToken = responseBody.data.access_token;
-										renewToken = responseBody.data.renewal_token;
-										tokenExpiryTime = new Date(responseBody.data.token_expiry_time)
-										console.info("Extracted access token from response. Valid till: "+tokenExpiryTime);
-										resolve(authToken)
+										try{
+											let responseBody = JSON.parse(response.body)
+											//console.debug((new Date()).toString()+"|"+prependToLog,responseBody)
+											authToken = responseBody.data.access_token;
+											renewToken = responseBody.data.renewal_token;
+											tokenExpiryTime = new Date(responseBody.data.token_expiry_time)
+											console.info((new Date()).toString()+"|"+prependToLog,"Extracted access token from response. Valid till: "+tokenExpiryTime);
+											resolve(authToken)
+										}
+										catch(e){
+											console.info((new Date()).toString()+"|"+prependToLog,"Error in getting Auth Token from Glific: "+e,"\nGlific Response: ",response.body,"Request Parameters: "+JSON.stringify(options))
+											resolve(authToken)
+										}
 									}
 								})
 							})
@@ -204,37 +220,42 @@ module.exports = (cronDetails) => {
 								request(options, async function (error, response) {
 									//If any error in API call throw error
 									if (error){
-										console.log((type=='Flow' ? "Error in resuming flow in Glific: " : "Error in sending HSM Message")+error);
-										console.log("Request Parameters: "+JSON.stringify(options));
+										console.error((new Date()).toString()+"|"+prependToLog,(type=='Flow' ? "Error in resuming flow in Glific: " : "Error in sending HSM Message")+error);
+										console.error((new Date()).toString()+"|"+prependToLog,"Request Parameters: "+JSON.stringify(options));
 										reject("GLFC_API_ERR")
 									}
 									else{
-										//console.log('Glific Response: '+response.body+"\n"+
+										//console.debug((new Date()).toString()+"|"+prependToLog,'Glific Response: '+response.body+"\n"+
 										//			"\nRequest Parameters: "+JSON.stringify(options));
-										const apiResponse = JSON.parse(response.body)
-										//If any error retruned by Glific API throw error
-										if(apiResponse.errors != null)
-										{
-											console.log("Error returned by Glific API: "+JSON.stringify(apiResponse.errors));
-											console.log("Request Parameters: "+JSON.stringify(options));
-											reject("GLFC_API_ERR")
-										}
-										else
-										{
-											const elementData = apiResponse.data
-											const elementMessage = type=='Flow' ? elementData.startContactFlow : elementData.sendHsmMessage
-											const elementErrors = elementMessage.errors
-											if(elementErrors != null) 
+										try{
+											const apiResponse = JSON.parse(response.body)
+											//If any error retruned by Glific API throw error
+											if(apiResponse.errors != null)
 											{
-												console.log('Error returned by Glific API '+JSON.stringify(apiResponse))
+												console.error((new Date()).toString()+"|"+prependToLog,"Error returned by Glific API: "+JSON.stringify(apiResponse.errors));
+												console.error((new Date()).toString()+"|"+prependToLog,"Request Parameters: "+JSON.stringify(options));
 												reject("GLFC_API_ERR")
 											}
 											else
 											{
-												console.info(type=='Flow' ? "Successfully started Nudge Flow in Glific" : "Successfully sent HSM Message");
-												resolve("SUCCESS")
-											}
+												const elementData = apiResponse.data
+												const elementMessage = type=='Flow' ? elementData.startContactFlow : elementData.sendHsmMessage
+												const elementErrors = elementMessage.errors
+												if(elementErrors != null) 
+												{
+													console.error((new Date()).toString()+"|"+prependToLog,'Error returned by Glific API '+JSON.stringify(apiResponse))
+													reject("GLFC_API_ERR")
+												}
+												else
+												{
+													console.info((new Date()).toString()+"|"+prependToLog,type=='Flow' ? "Successfully started Nudge Flow in Glific" : "Successfully sent HSM Message");
+													resolve("SUCCESS")
+												}
 
+											}
+										}catch(e){
+											console.error((new Date()).toString()+"|"+prependToLog,"Error returned from Glific: "+e,"\nGlific Response: ",response.body,"Request Parameters: "+JSON.stringify(options));
+                                        	reject("GLFC_API_ERR")
 										}
 									}
 								});
@@ -246,12 +267,12 @@ module.exports = (cronDetails) => {
 							var type = null
 							var id = null
 							if(userSessionData[0]['DaysSinceLastActivity']>process.env.MaxInactivityDaysForNudge){
-								console.log(i+": Nudge not to be sent to "+ record.Users.Mobile+". Not active for "+userSessionData[0]['DaysSinceLastActivity']+" days");
+								console.info((new Date()).toString()+"|"+prependToLog,i+": Nudge not to be sent to "+ record.Users.Mobile+". Not active for "+userSessionData[0]['DaysSinceLastActivity']+" days");
 								closeContext(i,true)
 							}
 							else if(userSessionData[0]['DaysSinceLastActivity']==process.env.MaxInactivityDaysForNudge){
 								await timer(Math.max(300,(i*1000)/users.length))
-								console.log(i+": Last Nudge to be sent to "+ record.Users.Mobile+". Not active for "+userSessionData[0]['DaysSinceLastActivity']+" days");
+								console.info((new Date()).toString()+"|"+prependToLog,i+": Last Nudge to be sent to "+ record.Users.Mobile+". Not active for "+userSessionData[0]['DaysSinceLastActivity']+" days");
 								type = "HSM"
 								id = process.env.TemplateID_sendDailyNudge
 								/*while(true){
@@ -265,7 +286,7 @@ module.exports = (cronDetails) => {
 										})
 										const nudgeStatus = JSON.parse(output)
 										if(nudgeStatus['OperationStatus']=="SUCCESS"){
-											console.log(i+":Nudge sent to "+record.Users.Mobile)
+											console.info((new Date()).toString()+"|"+prependToLog,i+":Nudge sent to "+record.Users.Mobile)
 											closeContext(i,true)
 											try{
 												let eventData = {
@@ -277,16 +298,16 @@ module.exports = (cronDetails) => {
 												await table.insertRow(eventData)
 											}
 											catch(e){
-												console.log(i+": Could not update event table for "+ record.Users.Mobile)
+												console.error((new Date()).toString()+"|"+prependToLog,i+": Could not update event table for "+ record.Users.Mobile)
 											}
 											break;
 										}
 										else if(["GLFC_AUTH_API_ERR","GLFC_AUTH_ERR","GLFC_API_ERR"].includes(nudgeStatus['OperationStatus'])){
 											await timer(Math.max(500,(i*1000)/users.length))
-											console.log(i+":Retrying Nudge for "+ record.Users.Mobile);
+											console.info((new Date()).toString()+"|"+prependToLog,i+":Retrying Nudge for "+ record.Users.Mobile);
 										}
 										else{
-											console.log(i+":Nudge not sent to "+record.Users.Mobile+" as OperationStatus = "+nudgeStatus['OperationStatus'])
+											console.info((new Date()).toString()+"|"+prependToLog,i+":Nudge not sent to "+record.Users.Mobile+" as OperationStatus = "+nudgeStatus['OperationStatus'])
 											closeContext(i,false)
 											break;
 										}
@@ -294,10 +315,10 @@ module.exports = (cronDetails) => {
 									catch(err){
 										if(err.indexOf("TOO_MANY_REQUEST")!=0){
 											await timer(Math.max(500,(i*1000)/users.length))
-											console.log(i+":Retrying Nudge for "+ record.Users.Mobile);
+											console.info((new Date()).toString()+"|"+prependToLog,i+":Retrying Nudge for "+ record.Users.Mobile);
 										}
 										else{
-											console.log(i+":Nudge not sent to "+record.Users.Mobile+" due to error: ",err)
+											console.error((new Date()).toString()+"|"+prependToLog,i+":Nudge not sent to "+record.Users.Mobile+" due to error: ",err)
 											closeContext(i,false)
 											break;
 										}
@@ -306,7 +327,7 @@ module.exports = (cronDetails) => {
 							}
 							else if(userSessionData[0]['IsRecentActivity']==false){
 								await timer(Math.max(300,(i*1000)/users.length))
-								console.log(i+":Sending Nudge to "+ record.Users.Mobile);
+								console.info((new Date()).toString()+"|"+prependToLog,i+":Sending Nudge to "+ record.Users.Mobile);
 								type = "Flow"
 								id = process.env.FlowID
 							}
@@ -324,7 +345,7 @@ module.exports = (cronDetails) => {
 										const nudgeStatus = JSON.parse(output)
 										if(nudgeStatus['OperationStatus']=="SUCCESS"){*/
 										if(output=='SUCCESS'){
-											console.log(i+":Nudge sent to "+record.Users.Mobile)
+											console.info((new Date()).toString()+"|"+prependToLog,i+":Nudge sent to "+record.Users.Mobile)
 											closeContext(i,true)
 											if(type=='HSM'){
 												try{
@@ -337,13 +358,13 @@ module.exports = (cronDetails) => {
 													await table.insertRow(eventData)
 												}
 												catch(e){
-													console.log(i+": Could not update event table for "+ record.Users.Mobile)
+													console.error((new Date()).toString()+"|"+prependToLog,i+": Could not update event table for "+ record.Users.Mobile)
 												}
 											}
 											break;
 										}
 										else{
-											console.log(i+":Nudge not sent to "+record.Users.Mobile+" as OperationStatus = "+nudgeStatus['OperationStatus'])
+											console.info((new Date()).toString()+"|"+prependToLog,i+":Nudge not sent to "+record.Users.Mobile+" as OperationStatus = "+nudgeStatus['OperationStatus'])
 											closeContext(i,false)
 											break;
 										}
@@ -351,14 +372,14 @@ module.exports = (cronDetails) => {
 									catch(err){
 										if(err.toString().includes("TOO_MANY_REQUEST")){
 											await timer(Math.max(500,(i*1000)/users.length))
-											console.log(i+":Retrying Nudge for "+ record.Users.Mobile);
+											console.info((new Date()).toString()+"|"+prependToLog,i+":Retrying Nudge for "+ record.Users.Mobile);
 										}
 										else if(["GLFC_AUTH_API_ERR","GLFC_AUTH_ERR","GLFC_API_ERR"].includes(err)){
 											await timer(Math.max(500,(i*1000)/users.length))
-											console.log(i+":Retrying Nudge for "+ record.Users.Mobile);
+											console.info((new Date()).toString()+"|"+prependToLog,i+":Retrying Nudge for "+ record.Users.Mobile);
 										}
 										else{
-											console.log(i+":Nudge not sent to "+record.Users.Mobile+" due to error: ",err)
+											console.error((new Date()).toString()+"|"+prependToLog,i+":Nudge not sent to "+record.Users.Mobile+" due to error: ",err)
 											closeContext(i,false)
 											break;
 										}
@@ -369,15 +390,15 @@ module.exports = (cronDetails) => {
 					
 					})
 					.catch(err => {
-						console.log('Closing Execution. Encountered Error in getting session records: '+err)
+						console.error((new Date()).toString()+"|"+prependToLog,'Closing Execution. Encountered Error in getting session records: '+err)
 					})
 				}
 			});
 		}
 		else{
-			console.log("Closing Execution. No records retruned by query")
+			console.info((new Date()).toString()+"|"+prependToLog,"Closing Execution. No records retruned by query")
 		}
 	}).catch(err => {
-		console.log('Closing Execution. Encountered Error in getting count of records: '+err)
+		console.error((new Date()).toString()+"|"+prependToLog,'Closing Execution. Encountered Error in getting count of records: '+err)
 	})
 }
