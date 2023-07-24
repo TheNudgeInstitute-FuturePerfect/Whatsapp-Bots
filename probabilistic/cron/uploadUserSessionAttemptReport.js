@@ -4,6 +4,14 @@ const emojiRegex = require('emoji-regex');
 
 const catalystApp = catalyst.initialize();
 
+const executionID = Math.random().toString(36).slice(2)
+    
+//Prepare text to prepend with logs
+const params = ["uploadUserSessionAttemptReport",executionID,""]
+const prependToLog = params.join(" | ")
+
+console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+
 //Filter unique elements in an array
 const unique = (value, index, self) => {
 	return self.indexOf(value) === index
@@ -17,11 +25,14 @@ const getAllRows = (fields,query,zcql,dataLimit) => {
 		var i = 1
 		while(true){
 			query = dataQuery+" LIMIT "+i+", "+lmt
-			console.log('Fetching records from '+i+" to "+(i+300-1)+
+			console.debug((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+300-1)+
 						'\nQuery: '+query)
 			const queryResult = await zcql.executeZCQLQuery(query)
-			if(queryResult.length == 0)
+			if((queryResult.length == 0)||(typeof queryResult[0] === 'undefined')){
+				if((queryResult.length > 0)&&(typeof queryResult[0] === 'undefined'))
+					console.error((new Date()).toString()+"|"+prependToLog,"Encountered error in executing query:",queryResult)
 				break;
+			}
 			jsonReport = jsonReport.concat(queryResult)					
 			i=i+300
 		}
@@ -34,13 +45,13 @@ let zcql = catalystApp.zcql()
 let query = "select {} from UserSessionAttemptReport" // where IsActive = true or IsActive is null"
 getAllRows("ROWID, SessionID, IsActive, EndOfSession",query,zcql)
 .then((usersAttemptReport)=>{
-	console.log('Total Sessions = '+usersAttemptReport.length)
+	console.info((new Date()).toString()+"|"+prependToLog,'Total Sessions = '+usersAttemptReport.length)
 	const currentReport = usersAttemptReport.filter(data=>(data.UserSessionAttemptReport.IsActive == true) || (data.UserSessionAttemptReport.IsActive == null)|| (data.UserSessionAttemptReport.EndOfSession == 'No') || (data.UserSessionAttemptReport.EndOfSession == null))
 	const openSessions = currentReport.map(data=>data.UserSessionAttemptReport.SessionID)
-	console.log('Total Open Sessions = '+openSessions.length)
+	console.info((new Date()).toString()+"|"+prependToLog,'Total Open Sessions = '+openSessions.length)
 	const closedReport = usersAttemptReport.filter(data=>(data.UserSessionAttemptReport.IsActive == false)&&(data.UserSessionAttemptReport.EndOfSession == 'Yes'))
 	const closedSessions = closedReport.map(data=>data.UserSessionAttemptReport.SessionID)
-	console.log('Total Closed Sessions = '+closedSessions.length)		
+	console.info((new Date()).toString()+"|"+prependToLog,'Total Closed Sessions = '+closedSessions.length)		
 	query = "select {} from UsersReport"
 	getAllRows("Name, Mobile, OnboardingDate",query,zcql)
 	.then((users)=>{
@@ -49,19 +60,20 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession",query,zcql)
 			query = "Select {} "+
 					"from Sessions "+
 					"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
-					"where ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) and SessionID not in ('"+closedSessions.join("','")+"') "+
+					"where ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) "+ //and SessionID not in ('"+closedSessions.join("','")+"') "+
 					"order by Sessions.CREATEDTIME desc"
 			getAllRows("Sessions.IsActive, Sessions.PerformanceReportURL, Sessions.EndOfSession, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.ROWID, SystemPrompts.Name, SystemPrompts.Persona, Sessions.Message, Sessions.MessageType, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens",query,zcql)
 			.then((allSessions)=>{
 				const sessions = allSessions.filter(data=>!(data.Sessions.SessionID.endsWith(' - Translation')||data.Sessions.SessionID.endsWith(' - Hints')||data.Sessions.SessionID.endsWith(' - ObjectiveFeedback')))
 				if(sessions.length>0){
-					const sessionIDs = sessions.map(session=>session.Sessions.SessionID)
+					const sessionIDs = sessions.map(session=>session.Sessions.SessionID).filter(unique)
 					query = "Select {} "+
 							"from SessionFeedback "+
-							"where SessionID in ('"+sessionIDs.join("','")+"') "+
+							//"where SessionID in ('"+sessionIDs.join("','")+"') "+
 							"order by SessionFeedback.CREATEDTIME desc"
 					getAllRows("SessionID, Rating, Feedback, FeedbackType, FeedbackURL, GPTRating, GPTFeedback, GPTFeedbackType, GPTFeedbackURL",query,zcql)
-					.then((feedbacks)=>{
+					.then((allfeedbacks)=>{
+						const feedbacks = allfeedbacks.filter(data=>sessionIDs.includes(data.SessionFeedback.SessionID))
 						zcql.executeZCQLQuery("Select Version,StartDate from Versions order by StartDate")
 						.then(async (versionRecords)=>{
 							var versions = []
@@ -78,9 +90,10 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession",query,zcql)
 										d['Versions']['EndDate'] = versionRecords[index+1]['Versions']['StartDate']
 									return d
 								})
-							query = "Select {} from SessionEvents where SessionID in ('"+sessionIDs.join("','")+"') and Event in ('Progress Message - 1','Progress Message - 2','Progress Message - 3','Progress Message - 4','Progress Message - 5','Progress Message - 6','Progress Message - 7','Progress Message - 8')"
+							query = "Select {} from SessionEvents where Event in ('Progress Message - 1','Progress Message - 2','Progress Message - 3','Progress Message - 4','Progress Message - 5','Progress Message - 6','Progress Message - 7','Progress Message - 8')"
 							getAllRows("distinct SessionID",query,zcql)
-							.then(async (events)=>{
+							.then(async (allevents)=>{
+								const events = allevents.filter(data=>sessionIDs.includes(data.SessionEvents.SessionID))
 								var report = []
 								const emojiRegEx = emojiRegex()
 								for(var i=0; i<users.length; i++){
@@ -154,7 +167,8 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession",query,zcql)
 												userReport['Topic'] = uniqueTopics[j] == null ? "" : (uniqueTopics[j].split("-"))[0]
 												userReport['Persona'] = topicSessionsData[0].SystemPrompts.Persona
 												userReport['SessionID'] = uniqueTopicSessions[k]
-												const rowID = currentReport.length == 0 ? null : currentReport.filter(data=>data['UserSessionAttemptReport']['SessionID']==userReport['SessionID'])
+												//const rowID = currentReport.length == 0 ? null : currentReport.filter(data=>data['UserSessionAttemptReport']['SessionID']==userReport['SessionID'])
+												const rowID = usersAttemptReport.length == 0 ? null : usersAttemptReport.filter(data=>data['UserSessionAttemptReport']['SessionID']==userReport['SessionID'])
 												if((rowID!=null)&&(rowID.length>0))
 													userReport['ROWID'] = rowID[0]['UserSessionAttemptReport']['ROWID']
 												userReport['Attempt'] = attempt
@@ -185,7 +199,7 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession",query,zcql)
 												sessionTimeStamps = sessionTimeStamps.sort()
 												userReport['SessionStartTime'] = (new String(sessionTimeStamps[0])).slice(0,19)
 												const sessionTimeStampVersion = versions.filter(data=>{
-													/*console.log(new Date(data.Versions.StartDate), "|",
+													/*console.debug((new Date()).toString()+"|"+prependToLog,new Date(data.Versions.StartDate), "|",
 														new Date(sessionTimeStamps[0]), "|",
 														new Date(data.Versions.EndDate), " = ",
 														(((new Date(data.Versions.StartDate)) <= (new Date(sessionTimeStamps[0]))) && ((new Date(data.Versions.EndDate)) > (new Date(sessionTimeStamps[0]))))
@@ -203,7 +217,7 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession",query,zcql)
 														duration = 10
 													userReport['SessionDuration'] += duration
 												}
-												userReport['EndOfSession'] = sessionRecord.some(record=>record.Sessions.EndOfSession == true) ? "Yes":"No"
+												userReport['EndOfSession'] = (sessionRecord.some(record=>record.Sessions.EndOfSession == true)) || (userReport['IsActive']!=false) ? "Yes":"No"
 												const perfReport = sessionRecord.filter(record=>record.Sessions.PerformanceReportURL != null)
 												userReport['OptedForPerformanceReport'] = (typeof perfReport === 'undefined') ? "No" : perfReport==null ? "No" : perfReport.length==0 ? "No" : "Yes"
 												userReport['PerformanceReportURL'] = userReport['OptedForPerformanceReport']=="Yes" ? perfReport[0].Sessions.PerformanceReportURL: ""
@@ -263,56 +277,67 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession",query,zcql)
 								const updateData = report.filter(data=>typeof data['ROWID'] !== 'undefined')
 								const insertData = report.filter(data=>typeof data['ROWID'] === 'undefined')
 								let tableIndex = 0
+								console.info((new Date()).toString()+"|"+prependToLog,"Records to Update "+updateData.length);
 								while((updateData.length>0)&&(tableIndex<updateData.length)){
 									try{
 										await table.updateRows(updateData.slice(tableIndex,tableIndex+200))
+										console.info((new Date()).toString()+"|"+prependToLog,'Updated records from index =',tableIndex)
 									}
 									catch(e){
-										console.log('Could not update data from index =',tableIndex,"\nError",e)
-										console.log(updateData.slice(tableIndex,tableIndex+200))
+										console.error((new Date()).toString()+"|"+prependToLog,'Could not update data from index =',tableIndex,"\nError",e)
+										console.debug((new Date()).toString()+"|"+prependToLog,updateData.slice(tableIndex,tableIndex+200))
 									}
 									tableIndex = tableIndex+200
 								}
 								tableIndex = 0
+								console.info((new Date()).toString()+"|"+prependToLog,"Records to Insert "+insertData.length);
 								while((insertData.length>0)&&(tableIndex<insertData.length)){
 									try{
-										await table.insertRows(insertData.slice(tableIndex,tableIndex+200))
+										const updateResponse = await table.insertRows(insertData.slice(tableIndex,tableIndex+200))
+										console.info((new Date()).toString()+"|"+prependToLog,'Inserted records from index ='+tableIndex,". Response: ",updateResponse)
 									}
 									catch(e){
-										console.log('Could not update data from index =',tableIndex,"\nError",e)
-										console.log(insertData.slice(tableIndex,tableIndex+200))
+										console.error((new Date()).toString()+"|"+prependToLog,'Could not update data from index =',tableIndex,"\nError",e)
+										console.debug((new Date()).toString()+"|"+prependToLog,insertData.slice(tableIndex,tableIndex+200))
 									}
 									tableIndex = tableIndex+200
 								}
+								console.info((new Date()).toString()+"|"+prependToLog,"End of Execution");
 							})
 							.catch((err) => {
-								console.log(err);
+								console.info((new Date()).toString()+"|"+prependToLog,"End of Execution");
+								console.error((new Date()).toString()+"|"+prependToLog,err);
 							});
 						})
 						.catch((err) => {
-							console.log(err);
+							console.info((new Date()).toString()+"|"+prependToLog,"End of Execution");
+							console.error((new Date()).toString()+"|"+prependToLog,err);
 						});
 					})
 					.catch((err) => {
-						console.log(err);
+						console.info((new Date()).toString()+"|"+prependToLog,"End of Execution");
+						console.error((new Date()).toString()+"|"+prependToLog,err);
 					});	
 				}
 				else{
-					console.log("No Session Data")
+					console.log("End of Execution. No Session Data")
 				}
 			})
 			.catch((err) => {
-				console.log(err);
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution");
+				console.error((new Date()).toString()+"|"+prependToLog,err);
 			});
 		}
 		else{
-			console.log("No user found")
+			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. No user found")
 		}
 	})
 	.catch((err) => {
-		console.log(err);
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution");
+		console.error((new Date()).toString()+"|"+prependToLog,err);
 	});
 })
 .catch((err) => {
-	console.log(err);
+	console.info((new Date()).toString()+"|"+prependToLog,"End of Execution");
+	console.error((new Date()).toString()+"|"+prependToLog,err);
 });

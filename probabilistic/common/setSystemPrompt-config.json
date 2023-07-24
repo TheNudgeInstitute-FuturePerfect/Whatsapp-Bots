@@ -29,6 +29,11 @@
       "Name": "performance template",
       "Descriiption": "Public URL of the prformance template image",
       "Value": "https://storage.googleapis.com/nudgevoicebotbket/probabilisticbot/performance_template.jpg"
+    },
+    {
+      "Name":"progressbarat",
+      "description":"number of lines of chat after which msg needs to be sent",
+      "Value":"3"  
     }
   ]
 }

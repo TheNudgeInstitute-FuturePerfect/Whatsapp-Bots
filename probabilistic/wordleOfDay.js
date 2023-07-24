@@ -105,13 +105,20 @@ app.post("/userstatus", (req, res) => {
                 if(userWordleLevel==null){
                     console.info((new Date()).toString()+"|"+prependToLog,"Determining User's Wordle Level")   
                     const wordles = allWordleAttempts.map(data=>data.WordleAttempts.WordleROWID).filter(unique)
-                    console.debug((new Date()).toString()+"|"+prependToLog,"Wordles Attempted by User",wordles)
-                    if(wordles.length>2){   
-                        var totalCorrectWordles = 0
-                        for(var i = 0; i <2; i++){
-                            if(allWordleAttempts.some(data=>(wordles[i]==data.WordleAttempts.WordleROWID) && (data.WordleAttempts.IsCorrect==true)))
-                                totalCorrectWordles++
+                    var wordleStatus = wordles.map(wordle=>{
+                        const totalRecords = allWordleAttempts.filter(data=>(wordle==data.WordleAttempts.WordleROWID))
+                        return{
+                            "WordleROWID" : wordle,
+                            "IsCorrect" : (allWordleAttempts.some(data=>(wordle==data.WordleAttempts.WordleROWID) && (data.WordleAttempts.IsCorrect==true))),
+                            "TotalRecords":totalRecords.length
                         }
+                    })
+                    wordleStatus = wordleStatus.filter(data=>(data.IsCorrect == true)||((data.IsCorrect == false)&&(data.TotalRecords >= 5)))
+                    console.debug((new Date()).toString()+"|"+prependToLog,"Wordles Attempted by User",wordleStatus)
+                    if(wordleStatus.length>=2){
+                        
+                        const totalCorrectWordles = (wordleStatus.filter(data=>data.IsCorrect == true)).length
+
                         console.debug((new Date()).toString()+"|"+prependToLog,"Total Correct Wordles in 1st two = "+totalCorrectWordles)   
                         console.info((new Date()).toString()+"|"+prependToLog,"Updating User's Wordle Level")   
                         const updateData= {
@@ -124,7 +131,7 @@ app.post("/userstatus", (req, res) => {
                         userWordleLevel =  updateData['WordleLevel'] 
                     }
                     else{
-                        console.info((new Date()).toString()+"|"+prependToLog,"User yet to attempt three wordles")   
+                        console.info((new Date()).toString()+"|"+prependToLog,"User yet to attempt two wordles")   
                         userWordleLevel = 'A'
                     }
                 }      
@@ -170,13 +177,13 @@ app.post("/userstatus", (req, res) => {
                                 var noMatch = true
                                 for(var j=0; j<wordleofday[0]['WordleConfiguration']['Word'].length; j++){
                                     if(typeof wordleAttempts[i]['WordleAttempts']['Answer'][j]==='undefined')
-                                        hintText += '_'
+                                        hintText += ' _'
                                     else if(wordleofday[0]['WordleConfiguration']['Word'][j].toLowerCase()==wordleAttempts[i]['WordleAttempts']['Answer'][j].toLowerCase()){
                                         hintText += wordleofday[0]['WordleConfiguration']['Word'][j]
                                         noMatch = false
                                     }
                                     else
-                                        hintText += '_'
+                                        hintText += ' _'
                                 }
                                 if(noMatch==false){
                                     hints.push(""+(index)+". "+hintText)
@@ -269,26 +276,32 @@ app.post("/storeuserresponse", (req, res) => {
                 .then((wordleofday)=>{
                     console.debug((new Date()).toString()+"|"+prependToLog,"Query=",query)
                     if(wordleofday.length>0){
-                        const insertData = {
-                            UserROWID : user[0]['Users']['ROWID'],
-                            WordleROWID : requestBody['WordleROWID'],
-                            Answer : requestBody['Response'],
-                            IsCorrect : requestBody['Response'].toLowerCase()==wordleofday[0]['WordleConfiguration']['Word'].toLowerCase()
+                        if(wordleofday[0]['WordleConfiguration']['Word'].length!=requestBody['Response'].length){
+                            responseObject['OperationStatus'] = "WRD_LNGTH_ERR"
+                            responseObject['StatusDescription'] = "The word must be of "+wordleofday[0]['WordleConfiguration']['Word'].length+" characters only"
                         }
-                        let table = catalystApp.datastore().table('WordleAttempts')
-                        table.insertRow(insertData)
-                        .then(async (row)=>{
-                            if(typeof row['ROWID'] !== 'undefined'){
-                                responseObject['IsCorrectResponse'] = insertData['IsCorrect']  
+                        else{
+                            const insertData = {
+                                UserROWID : user[0]['Users']['ROWID'],
+                                WordleROWID : requestBody['WordleROWID'],
+                                Answer : requestBody['Response'],
+                                IsCorrect : requestBody['Response'].toLowerCase()==wordleofday[0]['WordleConfiguration']['Word'].toLowerCase()
                             }
-                            else{
-                                responseObject['OperationStatus'] = "APP_ERR"
-                                responseObject['StatusDescription'] = row
-                            }
-                            console.info((new Date()).toString()+"|"+prependToLog,"End of Execution")
-                            console.debug((new Date()).toString()+"|"+prependToLog,"End of Execution. Response:",responseObject)
-                            res.status(200).json(responseObject)
-                        })
+                            let table = catalystApp.datastore().table('WordleAttempts')
+                            table.insertRow(insertData)
+                            .then(async (row)=>{
+                                if(typeof row['ROWID'] !== 'undefined'){
+                                    responseObject['IsCorrectResponse'] = insertData['IsCorrect']  
+                                }
+                                else{
+                                    responseObject['OperationStatus'] = "APP_ERR"
+                                    responseObject['StatusDescription'] = row
+                                }
+                            })
+                        }
+                        console.info((new Date()).toString()+"|"+prependToLog,"End of Execution")
+                        console.debug((new Date()).toString()+"|"+prependToLog,"End of Execution. Response:",responseObject)
+                        res.status(200).json(responseObject)
                     }
                     else{
                         responseObject['OperationStatus'] = "NO_WRDL"
