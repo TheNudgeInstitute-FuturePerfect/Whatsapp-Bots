@@ -8,6 +8,7 @@ const catalyst = require("zoho-catalyst-sdk");
 // app.use(express.json());
 const app = express.Router();
 var bodyParser = require("body-parser");
+var prependToLog = null
 app.use(bodyParser.urlencoded({ extended: false }));
 
 const transcribeAudio = async (audioURL) => {
@@ -20,12 +21,12 @@ const transcribeAudio = async (audioURL) => {
     if (audioDetails.OperationStatus === "SUCCESS") {
       returnValue = [audioDetails.AudioTranscript, audioDetails.Confidence];
     } else {
-      //console.info("Encountered error in transcribing audio");
-      //console.debug(audioDetails);
+      console.info((new Date()).toString()+"|"+prependToLog,"Encountered error in transcribing audio");
+      console.debug((new Date()).toString()+"|"+prependToLog,audioDetails);
     }
   } catch (e) {
-    //console.info("Technical error in transcribing audio");
-    //console.error(e);
+    console.info((new Date()).toString()+"|"+prependToLog,"Technical error in transcribing audio");
+    console.error((new Date()).toString()+"|"+prependToLog,e);
   } finally {
     return returnValue;
   }
@@ -48,14 +49,14 @@ const saveContentInGCS = async (fileData, fileName, contentType) => {
 
     if (gcsFile.OperationStatus === "SUCCESS") {
       publicURL = gcsFile.PublicURL;
-      //console.info("Stored the file in GCS: " + publicURL);
+      console.info((new Date()).toString()+"|"+prependToLog,"Stored the file in GCS: " + publicURL);
     } else {
-      //console.info("Couldn't store the performance report file in GCS");
-      //console.debug(gcsFile);
+      console.info((new Date()).toString()+"|"+prependToLog,"Couldn't store the performance report file in GCS");
+      console.debug((new Date()).toString()+"|"+prependToLog,gcsFile);
     }
   } catch (e) {
-    //console.info("Technical error in storing file in Google Cloud Storage");
-    //console.error(e);
+    console.info((new Date()).toString()+"|"+prependToLog,"Technical error in storing file in Google Cloud Storage");
+    console.error((new Date()).toString()+"|"+prependToLog,e);
   } finally {
     return publicURL;
   }
@@ -64,16 +65,16 @@ const saveContentInGCS = async (fileData, fileName, contentType) => {
 const runQuery = async (query, zcql) => {
   let queryData = null;
   try {
-    //console.debug("Executing Query: " + query);
+    console.debug((new Date()).toString()+"|"+prependToLog,"Executing Query: " + query);
     const queryResult = await zcql.executeZCQLQuery(query);
     if (!queryResult || queryResult.length === 0) {
-      //console.info("No data returned from ZCQL Query");
+      console.info((new Date()).toString()+"|"+prependToLog,"No data returned from ZCQL Query");
     } else {
       queryData = queryResult;
     }
   } catch (e) {
-    //console.info("Technical error in executing ZCQL Query");
-    //console.error(e);
+    console.info((new Date()).toString()+"|"+prependToLog,"Technical error in executing ZCQL Query");
+    console.error((new Date()).toString()+"|"+prependToLog,e);
   } finally {
     return queryData;
   }
@@ -81,23 +82,33 @@ const runQuery = async (query, zcql) => {
 
 app.post("/chatgpt", async (request, response) => {
   const app = catalyst.initialize(request, { type: catalyst.type.applogic });
+
+  const executionID = Math.random().toString(36).slice(2)
+    
+  //Prepare text to prepend with logs
+  const params = ["glificChatGPTIntegrator",request.url,executionID,""]
+  prependToLog = params.join(" | ")
+  
+  console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+
+
   const zcql = app.zcql();
 
   const startTimeStamp = new Date();
 
   const requestBody = request.body;
-  //console.log("request body ......", requestBody);
-  //console.log(requestBody.sessionId);
+  console.debug((new Date()).toString()+"|"+prependToLog,"request body ......", requestBody);
+  console.info((new Date()).toString()+"|"+prependToLog,requestBody.sessionId);
   let mobile = parseInt(requestBody.mobile);
   if (mobile > 90999999999) {
     mobile = mobile - 910000000000;
   }
 
   const message = requestBody.message;
-  //console.info("Message: " + message);
+  console.info((new Date()).toString()+"|"+prependToLog,"Message: " + message);
 
   const messageType = requestBody.messageType;
-  //console.info("Message Type: " + messageType);
+  console.info((new Date()).toString()+"|"+prependToLog,"Message Type: " + messageType);
 
   let messageURL = null;
   let confidenceInterval = null;
@@ -108,22 +119,22 @@ app.post("/chatgpt", async (request, response) => {
     if (messageAudioDetails !== null) {
       message = messageAudioDetails[0];
       confidenceInterval = messageAudioDetails[1];
-      //console.debug(messageAudioDetails);
+      console.debug((new Date()).toString()+"|"+prependToLog,messageAudioDetails);
     } else {
-      //console.info("Encountered error in speech recognition");
+      console.info((new Date()).toString()+"|"+prependToLog,"Encountered error in speech recognition");
       response.status(500).json("Encountered error in speech recognition");
     }
   }
 
-  //console.info("Session ID in Request: " + requestBody.sessionId);
+  console.info((new Date()).toString()+"|"+prependToLog,"Session ID in Request: " + requestBody.sessionId);
   const requestSessionIDTokens = requestBody.sessionId.split(" - ");
   const sessionId = requestSessionIDTokens[0];
-  //console.info("Session ID: " + sessionId);
+  console.info((new Date()).toString()+"|"+prependToLog,"Session ID: " + sessionId);
   const sessionType =
     requestSessionIDTokens.length > 1
       ? requestSessionIDTokens[1]
       : "Normal Flow";
-  //console.info("Session Type: " + sessionType);
+  console.info((new Date()).toString()+"|"+prependToLog,"Session Type: " + sessionType);
 
   let systemPromptROWID = null;
   let systemPrompt = null;
@@ -143,14 +154,14 @@ app.post("/chatgpt", async (request, response) => {
 
   const systemPromptsResult = await runQuery(query, zcql);
   if (systemPromptsResult !== null) {
-    //console.log("systemPromptsResult", systemPromptsResult);
+    console.info((new Date()).toString()+"|"+prependToLog,"systemPromptsResult", systemPromptsResult);
     systemPromptROWID = systemPromptsResult[0].SystemPrompts.ROWID;
     systemPrompt = systemPromptsResult[0].SystemPrompts.Content;
   } else {
     response.status(500).json("Encountered error in executing query");
   }
 
-  //console.info("systemPromptROWID: " + systemPromptROWID);
+  console.info((new Date()).toString()+"|"+prependToLog,"systemPromptROWID: " + systemPromptROWID);
   let getConfigurationParam = require("./common/getConfigurationParam.js");
   const messagePrompt = JSON.parse(
     await getConfigurationParam({
@@ -163,6 +174,7 @@ app.post("/chatgpt", async (request, response) => {
         "terminationprompt",
         "responsetype",
         "performance template",
+        "progressbarat"
       ],
     })
   );
@@ -174,7 +186,7 @@ app.post("/chatgpt", async (request, response) => {
     inputType = requestBody.inputType;
   }
 
-  //console.log("messagePrompt", messagePrompt);
+  console.info((new Date()).toString()+"|"+prependToLog,"messagePrompt", messagePrompt);
   if (messagePrompt.OperationStatus == "SUCCESS") {
     if ("Values" in messagePrompt) {
       if (message.toLowerCase().trim() === messagePrompt.Values) {
@@ -182,18 +194,18 @@ app.post("/chatgpt", async (request, response) => {
         commandMsg = message;
         inputType = commandMsg;
         message = messagePrompt.Values[message.toLowerCase().trim()];
-        ////console.info("Message Prompt: " + message);
+        //console.info((new Date()).toString()+"|"+prependToLog,"Message Prompt: " + message);
       }
     }
   } else {
-    //console.info("Encountered error in getting configuration parameters");
-    //console.log("status .... ", messagePrompt);
+    console.info((new Date()).toString()+"|"+prependToLog,"Encountered error in getting configuration parameters");
+    console.info((new Date()).toString()+"|"+prependToLog,"status .... ", messagePrompt);
     response
       .status(500)
       .json("Encountered error in getting configuration parameters");
   }
   // ##############################################
-  //console.info("Input Type: " + inputType);
+  console.info((new Date()).toString()+"|"+prependToLog,"Input Type: " + inputType);
 
   // ##############################################
   // Initialize the sessions table. Insert the new user message
@@ -236,7 +248,6 @@ app.post("/chatgpt", async (request, response) => {
     }
   }*/
 
-  //console.info("Total session messages for user = " + maxRows);
   const sessionRecords = [];
 
   const maxlinesofchat = parseInt(messagePrompt["Values"]["maxlinesofchat"]);
@@ -273,7 +284,7 @@ app.post("/chatgpt", async (request, response) => {
     //" and SystemPromptsROWID =" + systemPromptROWID +
   }
 
-  //console.debug("Query: " + query);
+  console.debug((new Date()).toString()+"|"+prependToLog,"Query: " + query);
   const queryOutput = await zcql.executeZCQLQuery(query);
 
   const delimeterStartToken = process.env.DelimiterStartToken;
@@ -360,7 +371,7 @@ app.post("/chatgpt", async (request, response) => {
   }
 
   // Send request to ChatGPT
-  //console.info("Request sent to Chat GPT");
+  console.info((new Date()).toString()+"|"+prependToLog,"Request sent to Chat GPT");
   // openai.api_key = os.getenv("openAIKey")#"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"
   // chatGPTResponse = openai.ChatCompletion.create(
   // model=messagePrompt['Values']['model'],
@@ -399,7 +410,13 @@ app.post("/chatgpt", async (request, response) => {
   }, retryOptions);
   // Read ChatGPT's Response
   const reply = chatGPTResponse.data.choices[0].message.content;
-  console.info("Reply received from Chat GPT: " + reply);
+  console.info((new Date()).toString()+"|"+prependToLog,"Reply received from Chat GPT: " + reply);
+  let completionTokens = null
+  let promptTokens = null
+  if(typeof chatGPTResponse['usage'] !== 'undefined'){
+      completionTokens = (typeof chatGPTResponse['usage']['completion_tokens'] !== 'undefined') ? chatGPTResponse['usage']['completion_tokens'] : 0
+      promptTokens = (typeof chatGPTResponse['usage']['prompt_tokens'] !== 'undefined') ? chatGPTResponse['usage']['prompt_tokens'] : 0
+  }
 
   // Initialize Public URL of audio/image of response
   let publicURL = null;
@@ -417,7 +434,7 @@ app.post("/chatgpt", async (request, response) => {
     responseType = messageType;
   }
 
-  //console.info(responseType);
+  console.info((new Date()).toString()+"|"+prependToLog,responseType);
   // Convert reply to audio
 
   // If responseType configuration == Audio or Text+Audio, then create audio else not
@@ -434,8 +451,8 @@ app.post("/chatgpt", async (request, response) => {
     if (audioDetails.OperationStatus === "SUCCESS") {
       publicURL = audioDetails.URL;
     } else {
-      //console.info("Encountered error in creating audio of ChatGPT reply");
-      //console.error(audioDetails);
+      console.info((new Date()).toString()+"|"+prependToLog,"Encountered error in creating audio of ChatGPT reply");
+      console.error((new Date()).toString()+"|"+prependToLog,audioDetails);
       responseType = "Text"; // Send only text response
     }
   }
@@ -444,7 +461,7 @@ app.post("/chatgpt", async (request, response) => {
   let sentenceFeedbackImprovement = null;
 
   if (sessionType === "SentenceFeedback") {
-    //console.log("reply", reply);
+    console.info((new Date()).toString()+"|"+prependToLog,"reply", reply);
     const replyTokens = reply.split(/\r?\n/).filter(Boolean);
     sentenceFeedbackClassification =
       replyTokens[0]
@@ -472,6 +489,8 @@ app.post("/chatgpt", async (request, response) => {
       Classification: sentenceFeedbackClassification,
       Improvement: sentenceFeedbackImprovement,
       SentenceLevelFeedback: encodeURIComponent(reply),
+      SLFCompletionTokens:completionTokens,
+      SLFPromptTokens:promptTokens
     });
   } else {
     if (sessionId === "Onboarding") {
@@ -484,10 +503,12 @@ app.post("/chatgpt", async (request, response) => {
       ReplyAudioURL: publicURL,
       Classification: sentenceFeedbackClassification,
       Improvement: sentenceFeedbackImprovement,
+      CompletionTokens:completionTokens,
+      PromptTokens:promptTokens
     });
   }
 
-  //console.info("Updated the Session Record");
+  console.info((new Date()).toString()+"|"+prependToLog,"Updated the Session Record");
 
   if (operationStatus === "END_OF_CNVRSSN") {
     const query =
@@ -499,28 +520,35 @@ app.post("/chatgpt", async (request, response) => {
       sessionId +
       "'";
     await zcql.executeZCQLQuery(query);
-    //console.info("Marked the session inactive");
+    console.info((new Date()).toString()+"|"+prependToLog,"Marked the session inactive");
   }
 
   // Prepare response JSON
-  //console.log("storedSessionRecord.....", storedSessionRecord);
-  //console.log("updatedSessionRecord ----", updatedSessionRecord);
+  console.info((new Date()).toString()+"|"+prependToLog,"storedSessionRecord.....", storedSessionRecord);
+  console.info((new Date()).toString()+"|"+prependToLog,"updatedSessionRecord ----", updatedSessionRecord);
   let replyText = decodeURIComponent(updatedSessionRecord["Reply"]);
   if (commandMsg === "objective prompt") {
     replyText = "Please wait while we prepare your performance report";
     operationStatus = "OBJ_PRMPT";
   }
 
+  let progressMessageLinesOfChat = null 
+  if(typeof messagePrompt["Values"]["progressbarat"] !== 'undefined')
+    if(messagePrompt["Values"]["progressbarat"]!=null)  
+      progressMessageLinesOfChat = messagePrompt["Values"]["progressbarat"].split(",")
+
   const responseJSON = {
-    OperationStatus: operationStatus == 'SUCCESS' ? (totalUserMessages == process.env.ProgressMessageLinesOfChat ? 'MID_OF_CNVRSSN' : operationStatus) : operationStatus,
+    OperationStatus: operationStatus == 'SUCCESS' ? (progressMessageLinesOfChat == null ? operationStatus : (progressMessageLinesOfChat.includes(totalUserMessages.toString()) ? 'MID_OF_CNVRSSN' : operationStatus)) : operationStatus,
     Reply: replyText,
     ReponseType: responseType,
     AudioURL: publicURL,
     SessionROWID: storedSessionRecord.ROWID,
+    LinesOfChatConsumed: totalUserMessages,
+    LinesOfChatPending: maxlinesofchat - 1 - totalUserMessages
   };
 
   // Send Response
-  //console.info("Sent Response");
+  console.info((new Date()).toString()+"|"+prependToLog,"Sent Response");
 
   // Call Glific Wait for Result Node
   const endTimeStamp = new Date();
@@ -557,7 +585,7 @@ app.post("/chatgpt", async (request, response) => {
         MessageAudioURL: messageAudioPublicURL,
       });
     } else {
-      //console.info("Encountered error in saving message audio in GCS");
+      console.info((new Date()).toString()+"|"+prependToLog,"Encountered error in saving message audio in GCS");
     }
   }
 
@@ -573,7 +601,7 @@ app.post("/chatgpt", async (request, response) => {
       inputType: "SystemMessage",
     };
     delete newRequestBody.topicId;
-    //console.log("newRequestBody .... ", newRequestBody);
+    console.info((new Date()).toString()+"|"+prependToLog,"newRequestBody .... ", newRequestBody);
     const axios = require("axios");
 
     const requestResponce = await axios.post(
@@ -585,14 +613,14 @@ app.post("/chatgpt", async (request, response) => {
       }
     );
 
-    //console.info("Request sent for sentence level feedback");
+    console.info((new Date()).toString()+"|"+prependToLog,"Request sent for sentence level feedback");
   }
 
-  // console.info("End of Execution", responseJSON);
+  // console.info((new Date()).toString()+"|"+prependToLog,"End of Execution", responseJSON);
 });
 
 app.all("/", (req, res) => {
-  //console.log("hello");
+  console.info((new Date()).toString()+"|"+prependToLog,"hello");
   res.status(200).send("hello");
 });
 

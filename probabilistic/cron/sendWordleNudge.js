@@ -1,7 +1,5 @@
 const catalyst = require("zoho-catalyst-sdk");
 
-const catalyst = require("zoho-catalyst-sdk");
-
 /*let cronParams = cronDetails.getCronParam("name");
 if(typeof cronParams === 'undefined'){
     cronParams = 'DefaultName';
