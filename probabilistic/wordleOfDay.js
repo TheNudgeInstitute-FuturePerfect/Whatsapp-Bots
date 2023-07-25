@@ -285,7 +285,8 @@ app.post("/storeuserresponse", (req, res) => {
                                 UserROWID : user[0]['Users']['ROWID'],
                                 WordleROWID : requestBody['WordleROWID'],
                                 Answer : requestBody['Response'],
-                                IsCorrect : requestBody['Response'].toLowerCase()==wordleofday[0]['WordleConfiguration']['Word'].toLowerCase()
+                                IsCorrect : requestBody['Response'].toLowerCase()==wordleofday[0]['WordleConfiguration']['Word'].toLowerCase(),
+                                Source : requestBody['WordleSource'].startsWith("@result") ? "Wordle Reminder" : requestBody['WordleSource']
                             }
                             let table = catalystApp.datastore().table('WordleAttempts')
                             table.insertRow(insertData)
