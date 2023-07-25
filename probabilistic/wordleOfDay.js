@@ -194,7 +194,7 @@ app.post("/userstatus", (req, res) => {
                             responseObject['IsStart'] = hints.length == 0
                             responseObject['FirstLetter'] = wordleofday[0]['WordleConfiguration']['Word'][0]
                             for(var k=1; k<wordleofday[0]['WordleConfiguration']['Word'].length; k++)
-                                responseObject['FirstLetter'] += "_"
+                                responseObject['FirstLetter'] += " _"
                         }
                         console.info((new Date()).toString()+"|"+prependToLog,"End of Execution")
                         console.debug((new Date()).toString()+"|"+prependToLog,"End of Execution. Response:",responseObject)
