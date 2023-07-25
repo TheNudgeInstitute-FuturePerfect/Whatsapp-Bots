@@ -1883,7 +1883,7 @@ app.get("/wordleattempts", (req, res) => {
 		if(wordleAttempts.length>0){
 			const mobiles = wordleAttempts.map(data=>data.Users.Mobile).filter(unique)
 			query = "Select {} from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID where Sessions.Mobile in ("+mobiles.join(",")+")"
-			getAllRows("Sessions.SessionID, Sessions.CREATEDTIME, SystemPrompts.Name, SystemPrompts.Persona",query,zcql,dataLimit)
+			getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, SystemPrompts.Name, SystemPrompts.Persona",query,zcql,dataLimit)
 			.then((sessions)=>{
 				const wordleROWIDs = wordleAttempts.map(data=>data.WordleConfiguration.ROWID).filter(unique)
 				query = "Select {} from SessionEvents where SessionID in ('"+wordleROWIDs.join("','")+"') and Mobile in ("+mobiles.join(",")+")"
@@ -1926,8 +1926,8 @@ app.get("/wordleattempts", (req, res) => {
 							var endTimeStamp = new Date(sessionStartedTimeStamp.getFullYear(),sessionStartedTimeStamp.getMonth(),sessionStartedTimeStamp.getDate(),20,45)
 							const sessionData = sessions.filter(session=>(session.Sessions.Mobile==userReport['Mobile'])
 															&&(session.Sessions.CREATEDTIME >= userReport['SessionStartedTime'])
-															&&(session.Sessions.CREATEDTIME < endTimeStamp))
-												.map(session=>session.SystemPrompts.Topic +"-"+session.SystemPrompts.Persona +"-"+ session.Sessions.SessionID)
+															&&((new Date(session.Sessions.CREATEDTIME)) < endTimeStamp))
+												.map(session=>session.SystemPrompts.Name +"-"+session.SystemPrompts.Persona +"-"+ session.Sessions.SessionID)
 												.filter(unique)
 							userReport['NextTopicAttemptedBeforeReminder'] = sessionData.length > 0 ? sessionData.join(",") :  null
 

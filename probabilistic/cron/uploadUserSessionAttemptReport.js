@@ -27,7 +27,14 @@ const getAllRows = (fields,query,zcql,dataLimit) => {
 			query = dataQuery+" LIMIT "+i+", "+lmt
 			console.debug((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+300-1)+
 						'\nQuery: '+query)
-			const queryResult = await zcql.executeZCQLQuery(query)
+			var queryResult = []
+			try{
+				queryResult = await zcql.executeZCQLQuery(query)
+			}
+			catch(err){
+				console.debug((new Date()).toString()+"|"+prependToLog,'Error in Fetching records from '+i+" to "+(i+300-1),err)
+			}
+
 			if((queryResult.length == 0)||(typeof queryResult[0] === 'undefined')){
 				if((queryResult.length > 0)&&(typeof queryResult[0] === 'undefined'))
 					console.error((new Date()).toString()+"|"+prependToLog,"Encountered error in executing query:",queryResult)
