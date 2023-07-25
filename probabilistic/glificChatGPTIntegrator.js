@@ -413,9 +413,9 @@ app.post("/chatgpt", async (request, response) => {
   console.info((new Date()).toString()+"|"+prependToLog,"Reply received from Chat GPT: " + reply);
   let completionTokens = null
   let promptTokens = null
-  if(typeof chatGPTResponse['usage'] !== 'undefined'){
-      completionTokens = (typeof chatGPTResponse['usage']['completion_tokens'] !== 'undefined') ? chatGPTResponse['usage']['completion_tokens'] : 0
-      promptTokens = (typeof chatGPTResponse['usage']['prompt_tokens'] !== 'undefined') ? chatGPTResponse['usage']['prompt_tokens'] : 0
+  if(typeof chatGPTResponse['data']['usage'] !== 'undefined'){
+      completionTokens = (typeof chatGPTResponse['data']['usage']['completion_tokens'] !== 'undefined') ? chatGPTResponse['data']['usage']['completion_tokens'] : 0
+      promptTokens = (typeof chatGPTResponse['data']['usage']['prompt_tokens'] !== 'undefined') ? chatGPTResponse['data']['usage']['prompt_tokens'] : 0
   }
 
   // Initialize Public URL of audio/image of response

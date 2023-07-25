@@ -547,7 +547,7 @@ app.get("/usertopicattemptreport", (req, res) => {
 
 	let query = "select {} from UserSessionAttemptReport "+
 				"where UserSessionAttemptReport.SessionStartTime >='"+startDate+" 00:00:00' and UserSessionAttemptReport.SessionStartTime <= '"+endDate+" 23:59:59' "
-	getAllRows("Mobile, SessionID, Topic, Persona, Attempt, SessionStartTime, SessionEndTime, TotalWords, EndOfSession, OptedForPerformanceReport,PerformanceReportURL, SessionComplete, OptedForGPTFeedback, GPTRating, GPTFeedback, GPTFeedbackURL, FlowRating, Feedback, FeedbackURL, AttemptVersion, SessionDuration, CompletionTokens, PromptTokens, SLFCompletionTokens, SLFPromptTokens, ProgressBarMsgSent",query,zcql,dataLimit)
+	getAllRows("*",query,zcql,dataLimit)
 	.then((reportData)=>{
 		const report = reportData.map(data=>{
 			return {

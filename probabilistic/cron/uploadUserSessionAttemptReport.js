@@ -60,17 +60,16 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession",query,zcql)
 			query = "Select {} "+
 					"from Sessions "+
 					"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
-					"where ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) "+ //and SessionID not in ('"+closedSessions.join("','")+"') "+
-					"order by Sessions.CREATEDTIME desc"
+					"where ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null))"+ //and SessionID not in ('"+closedSessions.join("','")+"') "+
+					"order by Sessions.CREATEDTIME ASC"
 			getAllRows("Sessions.IsActive, Sessions.PerformanceReportURL, Sessions.EndOfSession, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.ROWID, SystemPrompts.Name, SystemPrompts.Persona, Sessions.Message, Sessions.MessageType, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens",query,zcql)
 			.then((allSessions)=>{
 				const sessions = allSessions.filter(data=>!(data.Sessions.SessionID.endsWith(' - Translation')||data.Sessions.SessionID.endsWith(' - Hints')||data.Sessions.SessionID.endsWith(' - ObjectiveFeedback')))
 				if(sessions.length>0){
 					const sessionIDs = sessions.map(session=>session.Sessions.SessionID).filter(unique)
-					query = "Select {} "+
-							"from SessionFeedback "+
+					query = "Select {} from SessionFeedback"
 							//"where SessionID in ('"+sessionIDs.join("','")+"') "+
-							"order by SessionFeedback.CREATEDTIME desc"
+							//"order by SessionFeedback.CREATEDTIME ASC"
 					getAllRows("SessionID, Rating, Feedback, FeedbackType, FeedbackURL, GPTRating, GPTFeedback, GPTFeedbackType, GPTFeedbackURL",query,zcql)
 					.then((allfeedbacks)=>{
 						const feedbacks = allfeedbacks.filter(data=>sessionIDs.includes(data.SessionFeedback.SessionID))
@@ -146,20 +145,19 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession",query,zcql)
 										report.push(userReport)
 									}
 									else{
-										const totalUserSessions = userSessions.map(data=>data.Sessions.SessionID)
-										const uniqueUserSessions = totalUserSessions.filter(unique)
-										var attempt = uniqueUserSessions.length
-										const totalCompletedUserSessions = (userSessions.filter(data=>data.Sessions.IsActive==false)).map(data=>data.Sessions.SessionID)
-										const uniqueCompletedUserSessions = totalCompletedUserSessions.filter(unique)
-										var attemptCompleted = uniqueCompletedUserSessions.length
+										//const totalUserSessions = userSessions.map(data=>data.Sessions.SessionID)
+										//const uniqueUserSessions = totalUserSessions.filter(unique)
+										//var attempt = 0 //uniqueUserSessions.length
+										//const totalCompletedUserSessions = (userSessions.filter(data=>data.Sessions.IsActive==false)).map(data=>data.Sessions.SessionID)
+										//const uniqueCompletedUserSessions = totalCompletedUserSessions.filter(unique)
+										//var attemptCompleted = 0 //uniqueCompletedUserSessions.length
 										
 										for(var j=0; j<uniqueTopics.length;j++)
 										{
 											const topicSessionsData = userSessions.filter(data=>(data.SystemPrompts.Name+"-"+data.SystemPrompts.ROWID)==uniqueTopics[j])
 											const topicSessions = topicSessionsData.map(data=>data.Sessions.SessionID)
 											const uniqueTopicSessions = topicSessions.filter(unique)
-											
-											
+																						
 											for(var k=0; k<uniqueTopicSessions.length; k++)
 											{
 												var userReport = {}
@@ -171,18 +169,17 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession",query,zcql)
 												const rowID = usersAttemptReport.length == 0 ? null : usersAttemptReport.filter(data=>data['UserSessionAttemptReport']['SessionID']==userReport['SessionID'])
 												if((rowID!=null)&&(rowID.length>0))
 													userReport['ROWID'] = rowID[0]['UserSessionAttemptReport']['ROWID']
-												userReport['Attempt'] = attempt
-												attempt--
+												//userReport['Attempt'] = ++attempt
+												//attempt++ //--
 												
 												const sessionRecord = userSessionsWC.filter(record=>record.Sessions.SessionID == userReport['SessionID'])
 												userReport['IsActive'] = sessionRecord.some(record=>record.Sessions.IsActive == true)
-												if(userReport['IsActive']==false){
-													userReport['Completed'] = attemptCompleted
-													attemptCompleted--
-												}
-												else
-												userReport['Completed'] = 0
-
+												//if(userReport['IsActive']==false){
+												//	userReport['Completed'] = ++attemptCompleted
+													//attemptCompleted++ //--
+												//}
+												//else
+												//userReport['Completed'] = 0
 
 												const sessionWCs = sessionRecord.map(record=>record.Sessions.TotalWords)
 												userReport['TotalWords'] = (sessionWCs.reduce((a,b)=>a+b,0))
@@ -244,7 +241,7 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession",query,zcql)
 
 												}
 												//Add Progress Bar Message Sent for Sessions created on and after version 5.0
-												userReport['ProgressBarMsgSent'] = userReport['AttemptVersion'] < 5 ? null:events.some(data=>data.SessionEvents.SessionID == userReport['SessionID']) ? "Yes" : "No"
+												userReport['ProgressBarMsgSent'] = userReport['SessionEndTime'] < '2023-07-18 18:00:00' ? null:events.some(data=>data.SessionEvents.SessionID == userReport['SessionID']) ? "Yes" : "No"
 												userReport['ActiveDays'] = sessionTimeStamps.map(data=>data.slice(0,10)).filter(data=>data != users[i]['UsersReport']["OnboardingDate"].slice(0,10)).filter(unique).length
 												
 												report.push(userReport)
@@ -255,24 +252,33 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession",query,zcql)
 								//var uniqueUserSessionsTopics = [...new Map(userSessionsTopics.map(item => [item.SessionID, item])).values()]
 								report = report.filter(data=>data.SessionID != '')
 								report = report.sort((a, b)=>{
-									if((a['Topic'] == b['Topic']) && (a.SessionStartTime < b.SessionStartTime)) {
+									if((a['Mobile'] == b['Mobile']) && (a.SessionStartTime < b.SessionStartTime)) {
 										return -1;
 									}
-									if((a['Topic'] == b['Topic']) && (a.SessionStartTime > b.SessionStartTime)) {
+									if((a['Mobile'] == b['Mobile']) && (a.SessionStartTime > b.SessionStartTime)) {
 										return 1;
 									}
-									if((a['Topic'] == b['Topic'])) {
+									if((a['Mobile'] == b['Mobile'])) {
 										return 0;
 									}
-									if((a['Topic'] < b['Topic'])) {
+									if((a['Mobile'] < b['Mobile'])) {
 										return -1;
 									}
-									if((a['Topic'] > b['Topic'])) {
+									if((a['Mobile'] > b['Mobile'])) {
 										return 1;
 									}
 									// a must be equal to b
 									return 0;
 								})
+								var attempted = 0, completed = 0
+								for(var m = 0; m < report.length; m++){
+									if((m>0)&&(report[m-1]['Mobile']!=report[m]['Mobile'])){
+										attempted = 0, 
+										completed = 0
+									}
+									report[m]['Attempt'] = ++attempted
+									report[m]['Completed'] = (report[m]['IsActive']==false) ? ++completed : 0
+								}
 								let table = catalystApp.datastore().table("UserSessionAttemptReport")
 								const updateData = report.filter(data=>typeof data['ROWID'] !== 'undefined')
 								const insertData = report.filter(data=>typeof data['ROWID'] === 'undefined')
