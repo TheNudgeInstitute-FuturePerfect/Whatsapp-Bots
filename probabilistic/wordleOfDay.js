@@ -194,7 +194,7 @@ app.post("/userstatus", (req, res) => {
                             responseObject['IsStart'] = hints.length == 0
                             responseObject['FirstLetter'] = wordleofday[0]['WordleConfiguration']['Word'][0]
                             for(var k=1; k<wordleofday[0]['WordleConfiguration']['Word'].length; k++)
-                                responseObject['FirstLetter'] += "_"
+                                responseObject['FirstLetter'] += " _"
                         }
                         console.info((new Date()).toString()+"|"+prependToLog,"End of Execution")
                         console.debug((new Date()).toString()+"|"+prependToLog,"End of Execution. Response:",responseObject)
@@ -285,7 +285,8 @@ app.post("/storeuserresponse", (req, res) => {
                                 UserROWID : user[0]['Users']['ROWID'],
                                 WordleROWID : requestBody['WordleROWID'],
                                 Answer : requestBody['Response'],
-                                IsCorrect : requestBody['Response'].toLowerCase()==wordleofday[0]['WordleConfiguration']['Word'].toLowerCase()
+                                IsCorrect : requestBody['Response'].toLowerCase()==wordleofday[0]['WordleConfiguration']['Word'].toLowerCase(),
+                                Source : requestBody['WordleSource'].startsWith("@result") ? "Wordle Reminder" : requestBody['WordleSource']
                             }
                             let table = catalystApp.datastore().table('WordleAttempts')
                             table.insertRow(insertData)
