@@ -400,6 +400,12 @@ app.post("/chatgpt", async (request, response) => {
   // Read ChatGPT's Response
   const reply = chatGPTResponse.data.choices[0].message.content;
   console.info("Reply received from Chat GPT: " + reply);
+  let completionTokens = null
+  let promptTokens = null
+  if(typeof chatGPTResponse['data']['usage'] !== 'undefined'){
+    completionTokens = (typeof chatGPTResponse['data']['usage']['completion_tokens'] !== 'undefined') ? chatGPTResponse['data']['usage']['completion_tokens'] : 0
+    promptTokens = (typeof chatGPTResponse['data']['usage']['prompt_tokens'] !== 'undefined') ? chatGPTResponse['data']['usage']['prompt_tokens'] : 0
+  }
 
   // Initialize Public URL of audio/image of response
   let publicURL = null;
@@ -472,6 +478,8 @@ app.post("/chatgpt", async (request, response) => {
       Classification: sentenceFeedbackClassification,
       Improvement: sentenceFeedbackImprovement,
       SentenceLevelFeedback: encodeURIComponent(reply),
+      SLFCompletionTokens:completionTokens,
+      SLFPromptTokens:promptTokens
     });
   } else {
     if (sessionId === "Onboarding") {
@@ -484,6 +492,8 @@ app.post("/chatgpt", async (request, response) => {
       ReplyAudioURL: publicURL,
       Classification: sentenceFeedbackClassification,
       Improvement: sentenceFeedbackImprovement,
+      CompletionTokens:completionTokens,
+      PromptTokens:promptTokens
     });
   }
 
