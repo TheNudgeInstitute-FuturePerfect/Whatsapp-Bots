@@ -146,6 +146,37 @@ app.post("/pendingpractices", (req, res) => {
                   ("0" + deadline.getDate()).slice(-2);
                 //basicIO.write(daysSinceRegistration);
                 //
+                const userSessions = sessions.filter(
+                  (data) =>
+                    !(
+                      data.Sessions.SessionID.endsWith("Hint") ||
+                      data.Sessions.SessionID.endsWith("Translation") ||
+                      data.Sessions.SessionID.endsWith("ObjectiveFeedback") ||
+                      data.Sessions.SessionID.startsWith("Onboarding") ||
+                      data.Sessions.SessionID.endsWith("Onboarding") ||
+                      data.Sessions.SessionID.startsWith("onboarding") ||
+                      data.Sessions.SessionID.endsWith("onboarding")
+                    )
+                );
+                const sessionsAfterResurrection =
+                  resurrected == false
+                    ? userSessions
+                    : userSessions.filter(
+                        (data) => data.Sessions.CREATEDTIME > resurrectionDate
+                      );
+                const postResurrectionDates = sessionsAfterResurrection.map(
+                  (data) => data.Sessions.CREATEDTIME.toString().slice(0, 10)
+                );
+                uniqueDates = postResurrectionDates.filter(unique);
+                uniqueDates = uniqueDates.sort();
+                responseObject["CompletedPracticeCount"] = uniqueDates.length;
+                responseObject["CompletedPracticePeriod"] =
+                  daysSinceRegistration;
+                responseObject["PendingPracticeCount"] =
+                  process.env.MinDays - uniqueDates.length;
+                responseObject["PendingPracticeDays"] =
+                  process.env.Period - daysSinceRegistration;
+                
                 if (daysSinceRegistration >= process.env.Period) {
                   responseObject["OperationStatus"] = "SSN_ABV_PERIOD";
                   responseObject["StatusDescription"] =
@@ -153,33 +184,7 @@ app.post("/pendingpractices", (req, res) => {
                   console.log("End of Execution: ", responseObject);
                   res.status(200).json(responseObject);
                 } else {
-                  const userSessions = sessions.filter(
-                    (data) =>
-                      !(
-                        data.Sessions.SessionID.endsWith("Hint") ||
-                        data.Sessions.SessionID.endsWith("Translation") ||
-                        data.Sessions.SessionID.endsWith("ObjectiveFeedback") ||
-                        data.Sessions.SessionID.startsWith("Onboarding") ||
-                        data.Sessions.SessionID.endsWith("Onboarding") ||
-                        data.Sessions.SessionID.startsWith("onboarding") ||
-                        data.Sessions.SessionID.endsWith("onboarding")
-                      )
-                  );
-                  const sessionsAfterResurrection =
-                    resurrected == false
-                      ? userSessions
-                      : userSessions.filter(
-                          (data) => data.Sessions.CREATEDTIME > resurrectionDate
-                        );
-                  const postResurrectionDates = sessionsAfterResurrection.map(
-                    (data) => data.Sessions.CREATEDTIME.toString().slice(0, 10)
-                  );
-                  uniqueDates = postResurrectionDates.filter(unique);
-                  uniqueDates = uniqueDates.sort();
-                  responseObject["CompletedPracticeCount"] = uniqueDates.length;
-                  responseObject["CompletedPracticePeriod"] =
-                    daysSinceRegistration;
-
+                  
                   if (uniqueDates.length >= process.env.MinDays) {
                     responseObject["OperationStatus"] = "MIN_SSN_RCHD";
                     responseObject["StatusDescription"] =
@@ -192,10 +197,6 @@ app.post("/pendingpractices", (req, res) => {
                     );
                     res.status(200).json(responseObject);
                   } else {
-                    responseObject["PendingPracticeCount"] =
-                      process.env.MinDays - uniqueDates.length;
-                    responseObject["PendingPracticeDays"] =
-                      process.env.Period - daysSinceRegistration;
                     console.log("End of Execution: ", responseObject);
                     res.status(200).json(responseObject);
                   }

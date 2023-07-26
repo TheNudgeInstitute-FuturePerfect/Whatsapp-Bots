@@ -20,6 +20,9 @@ const storeFeedback = require("./storeFeedback.js");
 const closeLatestSession = require("./closeLatestSession.js");
 const getTopics = require("./getTopics.js");
 const getLatestSession = require("./getLatestSession.js");
+const getUserSessionCounts = require("./getUserSessionCount.js");
+const wordle = require("./WordleCRUD.js");
+const wordleOfDay = require("./wordleOfDay.js");
 
 // Basic I/O const
 const addUserData = require("./common/addUserData.js");
@@ -61,6 +64,9 @@ app.use("/storeFeedback",storeFeedback);
 app.use("/closeLatestSession",closeLatestSession);
 app.use("/getTopics",getTopics);
 app.use("/getLatestSession",getLatestSession);
+app.use("/getUserSessionCounts",getUserSessionCounts)
+app.use("/wordle",wordle)
+app.use("/wordleofday",wordleOfDay)
 
 // Basic I/O  routes
 app.use("/addUserData",addUserData);

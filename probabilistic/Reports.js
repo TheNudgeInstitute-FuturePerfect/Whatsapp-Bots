@@ -26,8 +26,11 @@ const getAllRows = (fields,query,zcql,dataLimit) => {
 						'\nQuery: '+query)
 			const queryResult = await zcql.executeZCQLQuery(query)
 			console.log(queryResult.length)
-			if(queryResult.length == 0)
+			if((queryResult.length == 0)||(!Array.isArray(queryResult))){
+				if(!Array.isArray(queryResult))
+					console.log("Error in query - ",queryResult)
 				break;
+			}
 			jsonReport = jsonReport.concat(queryResult)					
 			i=i+300
 		}
@@ -1848,6 +1851,148 @@ app.get("/sessionabandoned", (req, res) => {
 	});
 });
 
+app.get("/wordleattempts", (req, res) => {
+
+    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+
+	const executionID = Math.random().toString(36).slice(2)
+    
+    //Prepare text to prepend with logs
+    const params = ["Reports",req.url,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+
+	let zcql = catalystApp.zcql()
+
+	const startDate = req.query.startDate ? req.query.startDate : '1970-01-01'
+	var today = new Date()
+	today.setHours(today.getHours()+5)
+	today.setMinutes(today.getMinutes()+30)
+	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
+	const dataLimit = req.query.limit ? req.query.limit : null
+
+	let query = "Select {} "+
+					"from WordleAttempts "+
+					"left join Users on WordleAttempts.UserROWID = Users.ROWID "+
+					"left join WordleConfiguration on WordleAttempts.WordleROWID = WordleConfiguration.ROWID "+
+					"where WordleAttempts.CREATEDTIME >='"+startDate+" 00:00:00' and WordleAttempts.CREATEDTIME <= '"+endDate+" 23:59:59' "+
+					"order by WordleAttempts.UserROWID, WordleAttempts.CREATEDTIME asc"
+	getAllRows("WordleConfiguration.ROWID, WordleConfiguration.MaxAttempts, WordleConfiguration.Word, WordleConfiguration.RecommendedTopic, Users.Mobile, WordleAttempts.ROWID, WordleAttempts.CREATEDTIME, WordleAttempts.IsCorrect, WordleAttempts.Answer, WordleAttempts.Source",query,zcql,dataLimit)
+	.then((wordleAttempts)=>{
+		if(wordleAttempts.length>0){
+			const mobiles = wordleAttempts.map(data=>data.Users.Mobile).filter(unique)
+			query = "Select {} from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID where Sessions.Mobile in ("+mobiles.join(",")+")"
+			getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, SystemPrompts.Name, SystemPrompts.Persona",query,zcql,dataLimit)
+			.then((sessions)=>{
+				const wordleROWIDs = wordleAttempts.map(data=>data.WordleConfiguration.ROWID).filter(unique)
+				query = "Select {} from SessionEvents where SessionID in ('"+wordleROWIDs.join("','")+"') and Mobile in ("+mobiles.join(",")+")"
+				getAllRows("Mobile, SessionID, CREATEDTIME, Event",query,zcql,dataLimit)
+				.then((events)=>{
+					var report = []
+					//For each mobile which played Wordle
+					for(var i = 0; i<mobiles.length; i++){
+						const mobile = mobiles[i]
+						//Get the list of wordles played
+						const wordlesPlayed = wordleAttempts.filter(data=>data.Users.Mobile == mobile).map(data=>data.WordleConfiguration.ROWID).filter(unique)
+						//For each wordle played
+						for(var j=0; j<wordlesPlayed.length; j++){
+							var userReport = {
+								Mobile: mobile
+							}	
+							const wordlePlayed = wordlesPlayed[j]
+							//Get the wordle attempt data
+							const wordleAttemptData = wordleAttempts.filter(data=>(data.WordleConfiguration.ROWID==wordlePlayed)&&(data.Users.Mobile == userReport['Mobile']))
+							//Get the wordle attempt timestamps
+							const wordleAttemptTimeStamps = wordleAttemptData.map(data=>data.WordleAttempts.CREATEDTIME).filter(unique).sort()
+							userReport['SessionStartedTime'] = wordleAttemptTimeStamps[0]
+							userReport['SessionEndTime'] = wordleAttemptTimeStamps[wordleAttemptTimeStamps.length-1]
+							//Get the total attempts
+							userReport['NumberOfGuesses'] = wordleAttemptData.length
+							//If wordle has been answered correctly or max attempts has been reached
+							userReport['CompletedWordle'] = (wordleAttemptData.some(data=>data.WordleAttempts.IsCorrect == true)) || (parseInt(userReport['NumberOfGuesses'])==parseInt(wordleAttemptData[0]['WordleConfiguration']['MaxAttempts'])) ? "Yes" : "No"
+							userReport['GuessedCorrect'] = wordleAttemptData.some(data=>data.WordleAttempts.IsCorrect == true) ? "Yes" : "No"
+							userReport['Guessedwords'] = wordleAttemptData.map(data=>data.WordleAttempts.Answer).join(",")
+							userReport['WordOfDay'] = wordleAttemptData[0]['WordleConfiguration']['Word']
+							userReport['RecommendedTopic'] = wordleAttemptData[0]['WordleConfiguration']['RecommendedTopic']
+							const wordleSource = wordleAttemptData.map(data=>data.WordleAttempts.Source).filter(unique).filter(data=>data!=null)
+							userReport['WordleSource'] = wordleSource.length > 0 ? wordleSource.join(","):null
+							
+							var sessionStartedTimeStamp = new Date(userReport['SessionStartedTime'])
+							const sessionStartedTime = ('0'+sessionStartedTimeStamp.getHours()).slice(-2)+":"+('0'+sessionStartedTimeStamp.getMinutes()).slice(-2)
+							if(sessionStartedTime>=process.env.WordleStartTime){
+								sessionStartedTimeStamp.setDate(sessionStartedTimeStamp.getDate()+1)
+							}
+							var endTimeStamp = new Date(sessionStartedTimeStamp.getFullYear(),sessionStartedTimeStamp.getMonth(),sessionStartedTimeStamp.getDate(),20,45)
+							const sessionData = sessions.filter(session=>(session.Sessions.Mobile==userReport['Mobile'])
+															&&(session.Sessions.CREATEDTIME >= userReport['SessionStartedTime'])
+															&&((new Date(session.Sessions.CREATEDTIME)) < endTimeStamp))
+												.map(session=>session.SystemPrompts.Name +"-"+session.SystemPrompts.Persona +"-"+ session.Sessions.SessionID)
+												.filter(unique)
+							userReport['NextTopicAttemptedBeforeReminder'] = sessionData.length > 0 ? sessionData.join(",") :  null
+
+							const wordleAttemptEvents = events.filter(data=>(data.SessionEvents.Mobile == userReport['Mobile'])&&
+																			(data.SessionEvents.SessionID == wordleAttemptData[0]['WordleConfiguration']['ROWID']) &&
+																			((data.SessionEvents.Event == 'How to Play')||(data.SessionEvents.Event.startsWith('Start Wordle')))
+																	).map(data=>data.SessionEvents.Event).filter(unique).filter(data=>data!=null)
+							
+							userReport['ButtonClick'] = wordleAttemptEvents.length > 0 ? wordleAttemptEvents.join(",") : null
+
+							report.push(userReport)
+						}
+					}
+					report = report.sort((a, b)=>{
+						if((a['Mobile'] == b['Mobile']) && (a.SessionStartTime < b.SessionStartTime)) {
+							return -1;
+						}
+						if((a['Mobile'] == b['Mobile']) && (a.SessionStartTime > b.SessionStartTime)) {
+							return 1;
+						}
+						if((a['Mobile'] == b['Mobile'])) {
+							return 0;
+						}
+						if((a['Mobile'] < b['Mobile'])) {
+							return -1;
+						}
+						if((a['Mobile'] > b['Mobile'])) {
+							return 1;
+						}
+						// a must be equal to b
+						return 0;
+					})
+					var attempted = 0
+					for(var m = 0; m < report.length; m++){
+						if((m>0)&&(report[m-1]['Mobile']!=report[m]['Mobile'])){
+							attempted = 0
+						}
+						report[m]['Attempt'] = ++attempted
+					}
+					console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Report Length = ",report.length)
+					res.status(200).json(report)
+				})
+				.catch((err) => {
+					console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+					console.error((new Date()).toString()+"|"+prependToLog,err);
+					res.status(500).send(err);
+				});
+			})
+			.catch((err) => {
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+				console.error((new Date()).toString()+"|"+prependToLog,err);
+				res.status(500).send(err);
+			});
+		}
+		else{
+			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. No Wordle Attempt found")
+			res.status(200).json([])
+		}
+	})
+	.catch((err) => {
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+		console.error((new Date()).toString()+"|"+prependToLog,err);
+		res.status(500).send(err);
+	});
+});
 
 app.all("/", (req,res) => {
 
