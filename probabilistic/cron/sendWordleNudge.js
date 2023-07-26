@@ -23,6 +23,7 @@ currentDate.setHours(currentDate.getHours()+5)
 currentDate.setMinutes(currentDate.getMinutes()+30)
 console.info((new Date()).toString()+"|"+prependToLog,"Current TimeStamp = ",currentDate)
 const currentHour = ("0"+currentDate.getHours()).slice(-2) + ":00"
+const currentDt = currentDate.getFullYear()+"-"+("0"+(currentDate.getMonth()+1)).slice(-2)+"-"+("0"+currentDate.getDate()).slice(-2)
 
 const getAllRows = (fields) => {
     return new Promise(async (resolve) => {
@@ -52,7 +53,7 @@ const getAllRows = (fields) => {
     });
 };
 let query = "Select {} from Users"
-getAllRows("Mobile, GlificID")
+getAllRows("Mobile, GlificID, Tags")
 .then((users) =>{
     //If there is no record,
     if(users == null){
@@ -245,6 +246,12 @@ getAllRows("Mobile, GlificID")
                     const sessionDate = new Date(record.Sessions.CREATEDTIME.toString().slice(0,10))
                     const minutesElapsed = Math.floor((currentDate - sessionDate)/1000/60)
                     const daysElapsed = Math.floor((currentDate - sessionDate)/1000/60/60/24)
+                    var sendTo24thCohort = false
+                    if(currentDt=='2023-07-26'){
+                        const tags = (users.filter(data=>data.Users.Mobile == record.Sessions.Mobile))[0]['Users']['Tags']
+                        if(["Cohort-1, 2023-07-24","Cohort-1, 2023-07-25","Cohort-2, 2023-07-24"].includes(tags))
+                            sendTo24thCohort = true
+                    }                    
                     if(minutesElapsed < 10){
                         try{
                             eventData['Event'] = "Wordle Nudge Not Sent (User Active within 10 min)"
@@ -255,7 +262,7 @@ getAllRows("Mobile, GlificID")
                             console.error((new Date()).toString()+"|"+prependToLog,i+": Could not update event table for "+ record.Sessions.Mobile)
                         }
                     }
-                    else if(daysElapsed > 4){
+                    else if((daysElapsed > 4)&&(sendTo24thCohort==false)){
                         try{
                             eventData['Event'] = "Wordle Nudge Not Sent (User Inactive for more than 4 days)"
                             eventData['Mobile'] = record.Sessions.Mobile
