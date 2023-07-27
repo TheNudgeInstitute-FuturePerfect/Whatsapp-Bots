@@ -21,10 +21,10 @@ let zcql = catalystApp.zcql();
 
 //Get the current time
 let currentDate = new Date()
-currentDate.setHours(currentDate.getHours()+5)
-currentDate.setMinutes(currentDate.getMinutes()+30)
-console.info((new Date()).toString()+"|"+prependToLog,"Current TimeStamp = ",currentDate)
+//currentDate.setHours(currentDate.getHours()+5)
+//currentDate.setMinutes(currentDate.getMinutes()+30)
 const currentHour = ("0"+currentDate.getHours()).slice(-2) + ":00"
+console.info((new Date()).toString()+"|"+prependToLog,"Current TimeStamp = ",currentDate," | Current Hour = ",currentHour)
 
 let query = "select {} from Users where NudgeTime = '"+currentHour+"'"
 if(currentHour==process.env.DefaultNudgeHour)
@@ -243,7 +243,10 @@ zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"))
 											if(elementErrors != null) 
 											{
 												console.error((new Date()).toString()+"|"+prependToLog,'Error returned by Glific API '+JSON.stringify(apiResponse))
-												reject("GLFC_API_ERR")
+												if(JSON.stringify(apiResponse).includes('Not able to fetch the template') || JSON.stringify(apiResponse).includes("Resource not found"))
+													reject("GLFC_REQ_ERR")
+												else
+													reject("GLFC_API_ERR")
 											}
 											else
 											{
@@ -370,11 +373,11 @@ zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"))
 								}
 								catch(err){
 									if(err.toString().includes("TOO_MANY_REQUEST")){
-										await timer(Math.max(500,(i*1000)/users.length))
+										await timer(Math.random()*60000)
 										console.info((new Date()).toString()+"|"+prependToLog,i+":Retrying Nudge for "+ record.Users.Mobile);
 									}
 									else if(["GLFC_AUTH_API_ERR","GLFC_AUTH_ERR","GLFC_API_ERR"].includes(err)){
-										await timer(Math.max(500,(i*1000)/users.length))
+										await timer(Math.random()*10000)
 										console.info((new Date()).toString()+"|"+prependToLog,i+":Retrying Nudge for "+ record.Users.Mobile);
 									}
 									else{
