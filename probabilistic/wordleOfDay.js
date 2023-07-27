@@ -276,7 +276,8 @@ app.post("/storeuserresponse", (req, res) => {
                 .then((wordleofday)=>{
                     console.debug((new Date()).toString()+"|"+prependToLog,"Query=",query)
                     if(wordleofday.length>0){
-                        if(wordleofday[0]['WordleConfiguration']['Word'].length!=requestBody['Response'].length){
+                        //------27/07/2023:rbhushan@dhwaniris.com : Skipped world length check on CR from sahana.madlapur
+                        if(1==0){//wordleofday[0]['WordleConfiguration']['Word'].length!=requestBody['Response'].length){
                             responseObject['OperationStatus'] = "WRD_LNGTH_ERR"
                             responseObject['StatusDescription'] = "The word must be of "+wordleofday[0]['WordleConfiguration']['Word'].length+" characters only"
                         }
