@@ -1336,7 +1336,7 @@ app.get("/sessionevents", (req, res) => {
 						Persona : decodeURIComponent(data.SystemPrompts.Persona),
 						SessionID : data.SessionEvents.SessionID,
 						Event : data.SessionEvents.Event,
-						EventTimestamp : data.SessionEvents.CREATEDTIME.toString()
+						EventTimestamp : data.SessionEvents.CREATEDTIME.toString().slice(0,19)
 					}
 				})
 				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Report Length = ",report.length)
@@ -1937,6 +1937,7 @@ app.get("/wordleattempts", (req, res) => {
 																	).map(data=>data.SessionEvents.Event).filter(unique).filter(data=>data!=null)
 							
 							userReport['ButtonClick'] = wordleAttemptEvents.length > 0 ? wordleAttemptEvents.join(",") : null
+							userReport['WordleID'] = wordleAttemptData[0]['WordleAttempts']['ROWID']
 
 							report.push(userReport)
 						}
