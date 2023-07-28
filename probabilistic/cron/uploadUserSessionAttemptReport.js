@@ -15,6 +15,12 @@ console.info(new Date().toString() + "|" + prependToLog, "Start of Execution");
 const unique = (value, index, self) => {
   return self.indexOf(value) === index;
 };
+const timer = (sleepTime) => {
+  return new Promise(async (resolve, reject) => {
+    //console.debug((new Date()).toString()+"|"+prependToLog,'Wait for '+sleepTime)
+    setTimeout(resolve, sleepTime);
+  });
+};
 
 const getAllRows = (fields, query, zcql, dataLimit) => {
   return new Promise(async (resolve) => {
@@ -104,14 +110,14 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
             "Select {} " +
             "from Sessions " +
             "left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID " +
-            "where ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null))" + //and SessionID not in ('"+closedSessions.join("','")+"') "+
+            "where ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) " + //and SessionID not in ('"+closedSessions.join("','")+"') "+
             "order by Sessions.CREATEDTIME ASC";
           getAllRows(
             "Sessions.IsActive, Sessions.PerformanceReportURL, Sessions.EndOfSession, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.ROWID, SystemPrompts.Name, SystemPrompts.Persona, Sessions.Message, Sessions.MessageType, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens",
             query,
             zcql
           )
-            .then((allSessions) => {
+            .then(async (allSessions) => {
               const sessions = allSessions.filter(
                 (data) =>
                   !(
@@ -124,6 +130,7 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                 const sessionIDs = sessions
                   .map((session) => session.Sessions.SessionID)
                   .filter(unique);
+                await timer(2000);
                 query = "Select {} from SessionFeedback";
                 //"where SessionID in ('"+sessionIDs.join("','")+"') "+
                 //"order by SessionFeedback.CREATEDTIME ASC"
@@ -273,6 +280,10 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                       uniqueTopics[j] == null
                                         ? ""
                                         : uniqueTopics[j].split("-")[0];
+                                    userReport["Topic"] =
+                                      userReport["Topic"] == null
+                                        ? ""
+                                        : userReport["Topic"];
                                     userReport["Persona"] =
                                       topicSessionsData[0].SystemPrompts.Persona;
                                     userReport["SessionID"] =
@@ -600,7 +611,11 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                             }
                             //var uniqueUserSessionsTopics = [...new Map(userSessionsTopics.map(item => [item.SessionID, item])).values()]
                             report = report.filter(
-                              (data) => data.SessionID != ""
+                              (data) =>
+                                data.SessionID != "" &&
+                                data.Topic != "" &&
+                                data.Topic != null &&
+                                data.Topic != "null"
                             );
                             report = report.sort((a, b) => {
                               if (
@@ -656,19 +671,30 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                               new Date().toString() + "|" + prependToLog,
                               "Records to Update " + updateData.length
                             );
+                            var breakAt = 10;
                             while (
                               updateData.length > 0 &&
                               tableIndex < updateData.length
                             ) {
                               try {
-                                await table.updateRows(
-                                  updateData.slice(tableIndex, tableIndex + 200)
+                                const updated = await table.updateRows(
+                                  updateData.slice(tableIndex, tableIndex + 50)
                                 );
-                                console.info(
-                                  new Date().toString() + "|" + prependToLog,
-                                  "Updated records from index =",
-                                  tableIndex
-                                );
+                                if (!Array.isArray(updated))
+                                  console.info(
+                                    new Date().toString() + "|" + prependToLog,
+                                    "Status of Update records from index =",
+                                    tableIndex,
+                                    " : ",
+                                    updated
+                                  );
+                                else
+                                  console.info(
+                                    new Date().toString() + "|" + prependToLog,
+                                    "Updated records from index =",
+                                    tableIndex
+                                  );
+                                tableIndex = tableIndex + 50;
                               } catch (e) {
                                 console.error(
                                   new Date().toString() + "|" + prependToLog,
@@ -681,10 +707,12 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                   new Date().toString() + "|" + prependToLog,
                                   updateData.slice(tableIndex, tableIndex + 200)
                                 );
+                                if (breakAt == 0) tableIndex = tableIndex + 50;
+                                else breakAt--;
                               }
-                              tableIndex = tableIndex + 200;
                             }
                             tableIndex = 0;
+                            breakAt = 10;
                             console.info(
                               new Date().toString() + "|" + prependToLog,
                               "Records to Insert " + insertData.length
@@ -694,15 +722,28 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                               tableIndex < insertData.length
                             ) {
                               try {
-                                const updateResponse = await table.insertRows(
-                                  insertData.slice(tableIndex, tableIndex + 200)
+                                //const inserted = await table.insertRows(
+                                //insertData.slice(tableIndex, tableIndex + 50)
+                                //);
+                                const inserted = await table.insertRow(
+                                  insertData[tableIndex]
                                 );
-                                console.info(
-                                  new Date().toString() + "|" + prependToLog,
-                                  "Inserted records from index =" + tableIndex,
-                                  ". Response: ",
-                                  updateResponse
-                                );
+
+                                if (!Array.isArray(inserted))
+                                  console.info(
+                                    new Date().toString() + "|" + prependToLog,
+                                    "Status of Insert records from index =",
+                                    tableIndex,
+                                    " : ",
+                                    inserted
+                                  );
+                                else
+                                  console.info(
+                                    new Date().toString() + "|" + prependToLog,
+                                    "Inserted records from index =",
+                                    tableIndex
+                                  );
+                                tableIndex++; //tableIndex = tableIndex + 50;
                               } catch (e) {
                                 console.error(
                                   new Date().toString() + "|" + prependToLog,
@@ -715,8 +756,10 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                   new Date().toString() + "|" + prependToLog,
                                   insertData.slice(tableIndex, tableIndex + 200)
                                 );
+                                if (breakAt == 0)
+                                  tableIndex++; // = tableIndex+50
+                                else breakAt--;
                               }
-                              tableIndex = tableIndex + 200;
                             }
                             console.info(
                               new Date().toString() + "|" + prependToLog,
