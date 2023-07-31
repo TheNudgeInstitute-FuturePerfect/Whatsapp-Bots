@@ -15,6 +15,15 @@ module.exports = async (basicIO) => {
 
 	const catalystApp = catalyst.initialize();
 
+	const executionID = Math.random().toString(36).slice(2)
+
+	//Prepare text to prepend with logs
+	const params = ["Get Configuration Param List",executionID,""]
+	const prependToLog = params.join(" | ")
+		
+	console.info((new Date()).toString()+"|"+prependToLog,"Execution Started")
+
+
 	var result = {
 		OperationStatus : "SUCCESS"
 	}
@@ -38,12 +47,13 @@ module.exports = async (basicIO) => {
 			result['OperationStatus']="NO_CFG_PARAM"
 			result['Values'] = null
 		}
-		console.log("Execution Completed: ",result);
+		console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result);
 		return JSON.stringify(result);
 	} catch(error){
         result['OperationStatus']="ZCQL_ERR"
 		result['ErrorDescription']="Error in execution of search query"
-		console.log("Execution Completed: ",result,"\nError:",error,"\nQuery:",searchQuery);
+		console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed with error: ",result)
+		console.error((new Date()).toString()+"|"+prependToLog,"Error Encountered:",error,"\nQuery:",searchQuery);
 		return JSON.stringify(result);
 	}
 }

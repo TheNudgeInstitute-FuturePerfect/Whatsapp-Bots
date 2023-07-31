@@ -15,6 +15,12 @@ console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
 const unique = (value, index, self) => {
 	return self.indexOf(value) === index
 }
+const timer = (sleepTime) => {
+	return new Promise( async (resolve,reject) => {
+		//console.debug((new Date()).toString()+"|"+prependToLog,'Wait for '+sleepTime)
+		setTimeout(resolve, sleepTime)
+	});
+}					
 				
 const getAllRows = (fields,query,zcql,dataLimit) => {
 	return new Promise(async (resolve) => {			
@@ -225,30 +231,49 @@ getAllRows("ROWID, Mobile",query,zcql)
 					const updateData = report.filter(data=>typeof data['ROWID'] !== 'undefined')
 					const insertData = report.filter(data=>typeof data['ROWID'] === 'undefined')
 					let tableIndex = 0
+					let breakAt = 10
 					console.info((new Date()).toString()+"|"+prependToLog,"Records to Update "+updateData.length);
 					while((updateData.length>0)&&(tableIndex<updateData.length)){
 						try{
-							await table.updateRows(updateData.slice(tableIndex,tableIndex+200))
-							console.info((new Date()).toString()+"|"+prependToLog,'Updated records from index =',tableIndex)
+							const updated = await table.updateRows(updateData.slice(tableIndex,tableIndex+50))
+							if(!Array.isArray(updated))
+								console.info((new Date()).toString()+"|"+prependToLog,'Status of Update records from index =',tableIndex," : ",updated)
+							else
+								console.info((new Date()).toString()+"|"+prependToLog,'Updated records from index =',tableIndex)
+							tableIndex = tableIndex+50
 						}
 						catch(e){
 							console.error((new Date()).toString()+"|"+prependToLog,'Could not update data from index =',tableIndex,"\nError",e)
 							console.debug((new Date()).toString()+"|"+prependToLog,updateData.slice(tableIndex,tableIndex+200))
+							if(breakAt==0)
+								tableIndex = tableIndex+50
+							else
+								breakAt--
 						}
-						tableIndex = tableIndex+200
+						
 					}
 					tableIndex = 0
+					breakAt = 10
 					console.info((new Date()).toString()+"|"+prependToLog,"Records to Insert "+insertData.length);
 					while((insertData.length>0)&&(tableIndex<insertData.length)){
 						try{
-							await table.insertRows(insertData.slice(tableIndex,tableIndex+200))
-							console.info((new Date()).toString()+"|"+prependToLog,'Inserted records from index =',tableIndex)
+							//const inserted = await table.insertRows(insertData.slice(tableIndex,tableIndex+50))
+							const inserted = await table.insertRow(insertData[tableIndex])
+							if(!Array.isArray(inserted))
+								console.info((new Date()).toString()+"|"+prependToLog,'Status of Insert records from index =',tableIndex," : ",inserted)
+							else
+								console.info((new Date()).toString()+"|"+prependToLog,'Inserted records from index =',tableIndex)
+							tableIndex++ // = tableIndex+50
 						}
 						catch(e){
 							console.error((new Date()).toString()+"|"+prependToLog,'Could not insert data from index =',tableIndex,"\nError",e)
 							console.debug((new Date()).toString()+"|"+prependToLog,insertData.slice(tableIndex,tableIndex+200))
+							if(breakAt==0)
+								tableIndex++ // = tableIndex+50
+							else
+								breakAt--
 						}
-						tableIndex = tableIndex+200
+						
 					}
 					
 					console.info((new Date()).toString()+"|"+prependToLog,"End of Execution");
