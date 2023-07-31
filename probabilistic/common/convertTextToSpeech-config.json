@@ -1,0 +1,33 @@
+{
+    "gTTSConfig":{
+        "options":{"keyFilename":"./probabilistic/fluted-karma-340707-166017125675.json"},
+        "projectId":"fluted-karma-340707",
+        "ssmlGender":"FEMALE",
+        "audioConfig":{
+            "audioEncoding":"MP3",
+            "sampleRateHertz": 48000,
+            "speakingRate": 0.90
+        },
+        "fileExtension":"mp3",
+        "defaultFiles":{
+            "nospellerr":"https://storage.googleapis.com/nudgevoicebotbket/NoSpellOrGrmrErr.mp3",
+            "nogrammarerr":"https://storage.googleapis.com/nudgevoicebotbket/NoGrmrErr.mp3",
+            "nospellorgrammarerr":"https://storage.googleapis.com/nudgevoicebotbket/NoSpellOrGrmrErr.mp3"
+        }
+    },
+    "gcsConfig":{
+        "fileExtension":"mp3",
+        "options":{"keyFilename":"./probabilistic/fluted-karma-340707-166017125675.json"},
+        "projectId":"fluted-karma-340707",
+        "fileOptions":{ 
+						"metadata": {
+							"contentType": "audio/mp3",
+							"metadata": {
+							    "source": "Google Text-to-Speech"
+							}
+						}
+					},
+        "bucket":"nudgevoicebotbket",
+        "publicURLPath":"https://storage.googleapis.com/{{bucket}}/{{filename}}"
+    }
+}
