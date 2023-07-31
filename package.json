@@ -25,6 +25,6 @@
     "openai": "^3.3.0",
     "request": "^2.88.2",
     "word-exists": "^1.0.0",
-    "zoho-catalyst-sdk": "^1.0.3"
+    "zoho-catalyst-sdk": "^1.0.4"
   }
 }
