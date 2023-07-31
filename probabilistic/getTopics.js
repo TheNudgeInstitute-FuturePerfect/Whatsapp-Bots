@@ -96,7 +96,7 @@ app.post("/allocatetopic", (req, res) => {
 
   //Get the SystemPrompt details for the topics
   let query =
-    "select distinct SystemPrompts.ROWID, SystemPrompts.Sequence, SystemPrompts.SupportingText, SystemPrompts.SupportingImageURL, SystemPrompts.SupportingAVURL, SystemPrompts.ObjectiveMessage from SystemPrompts where SystemPrompts.Name = '" +
+    "select distinct SystemPrompts.ROWID, SystemPrompts.Sequence, SystemPrompts.SupportingText, SystemPrompts.SupportingImageURL, SystemPrompts.SupportingAVURL, SystemPrompts.ObjectiveMessage, SystemPrompts.IsPaid, SystemPrompts.ShowLearningContent from SystemPrompts where SystemPrompts.Name = '" +
     topic +
     "' and SystemPrompts.IsActive = true";
   if (persona != null)
@@ -112,151 +112,218 @@ app.post("/allocatetopic", (req, res) => {
         console.log("End of execution:", responseObject);
         res.status(200).json(responseObject);
       } else {
-        if (persona != null) {
-          //Prepare the data to be returned
-          responseObject["TopicID"] =
-            systemPrompts[0]["SystemPrompts"]["ROWID"];
-          responseObject["SupportingText"] =
-            systemPrompts[0]["SystemPrompts"]["SupportingText"];
-          responseObject["SupportingTextFlag"] =
-            responseObject["SupportingText"] != null;
-          responseObject["SupportingImageURL"] =
-            systemPrompts[0]["SystemPrompts"]["SupportingImageURL"];
-          responseObject["SupportingImageURLFlag"] =
-            responseObject["SupportingImageURL"] != null;
-          responseObject["SupportingAVURL"] =
-            systemPrompts[0]["SystemPrompts"]["SupportingAVURL"];
-          responseObject["SupportingAVURLFlag"] =
-            responseObject["SupportingAVURL"] != null;
-          responseObject["SupportingFlag"] =
-            responseObject["SupportingTextFlag"] ||
-            responseObject["SupportingImageURLFlag"] ||
-            responseObject["SupportingAVURLFlag"];
-          responseObject["ObjectiveMessage"] =
-            systemPrompts[0]["SystemPrompts"]["ObjectiveMessage"];
-          responseObject["ObjectiveMessageFlag"] =
-            responseObject["ObjectiveMessage"] != null;
 
-          console.log("End of execution:", responseObject);
-          res.status(200).json(responseObject);
-        } else {
-          //Prepare an object array of systemPrompt counts
-          var sessionCounts = systemPrompts.map((record) => {
-            return {
-              id: record["SystemPrompts"]["ROWID"],
-              sequence: record["SystemPrompts"]["Sequence"],
-              count: 0,
-            };
-          });
-
-          //Sort the array in ascending order of sequence
-          sessionCounts = sessionCounts.sort((i, j) => {
-            if (i.sequence < j.sequence) return -1;
-            else if (i.sequence > j.sequence) return 1;
-            else return 0;
-          });
-
-          //Prepare a list of SystemPrompt ROWIDs
-          const systemPromptROWIDs = systemPrompts.map(
-            (record) => record.SystemPrompts.ROWID
-          );
-
-          //Get the list of all prompts of the that has been practised by user
-          query =
-            "select DISTINCT Sessions.SessionID, Sessions.SystemPromptsROWID " +
-            "from Sessions " +
-            "where Sessions.Mobile = " +
-            mobile +
-            " and SystemPromptsROWID in (" +
-            systemPromptROWIDs.join(",") +
-            ") " +
-            "order by CREATEDTIME desc";
-          zcql
-            .executeZCQLQuery(query)
-            .then((sessions) => {
-              var index = 0;
-
-              //If there is no session data for the given topic, return the active prompt with lowest sequence number
-              if (!(sessions != null && sessions.length > 0)) {
-                index = 0; //Return the data of 1st elemet of sessionCount array which is sorted in ascending order of sequence
-              } else {
-                //Calculate the session count for each SystemPrompt for the user
-                for (var i = 0; i < sessions.length; i++) {
-                  for (var j = 0; j < sessionCounts.length; i++) {
-                    if (
-                      sessionCounts[j]["id"] ==
-                      sessions[i]["Sessions"]["SystemPromptsROWID"]
-                    ) {
-                      sessionCounts[j]["count"] = sessionCounts[j]["count"] + 1;
-                      break;
-                    }
+        const checkLockStatusForUser = (isPaid, mobile, systemPromptROWID) => {
+          return new Promise((resolve, reject)=>{
+            if(isPaid!=true){
+              console.info("Topic selected is free")
+              resolve("Unlocked")
+            }
+            else{
+              console.info("Topic selected is paid. Checking status for the user")
+              let query = "Select ROWID from UserPaidTopicMapper "
+                          +"left join Users on Users.ROWID = UserPaidTopicMapper.UserROWID "
+                          +"where IsActive = true and Users.Mobile="+mobile+" and UserPaidTopicMapper.SystemPromptROWID="+systemPromptROWID
+              console.debug("Checking status of Topic for the user:",query)
+              zcql.executeZCQLQuery(query)
+              .then((unlockedCourses)=>{
+                if(!Array.isArray(unlockedCourses)&&(unlockedCourses.length>0)){
+                  console.log("Error in query for getting unlock status")
+                  reject(unlockedCourses)
+                }
+                else{
+                  if(unlockedCourses.length==0){
+                    console.info("User has not unlocked the topic")
+                    resolve("Locked")
+                  }
+                  else{
+                    console.info("User has unlocked the topic")
+                    resolve("Unlocked")
                   }
                 }
 
-                //Get the index of prompt to be displayed
-                for (var i = 0; i < sessionCounts.length; i++) {
-                  if (i == 0) continue;
-                  if (
-                    sessionCounts[i]["sequence"] >
-                    sessionCounts[i - 1]["sequence"]
-                  ) {
-                    //If number of sessions completed for current prompt is less than that of last one, return this prompt
-                    if (
-                      sessionCounts[i]["count"] < sessionCounts[i - 1]["count"]
-                    ) {
-                      index = i;
-                      break;
-                    }
-                    //If number of sessions completed for current prompt is more than that of last one, return last prompt
-                    else if (
-                      sessionCounts[i]["count"] > sessionCounts[i - 1]["count"]
-                    ) {
-                      index = i - 1;
-                      break;
-                    }
-                    //Else probe next prompt data object
-                  }
-                }
-              }
-              index = index % sessionCounts.length;
+              })
+              .catch((error)=>{
+                console.log("Error in query for getting unlock status")
+                reject(error)
+              })
 
+            }
+          })
+
+        }
+
+        checkLockStatusForUser(systemPrompts[0]["SystemPrompts"]["IsPaid"],mobile,systemPrompts[0]["SystemPrompts"]["ROWID"])
+        .then((lockStatus)=>{
+          if(lockStatus!='Unlocked'){
+            responseObject["OperationStatus"] = "TPC_LOCKED";
+            responseObject["StatusDescription"] = "User has not unlocked the topic"
+            responseObject["TopicID"] = systemPrompts[0]["SystemPrompts"]["ROWID"];
+            console.log("End of execution:", responseObject);
+            res.status(200).json(responseObject);
+          }
+          else{
+            if (persona != null) {
               //Prepare the data to be returned
-              responseObject["TopicID"] = sessionCounts[index]["id"];
-              const systemPrompt = systemPrompts.filter(
-                (data) => data.SystemPrompts.ROWID == responseObject["TopicID"]
-              );
+              responseObject["TopicID"] =
+                systemPrompts[0]["SystemPrompts"]["ROWID"];
               responseObject["SupportingText"] =
-                systemPrompt[0]["SystemPrompts"]["SupportingText"];
+                systemPrompts[0]["SystemPrompts"]["SupportingText"];
               responseObject["SupportingTextFlag"] =
                 responseObject["SupportingText"] != null;
               responseObject["SupportingImageURL"] =
-                systemPrompt[0]["SystemPrompts"]["SupportingImageURL"];
+                systemPrompts[0]["SystemPrompts"]["SupportingImageURL"];
               responseObject["SupportingImageURLFlag"] =
                 responseObject["SupportingImageURL"] != null;
               responseObject["SupportingAVURL"] =
-                systemPrompt[0]["SystemPrompts"]["SupportingAVURL"];
+                systemPrompts[0]["SystemPrompts"]["SupportingAVURL"];
               responseObject["SupportingAVURLFlag"] =
                 responseObject["SupportingAVURL"] != null;
-              responseObject["SupportingFlag"] =
+              responseObject["SupportingFlag"] = 
                 responseObject["SupportingTextFlag"] ||
                 responseObject["SupportingImageURLFlag"] ||
                 responseObject["SupportingAVURLFlag"];
+              responseObject["ObjectiveMessage"] =
+                systemPrompts[0]["SystemPrompts"]["ObjectiveMessage"];
+              responseObject["ObjectiveMessageFlag"] =
+                responseObject["ObjectiveMessage"] != null;
+              responseObject["ShowLearningContent"] = systemPrompts[0]["SystemPrompts"]["ShowLearningContent"] == true
 
               console.log("End of execution:", responseObject);
               res.status(200).json(responseObject);
-            })
-            .catch((err) => {
-              responseObject["OperationStatus"] = "ZCQL_ERR";
-              responseObject["StatusDescription"] = "Application Error";
-              console.log(
-                "End of execution due to error:",
-                responseObject,
-                "\nError:",
-                err
+            } 
+            else {
+              //Prepare an object array of systemPrompt counts
+              var sessionCounts = systemPrompts.map((record) => {
+                return {
+                  id: record["SystemPrompts"]["ROWID"],
+                  sequence: record["SystemPrompts"]["Sequence"],
+                  count: 0,
+                };
+              });
+
+              //Sort the array in ascending order of sequence
+              sessionCounts = sessionCounts.sort((i, j) => {
+                if (i.sequence < j.sequence) return -1;
+                else if (i.sequence > j.sequence) return 1;
+                else return 0;
+              });
+
+              //Prepare a list of SystemPrompt ROWIDs
+              const systemPromptROWIDs = systemPrompts.map(
+                (record) => record.SystemPrompts.ROWID
               );
-              res.status(200).json(responseObject);
-            });
-        }
+
+              //Get the list of all prompts of the that has been practised by user
+              query =
+                "select DISTINCT Sessions.SessionID, Sessions.SystemPromptsROWID " +
+                "from Sessions " +
+                "where Sessions.Mobile = " +
+                mobile +
+                " and SystemPromptsROWID in (" +
+                systemPromptROWIDs.join(",") +
+                ") " +
+                "order by CREATEDTIME desc";
+              zcql
+                .executeZCQLQuery(query)
+                .then((sessions) => {
+                  var index = 0;
+
+                  //If there is no session data for the given topic, return the active prompt with lowest sequence number
+                  if (!(sessions != null && sessions.length > 0)) {
+                    index = 0; //Return the data of 1st elemet of sessionCount array which is sorted in ascending order of sequence
+                  } else {
+                    //Calculate the session count for each SystemPrompt for the user
+                    for (var i = 0; i < sessions.length; i++) {
+                      for (var j = 0; j < sessionCounts.length; i++) {
+                        if (
+                          sessionCounts[j]["id"] ==
+                          sessions[i]["Sessions"]["SystemPromptsROWID"]
+                        ) {
+                          sessionCounts[j]["count"] = sessionCounts[j]["count"] + 1;
+                          break;
+                        }
+                      }
+                    }
+
+                    //Get the index of prompt to be displayed
+                    for (var i = 0; i < sessionCounts.length; i++) {
+                      if (i == 0) continue;
+                      if (
+                        sessionCounts[i]["sequence"] >
+                        sessionCounts[i - 1]["sequence"]
+                      ) {
+                        //If number of sessions completed for current prompt is less than that of last one, return this prompt
+                        if (
+                          sessionCounts[i]["count"] < sessionCounts[i - 1]["count"]
+                        ) {
+                          index = i;
+                          break;
+                        }
+                        //If number of sessions completed for current prompt is more than that of last one, return last prompt
+                        else if (
+                          sessionCounts[i]["count"] > sessionCounts[i - 1]["count"]
+                        ) {
+                          index = i - 1;
+                          break;
+                        }
+                        //Else probe next prompt data object
+                      }
+                    }
+                  }
+                  index = index % sessionCounts.length;
+
+                  //Prepare the data to be returned
+                  responseObject["TopicID"] = sessionCounts[index]["id"];
+                  const systemPrompt = systemPrompts.filter(
+                    (data) => data.SystemPrompts.ROWID == responseObject["TopicID"]
+                  );
+                  responseObject["SupportingText"] =
+                    systemPrompt[0]["SystemPrompts"]["SupportingText"];
+                  responseObject["SupportingTextFlag"] =
+                    responseObject["SupportingText"] != null;
+                  responseObject["SupportingImageURL"] =
+                    systemPrompt[0]["SystemPrompts"]["SupportingImageURL"];
+                  responseObject["SupportingImageURLFlag"] =
+                    responseObject["SupportingImageURL"] != null;
+                  responseObject["SupportingAVURL"] =
+                    systemPrompt[0]["SystemPrompts"]["SupportingAVURL"];
+                  responseObject["SupportingAVURLFlag"] =
+                    responseObject["SupportingAVURL"] != null;
+                  responseObject["SupportingFlag"] =
+                    responseObject["SupportingTextFlag"] ||
+                    responseObject["SupportingImageURLFlag"] ||
+                    responseObject["SupportingAVURLFlag"];
+                  responseObject["ShowLearningContent"] = systemPrompts[0]["SystemPrompts"]["ShowLearningContent"] == true
+
+                  console.log("End of execution:", responseObject);
+                  res.status(200).json(responseObject);
+                })
+                .catch((err) => {
+                  responseObject["OperationStatus"] = "ZCQL_ERR";
+                  responseObject["StatusDescription"] = "Application Error";
+                  console.log(
+                    "End of execution due to error:",
+                    responseObject,
+                    "\nError:",
+                    err
+                  );
+                  res.status(200).json(responseObject);
+                });
+            }
+          }
+        })
+        .catch((err) => {
+          responseObject["OperationStatus"] = "APP_ERR";
+          responseObject["StatusDescription"] = "Application Error";
+          console.log(
+            "End of execution due to error:",
+            responseObject,
+            "\nError:",
+            err
+          );
+          res.status(200).json(responseObject);
+        });
       }
     })
     .catch((err) => {
@@ -297,7 +364,7 @@ app.post("/topicpersonas", (req, res) => {
         ) {
           for (var i = nextStartIndex; i < allPrompts.length; i++) {
             responseJSON["Persona" + (i - nextStartIndex + 1)] =
-              allPrompts[i]["Persona"];
+              allPrompts[i]["Persona"] + (allPrompts[i]["IsPaid"]==true? " 🔐" : "");
           }
           if (allPrompts.length > nextStartIndex) {
             responseJSON["TotalPersonas"] = allPrompts.length - nextStartIndex;

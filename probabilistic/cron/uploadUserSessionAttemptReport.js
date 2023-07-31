@@ -723,7 +723,7 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                               } catch (e) {
                                 console.error(
                                   new Date().toString() + "|" + prependToLog,
-                                  "Could not update data from index =",
+                                  "Could not insert data from index =",
                                   tableIndex,
                                   "\nError",
                                   e
