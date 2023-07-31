@@ -15,6 +15,16 @@ const unique = (value, index, self) => {
 
 app.post("/topiclist", (req, res) => {
   const requestBody = req.body;
+
+  const executionID = Math.random().toString(36).slice(2)
+    
+  //Prepare text to prepend with logs
+  const params = ["getTopics",req.url,executionID,""]
+  const prependToLog = params.join(" | ")
+  
+  console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+    
+
   const nextStartIndex = requestBody["NextStartIndex"] - 1;
   var responseJSON = {
     OperationStatus: "SUCCESS",
@@ -39,7 +49,7 @@ app.post("/topiclist", (req, res) => {
           responseJSON["OperationStatus"] = "NO_MR_TPCS";
           responseJSON["StatusDescription"] = "No more topics";
         }
-        console.log("End of execution - ", responseJSON);
+        console.info((new Date()).toString()+"|"+prependToLog,"End of execution - ", responseJSON);
         res.status(200).json(responseJSON);
         sendResponseToGlific({
           flowID: requestBody["FlowID"],
@@ -49,16 +59,16 @@ app.post("/topiclist", (req, res) => {
           }),
         })
           .then(() => {})
-          .catch((err) => console.log("Glific Response - ", err));
+          .catch((err) => console.error((new Date()).toString()+"|"+prependToLog,"Glific Response - ", err));
       } else {
         responseJSON["OperationStatus"] = "APP_ERR";
         responseJSON["StatusDescription"] = "Application Error";
-        console.log("End of execution with application error - ", allPrompts);
+        console.info((new Date()).toString()+"|"+prependToLog,"End of execution with application error - ", allPrompts);
         res.status(200).json(responseJSON);
       }
     })
     .catch((err) => {
-      console.log("End of execution with technical error - ", err);
+      console.info((new Date()).toString()+"|"+prependToLog,"End of execution with technical error - ", err);
       res.status(500).send(err);
     });
 });
@@ -82,6 +92,14 @@ app.post("/allocatetopic", (req, res) => {
 
   let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
+  const executionID = Math.random().toString(36).slice(2)
+    
+  //Prepare text to prepend with logs
+  const params = ["getTopics",req.url,executionID,""]
+  const prependToLog = params.join(" | ")
+  
+  console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
   const requestBody = req.body;
   var responseObject = {
     OperationStatus: "SUCCESS",
@@ -100,7 +118,7 @@ app.post("/allocatetopic", (req, res) => {
     topic +
     "' and SystemPrompts.IsActive = true";
   if (persona != null)
-    query = query + " and Persona = '" + persona.replace(/'/g, "''") + "'";
+    query = query + " and Persona = '" + persona.replace(/'/g, "''").replace(" 🔐","") + "'";
   let zcql = catalystApp.zcql();
   zcql
     .executeZCQLQuery(query)
@@ -109,7 +127,7 @@ app.post("/allocatetopic", (req, res) => {
         responseObject["OperationStatus"] = "NO_DATA";
         responseObject["StatusDescription"] =
           "No system prompts active for " + topic;
-        console.log("End of execution:", responseObject);
+        console.info((new Date()).toString()+"|"+prependToLog,"End of execution:", responseObject);
         res.status(200).json(responseObject);
       } else {
 
@@ -128,7 +146,7 @@ app.post("/allocatetopic", (req, res) => {
               zcql.executeZCQLQuery(query)
               .then((unlockedCourses)=>{
                 if(!Array.isArray(unlockedCourses)&&(unlockedCourses.length>0)){
-                  console.log("Error in query for getting unlock status")
+                  console.info((new Date()).toString()+"|"+prependToLog,"Error in query for getting unlock status")
                   reject(unlockedCourses)
                 }
                 else{
@@ -144,7 +162,7 @@ app.post("/allocatetopic", (req, res) => {
 
               })
               .catch((error)=>{
-                console.log("Error in query for getting unlock status")
+                console.info((new Date()).toString()+"|"+prependToLog,"Error in query for getting unlock status")
                 reject(error)
               })
 
@@ -159,7 +177,7 @@ app.post("/allocatetopic", (req, res) => {
             responseObject["OperationStatus"] = "TPC_LOCKED";
             responseObject["StatusDescription"] = "User has not unlocked the topic"
             responseObject["TopicID"] = systemPrompts[0]["SystemPrompts"]["ROWID"];
-            console.log("End of execution:", responseObject);
+            console.info((new Date()).toString()+"|"+prependToLog,"End of execution:", responseObject);
             res.status(200).json(responseObject);
           }
           else{
@@ -189,7 +207,7 @@ app.post("/allocatetopic", (req, res) => {
                 responseObject["ObjectiveMessage"] != null;
               responseObject["ShowLearningContent"] = systemPrompts[0]["SystemPrompts"]["ShowLearningContent"] == true
 
-              console.log("End of execution:", responseObject);
+              console.info((new Date()).toString()+"|"+prependToLog,"End of execution:", responseObject);
               res.status(200).json(responseObject);
             } 
             else {
@@ -296,13 +314,13 @@ app.post("/allocatetopic", (req, res) => {
                     responseObject["SupportingAVURLFlag"];
                   responseObject["ShowLearningContent"] = systemPrompts[0]["SystemPrompts"]["ShowLearningContent"] == true
 
-                  console.log("End of execution:", responseObject);
+                  console.info((new Date()).toString()+"|"+prependToLog,"End of execution:", responseObject);
                   res.status(200).json(responseObject);
                 })
                 .catch((err) => {
                   responseObject["OperationStatus"] = "ZCQL_ERR";
                   responseObject["StatusDescription"] = "Application Error";
-                  console.log(
+                  console.info((new Date()).toString()+"|"+prependToLog,
                     "End of execution due to error:",
                     responseObject,
                     "\nError:",
@@ -316,7 +334,7 @@ app.post("/allocatetopic", (req, res) => {
         .catch((err) => {
           responseObject["OperationStatus"] = "APP_ERR";
           responseObject["StatusDescription"] = "Application Error";
-          console.log(
+          console.info((new Date()).toString()+"|"+prependToLog,
             "End of execution due to error:",
             responseObject,
             "\nError:",
@@ -329,7 +347,7 @@ app.post("/allocatetopic", (req, res) => {
     .catch((err) => {
       responseObject["OperationStatus"] = "ZCQL_ERR";
       responseObject["StatusDescription"] = "Application Error";
-      console.log(
+      console.info((new Date()).toString()+"|"+prependToLog,
         "End of execution due to error:",
         responseObject,
         "\nError:",
@@ -341,6 +359,15 @@ app.post("/allocatetopic", (req, res) => {
 
 app.post("/topicpersonas", (req, res) => {
   const requestBody = req.body;
+  
+  const executionID = Math.random().toString(36).slice(2)
+    
+  //Prepare text to prepend with logs
+  const params = ["getTopics",req.url,executionID,""]
+  const prependToLog = params.join(" | ")
+  
+  console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
   const nextStartIndex = requestBody["NextStartIndex"] - 1;
   const topic = requestBody["Topic"];
   var responseJSON = {
@@ -378,7 +405,7 @@ app.post("/topicpersonas", (req, res) => {
           responseJSON["StatusDescription"] = "No persona for the topic";
         }
 
-        console.log("End of execution - ", responseJSON);
+        console.info((new Date()).toString()+"|"+prependToLog,"End of execution - ", responseJSON);
         res.status(200).json(responseJSON);
         sendResponseToGlific({
           flowID: requestBody["FlowID"],
@@ -388,18 +415,145 @@ app.post("/topicpersonas", (req, res) => {
           }),
         })
           .then(() => {})
-          .catch((err) => console.log("Glific Response - ", err));
+          .catch((err) => console.error((new Date()).toString()+"|"+prependToLog,"Glific Response - ", err));
       } else {
         responseJSON["OperationStatus"] = allPrompts["OperationStatus"];
         responseJSON["StatusDescription"] = allPrompts["StatusDescription"];
-        console.log("End of execution with application error - ", allPrompts);
+        console.info((new Date()).toString()+"|"+prependToLog,"End of execution with application error - ", allPrompts);
         res.status(200).json(responseJSON);
       }
     })
     .catch((err) => {
-      console.log("End of execution with technical error - ", err);
+      console.info((new Date()).toString()+"|"+prependToLog,"End of execution with technical error - ", err);
       res.status(500).send(err);
     });
 });
+
+app.post("/unlocktopic", (req, res) => {
+  
+  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+
+  const executionID = Math.random().toString(36).slice(2)
+    
+  //Prepare text to prepend with logs
+  const params = ["getTopics",req.url,executionID,""]
+  const prependToLog = params.join(" | ")
+  
+  console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
+  const requestBody = req.body;
+  var responseObject = {
+    OperationStatus: "SUCCESS",
+  };
+  const topicID = requestBody["TopicID"];
+  const transactionID = requestBody["TransactionID"];
+  var mobile = requestBody["Mobile"];
+  var isActive = requestBody["IsActive"];
+  var status = requestBody["PaymentStatus"];
+  
+  mobile = mobile.toString().slice(-10);
+
+  //Get the SystemPrompt details for the topics
+  let query =
+    "select Users.ROWID, UserPaidTopicMapper.ROWID, UserPaidTopicMapper.SystemPromptROWID, UserPaidTopicMapper.IsActive, UserPaidTopicMapper.TransactionID, UserPaidTopicMapper.PaymentStatus  from Users left join UserPaidTopicMapper on Users.ROWID = UserPaidTopicMapper.UserROWID where Users.IsActive = true and Users.Mobile="+mobile;
+  let zcql = catalystApp.zcql();
+  zcql
+    .executeZCQLQuery(query)
+    .then((paymentStatus) => {
+      if ((!Array.isArray(paymentStatus)) && (paymentStatus.length > 0)) {
+        responseObject["OperationStatus"] = "APP_ERR";
+        responseObject["StatusDescription"] = paymentStatus;
+        console.info((new Date()).toString()+"|"+prependToLog,"End of execution:", responseObject);
+        res.status(200).json(responseObject);
+      }
+      else if (Array.isArray(paymentStatus) && (paymentStatus.length ==0)) {
+        responseObject["OperationStatus"] = "NO_DATA";
+        responseObject["StatusDescription"] = "No user record found";
+        console.info((new Date()).toString()+"|"+prependToLog,"End of execution:", responseObject);
+        res.status(200).json(responseObject);
+      }
+      else{
+        const getCurrentPaymentRecords = paymentStatus.filter(data=>data.UserPaidTopicMapper.TransactionID == transactionID)
+        var record = {}
+        if(getCurrentPaymentRecords.length==0){
+          console.info((new Date()).toString()+"|"+prependToLog,"New Record")
+          record = {
+            UserROWID: paymentStatus[0]['Users']['ROWID'],
+            SystemPromptROWID: topicID,
+            TransactionID: transactionID,
+            IsActive: isActive,
+            PaymentStatus: status
+          }
+        }
+        else{
+          console.info((new Date()).toString()+"|"+prependToLog,"Current Record to be Updated: "+ getCurrentPaymentRecords[0]['UserPaidTopicMapper']['ROWID'])
+          record = {
+            ROWID: getCurrentPaymentRecords[0]['UserPaidTopicMapper']['ROWID'],
+            IsActive: isActive,
+            PaymentStatus: status
+          }
+
+        }
+        let table = catalystApp.datastore().table("UserPaidTopicMapper")
+        if(getCurrentPaymentRecords.length==0){
+          table.insertRow(record)
+          .then((row)=>{
+            if(typeof row['ROWID'] === 'undefined'){
+              responseObject['OperationStatus'] = 'APP_ERR'
+              responseObject['StatusDescription'] = row
+              console.info((new Date()).toString()+"|"+prependToLog,"End of execution:", responseObject);
+              res.status(200).json(responseObject);
+            }
+            else{
+              responseObject['OperationStatus'] = 'SUCCESS'
+              console.info((new Date()).toString()+"|"+prependToLog,"End of execution:", responseObject);
+              res.status(200).json(responseObject);
+            }
+          })
+          .catch((err) => {
+            responseObject["OperationStatus"] = "APP_ERR";
+            responseObject["StatusDescription"] = err;
+            console.info((new Date()).toString()+"|"+prependToLog,"End of execution due to error:", responseObject, "\nError:",err);
+            res.status(200).json(responseObject);
+          });
+        }
+        else{
+          table.updateRow(record)
+          .then((row)=>{
+            if(typeof row['ROWID'] === 'undefined'){
+              responseObject['OperationStatus'] = 'APP_ERR'
+              responseObject['StatusDescription'] = row
+              console.info((new Date()).toString()+"|"+prependToLog,"End of execution:", responseObject);
+              res.status(200).json(responseObject);
+            }
+            else{
+              responseObject['OperationStatus'] = 'SUCCESS'
+              console.info((new Date()).toString()+"|"+prependToLog,"End of execution:", responseObject);
+              res.status(200).json(responseObject);
+            }
+          })
+          .catch((err) => {
+            responseObject["OperationStatus"] = "APP_ERR";
+            responseObject["StatusDescription"] = err;
+            console.info((new Date()).toString()+"|"+prependToLog,"End of execution due to error:", responseObject, "\nError:",err);
+            res.status(200).json(responseObject);
+          });
+
+        }
+      }
+    })
+    .catch((err) => {
+      responseObject["OperationStatus"] = "APP_ERR";
+      responseObject["StatusDescription"] = "Application Error";
+      console.info((new Date()).toString()+"|"+prependToLog,
+        "End of execution due to error:",
+        responseObject,
+        "\nError:",
+        err
+      );
+      res.status(200).json(responseObject);
+    });
+});
+
 
 module.exports = app;

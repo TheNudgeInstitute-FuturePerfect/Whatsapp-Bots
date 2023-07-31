@@ -45,7 +45,7 @@ const sendResponse = (prependToLog,responseJSON,startTimeStamp,requestBody, res)
             flowID: requestBody["FlowID"],
             contactID: requestBody["contact"]["id"],
             resultJSON: JSON.stringify({
-                randomquestions: responseObject,
+                randomquestions: responseJSON,
             }),
         })
         .then((glificResponse) => {})
@@ -389,7 +389,7 @@ app.post("/", (req, res) => {
                             return new Promise((resolve, reject)=>{
                                 const currentAskingOrder = parseInt(currentQuestionAskingOrder)
                                 var nextAskingOrder = null
-                                if(isCorrectAnswer == false){
+                                if((isCorrectAnswer == false)&&(wrongAnswers<1)){
                                     console.info((new Date()).toString()+"|"+prependToLog,"Not a correct answer. Same question to be asked")
                                     resolve(currentQuestionROWID)
                                 }
@@ -778,15 +778,16 @@ app.post("/", (req, res) => {
                                                         })
                                                     }
                                                 }).catch(error=> {
+                                                    responseJSON['OperationStatus'] = "CONTINUED_ASSESSMENT"
                                                     console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error in Getting Questions");
                                                     console.error((new Date()).toString()+"|"+prependToLog,"End of Execution with Error: ",error)
-                                                    res.status(500).send(error);
+                                                    sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)
                                                 })
                                             }).catch(error=> {
                                                 userAssessmentRecord["ErrorInResponse"] = responseJSON["OperationStatus"]
                                                 userAssessmentRecord["ErrorDescription"] = error
                                                 assessmentTable.insertRow(userAssessmentRecord).then()
-                                                console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error in Getting Questions");
+                                                console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error in Getting Next Question");
                                                 console.error((new Date()).toString()+"|"+prependToLog,"End of Execution with Error: ",error)
                                                 res.status(500).send(error);
                                             })
@@ -796,7 +797,7 @@ app.post("/", (req, res) => {
                                             assessmentTable.insertRow(userAssessmentRecord).then()
                                             console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error in Getting Questions");
                                             console.error((new Date()).toString()+"|"+prependToLog,"End of Execution with Error: ",error)
-                                            res.status(500).send(error);
+                                            sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)
                                         })
                                     })
                                     .catch(error=> {
@@ -805,7 +806,7 @@ app.post("/", (req, res) => {
                                         assessmentTable.insertRow(userAssessmentRecord).then()
                                         console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error in Converting Speech to Text");
                                         console.error((new Date()).toString()+"|"+prependToLog,"End of Execution with Error: ",error)
-                                        res.status(500).send(error);
+                                        sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)
                                     })
                                 })
                                 .catch(error=> {
@@ -814,7 +815,7 @@ app.post("/", (req, res) => {
                                     assessmentTable.insertRow(userAssessmentRecord).then()
                                     console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error in Storing Audio Response in GCS");
                                     console.error((new Date()).toString()+"|"+prependToLog,"End of Execution with Error: ",error)
-                                    res.status(500).send(error);
+                                    sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)
                                 })
                             })
                             .catch((error)=> {
@@ -823,7 +824,7 @@ app.post("/", (req, res) => {
                                 assessmentTable.insertRow(userAssessmentRecord).then()
                                 console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error in Getting Questions");
                                 console.error((new Date()).toString()+"|"+prependToLog,"End of Execution with Error: ",error)
-                                res.status(500).send(error);
+                                sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)
                             })
                         }
                     }
