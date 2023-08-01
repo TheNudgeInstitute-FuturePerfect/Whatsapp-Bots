@@ -152,6 +152,9 @@ module.exports = async (basicIO) => {
                   let table = datastore.table("SystemPrompts");
                   try {
                     const insertQueryResult = await table.insertRow(insertQuery);
+                    if(typeof insertQueryResult['ROWID']==='undefined'){
+                        throw new Error(insertQueryResult)
+                    }
                     const allConfig = require("./setSystemPrompt-config.json");
                     let setConfigurationParam = require("./setConfigurationParam.js");
                     allConfig["defaultConfig"].forEach(async (cfg) => {
@@ -236,7 +239,7 @@ module.exports = async (basicIO) => {
                       return JSON.stringify(result);
                     }
                   } catch (error) {
-                    if (error.indexOf("DUPLICATE") != -1) {
+                    if (error.toString().includes("DUPLICATE") != -1) {
                       result["OperationStatus"] = "DUP_ERR";
                       result["StatusDescription"] =
                         "A prompt with same name and sequene number exists. Please use a different sequence number";
