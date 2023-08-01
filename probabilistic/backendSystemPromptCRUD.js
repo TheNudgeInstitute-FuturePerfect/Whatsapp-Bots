@@ -27,10 +27,11 @@ app.post("/backendprompt", (req, res) => {
 
 	//Use Table Meta Object to insert the row which returns a promise
 	let argument = requestBody
-	if(typeof argument['type'] === 'undefined')
+	if(typeof argument['type'] === 'undefined'){
 		argument['type'] = "Backend Prompt"
-	argument["isactive"]=true
-	argument["sequence"]=1
+		argument["isactive"]=true
+		argument["sequence"]=1
+	}
 	
 	setSystemPrompt(argument)
 		.then((result) => {

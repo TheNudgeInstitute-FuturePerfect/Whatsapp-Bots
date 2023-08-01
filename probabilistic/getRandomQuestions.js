@@ -206,7 +206,7 @@ app.post("/", (req, res) => {
         "OperationStatus":"SUCCESS"
     }
     
-    const missingParams = checkKey(["Mobile", "TopicID"],requestBody)
+    const missingParams = checkKey(["Mobile", "TopicID", "SessionID"],requestBody)
     
     if(missingParams.length>0){
         responseJSON['OperationStatus'] = "REQ_ERR"
@@ -330,7 +330,8 @@ app.post("/", (req, res) => {
                                                         SystemPromptROWID: requestBody['TopicID'],
                                                         IsAssessmentComplete: false,
                                                         AssessmentCompletionReason: null,
-                                                        NextQuestionROWID: questionRecord[0]['QuestionBank']['ROWID'] //If answer of 1st question could not be saved, ask the 1st question again
+                                                        NextQuestionROWID: questionRecord[0]['QuestionBank']['ROWID'], //If answer of 1st question could not be saved, ask the 1st question again
+                                                        SessionID: requestBody['SessionID']
                                                     }
                                                     try{
                                                         let table = catalystApp.datastore().table('UserAssessmentLogs')

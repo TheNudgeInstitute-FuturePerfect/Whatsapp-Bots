@@ -111,7 +111,7 @@ app.post("/", (req, res) => {
                     console.info((new Date()).toString()+"|"+prependToLog,"Either it's first question or no correct response could be captured at all")
                 
                 query = "Select ROWID, AskingOrder, SkipLogic, ResponseValidations, ResponseFormat, Question, "
-                        +"Answers, Options, Feedback "
+                        +"Answers, Options, Feedback, IsEvaluative "
                         +"from QuestionBank where SystemPromptROWID='"+topicID+"' order by AskingOrder asc"
                 console.debug((new Date()).toString()+"|"+prependToLog,"Fetching questions configured for SystemPromptROWID = "+topicID+" : "+query);
                 zcql.executeZCQLQuery(query)
@@ -136,6 +136,7 @@ app.post("/", (req, res) => {
                         const responseText = (typeof requestBody['ResponseText']==='undefined') ? "":requestBody['ResponseText']
                         const typeOfResponse = responseAudioURL.length != 0 ? 'Audio':(responseText.length != 0 ? (requestBody['ResponseFormat'] == "None" ? "Text" : requestBody['ResponseFormat']) : null)
                         var feedback = (((currentQuestion[0].QuestionBank)['Feedback']==null) || ((currentQuestion[0].QuestionBank)['Feedback'].length==0)) ?'None':((currentQuestion[0].QuestionBank)['Feedback'].length>0 ? JSON.parse((currentQuestion[0].QuestionBank)['Feedback']):null)
+                        
                         
                         console.debug((new Date()).toString()+"|"+prependToLog,"Feedback:",feedback)
                             
@@ -737,20 +738,29 @@ app.post("/", (req, res) => {
                                                                 }
                                                                 else{
                                                                     responseJSON['OperationStatus'] = 'INCRCT_ANS' //Incorrect Answer
-                                                                    if(wrongAnswers>=1){
-                                                                        const randomExclamations = process.env.RandomExclamations.toString().split("|")
-                                                                        const index = Math.floor(Math.random() * randomExclamations.length)
-                                                                        var answersArray = Array.isArray(answers) ? answers : (answers.includes("/")?answers.split("/"):
-                                                                                (answers.includes("\n")?answers.split('\n'):[answers]))
-                    
-                                                                        //errorFeedback.toLowerCase().split("You just finished")
-                                                                        responseJSON['Feedback'] = randomExclamations[index]+(((typeOfResponse=='Audio') ? " the correct answer is: ": ((randomExclamations[index]=="Let's learn what")||(randomExclamations[index]=="Good try but") ? " the correct answer is: _*"+answersArray[0].toString().trim() + "*_" : ". The correct answer is _*"+answersArray[0].toString().trim()+"*_")))		
+                                                                    if(isEvaluative==true){
+                                                                        if(wrongAnswers>=1){
+                                                                            const randomExclamations = process.env.RandomExclamations.toString().split("|")
+                                                                            const index = Math.floor(Math.random() * randomExclamations.length)
+                                                                            var answersArray = Array.isArray(answers) ? answers : (answers.includes("/")?answers.split("/"):
+                                                                                    (answers.includes("\n")?answers.split('\n'):[answers]))
+                        
+                                                                            //errorFeedback.toLowerCase().split("You just finished")
+                                                                            responseJSON['Feedback'] = randomExclamations[index]+(((typeOfResponse=='Audio') ? " the correct answer is: ": ((randomExclamations[index]=="Let's learn what")||(randomExclamations[index]=="Good try but") ? " the correct answer is: _*"+answersArray[0].toString().trim() + "*_" : ". The correct answer is _*"+answersArray[0].toString().trim()+"*_")))		
+                                                                        }
+                                                                        else{
+                                                                            responseJSON['Feedback'] = errorFeedback.replace("@contacts.name",contactName)
+                                                                            if(errorAVURL != 'None'){
+                                                                                responseJSON['FeedbackURLFlag'] = true
+                                                                                responseJSON['FeedbackURL'] = errorAVURL
+                                                                            }
+                                                                        }
                                                                     }
                                                                     else{
-                                                                        responseJSON['Feedback'] = errorFeedback.replace("@contacts.name",contactName)
-                                                                        if(errorAVURL != 'None'){
+                                                                        responseJSON['Feedback'] = alwaysSucccessFeedback
+                                                                        if(successAVURL!='None'){
                                                                             responseJSON['FeedbackURLFlag'] = true
-                                                                            responseJSON['FeedbackURL'] = errorAVURL
+                                                                            responseJSON['FeedbackURL'] = successAVURL
                                                                         }
                                                                     }
                                                                 }

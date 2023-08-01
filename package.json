@@ -9,6 +9,7 @@
   "author": "Aashutosh Chaudhary",
   "license": "ISC",
   "dependencies": {
+    "@google-cloud/bigquery": "^7.0.0",
     "@google-cloud/speech": "^5.1.0",
     "@google-cloud/storage": "^6.11.0",
     "@google-cloud/text-to-speech": "^4.2.3",
