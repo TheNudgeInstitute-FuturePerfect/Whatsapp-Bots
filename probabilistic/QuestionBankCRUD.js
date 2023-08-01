@@ -10,7 +10,7 @@ const app = express.Router();
 
 const allowedResponseTypes = ['Text','Button','Audio','None','List','Integer','Float']
 
-const validateRequest = (data) => {
+const validateRequest = (data,method) => {
 
     const dataArray = Array.isArray(data) ? data :[data]
     
@@ -18,21 +18,31 @@ const validateRequest = (data) => {
 		
         var error = []
         //If SystempPrompt ROWID of the topic is missing
-        if(typeof row['topicID']==='undefined')
-            error.push('topicID is missing')
-        else if(row['topicID'] == null)
-            error.push('topicID is missing')
-        else if(row['topicID'].length == 0)
-            error.push('topicID is missing')
+        if(method=='POST'){
+            if(typeof row['topicID']==='undefined')
+                error.push('topicID is missing')
+            else if(row['topicID'] == null)
+                error.push('topicID is missing')
+            else if(row['topicID'].length == 0)
+                error.push('topicID is missing')
+            
         
-        
-        //If question's text part is missing
-        if(typeof row['question']==='undefined')
-            error.push('question text is missing')
-        else if(row['question'] == null)
-            error.push('question text is missing')
-        else if(row['question'].length == 0)
-            error.push('question text is missing')
+            //If question's text part is missing
+            if(typeof row['question']==='undefined')
+                error.push('question text is missing')
+            else if(row['question'] == null)
+                error.push('question text is missing')
+            else if(row['question'].length == 0)
+                error.push('question text is missing')
+
+            //If response format is missing
+            if(typeof row['responseType']==='undefined')
+                error.push('responseType is missing')
+            else if(row['responseType'] == null)
+                error.push('responseType is missing')
+            else if(row['responseType'].length == 0)
+                error.push('responseType is missing')
+        }
         
         //If audio URL is present and is not having right extension
         if(typeof row['audioURL'] !== 'undefined')
@@ -58,36 +68,39 @@ const validateRequest = (data) => {
                 if(!(['3gpp','mp3','mp4','ogg','jpeg','jpg','png','webp'].includes((row['errorAVURL'].split("."))[1])))
                     error.push('Audio/Video/Image/Sticker URL to be sent on Error is not valid')
 
-        //If response format is missing	
-        if(typeof row['responseType']==='undefined')
-            error.push('responseType is missing')
-        else if(row['responseType'] == null)
-            error.push('responseType is missing')
-        else if(row['responseType'].length == 0)
-            error.push('responseType is missing')
-        else if(!(allowedResponseTypes.includes(row['responseType'])))
-            error.push('responseType can only be : '+allowedResponseTypes.join(","))
-        else if((row['responseType'] == 'Button')||(row['responseType'] == 'List'))//If responseType is button
-            if(typeof row['options'] === 'undefined')//button options are missing
-                error.push('Options missing for button')
-            else if((row['options']!=null)&&(Array.isArray(row['options']) == false))//but options are missing
+        //If response format is present
+        if(typeof row['responseType'] !== 'undefined')
+            if(!(allowedResponseTypes.includes(row['responseType'])))
+                error.push('responseType can only be : '+allowedResponseTypes.join(","))
+            else if((row['responseType'] == 'Button')||(row['responseType'] == 'List'))//If responseType is button
+                if(typeof row['options'] === 'undefined')//button options are missing
+                    error.push('Options missing for button')
+        
+        if(typeof row['options'] !== 'undefined'){
+            if((row['options']!=null)&&(Array.isArray(row['options']) == false))//but options are missing
                 error.push('Options should be a list')
             else if(row['options'].length == 0 )//but options are missing
                 error.push('Options missing for button')
             else{
-                if(row['responseType'] == 'Button'){
-                    if(row['options'].length > 3 )//but more than 3 options proided
-                        error.push('More than three options provided for Button')
-                    if(row['options'].some(option=>option.length>20))
-                        error.push('One of the options is exceeding 20 character size limit')
-                }
-                else if(row['responseType'] == 'List'){
-                    if(row['options'].length > 10 )//but more than 3 options proided
-                        error.push('More than 10 options provided for List')
-                    if(row['options'].some(option=>option.length>20))
-                        error.push('One of the options is exceeding 20 character size limit')
-                }
+                if(typeof row['responseType'] === 'undefined')
+                    error.push('responseType missing.')
+                else
+                    if(row['responseType'] == 'Button'){
+                        if(row['options'].length > 3 )//but more than 3 options proided
+                            error.push('More than three options provided for Button')
+                        if(row['options'].some(option=>option.length>20))
+                            error.push('One of the options is exceeding 20 character size limit')
+                    }
+                    else if(row['responseType'] == 'List'){
+                        if(row['options'].length > 10 )//but more than 3 options proided
+                            error.push('More than 10 options provided for List')
+                        if(row['options'].some(option=>option.length>20))
+                            error.push('One of the options is exceeding 20 character size limit')
+                    }
+                    else
+                        error.push('responseType can only be one of the following : Button/List')
             }
+        }
         
         if(typeof row['answers'] !== 'undefined')//button options are missing
             if((row['answers']!=null) && (Array.isArray(row['answers']) == false))//but options are missing
@@ -163,7 +176,7 @@ app.post("/", async (req, res) => {
         "OperationStatus":"SUCCESS"
     }
 
-    const areElementsOK = validateRequest(requestBody)
+    const areElementsOK = validateRequest(requestBody,req.method)
 
     if(areElementsOK.some(record=>record.length>0))
 		res.status(422).send(areElementsOK)
@@ -327,7 +340,7 @@ app.patch("/", (req, res) => {
         "OperationStatus":"SUCCESS"
     }
 
-    const areElementsOK = validateRequest(requestBody)
+    const areElementsOK = validateRequest(requestBody,req.method)
 
     if(areElementsOK.some(record=>record.length>0))
 		res.status(422).send(areElementsOK)
