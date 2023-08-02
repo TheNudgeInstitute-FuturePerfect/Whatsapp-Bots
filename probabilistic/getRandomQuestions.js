@@ -353,6 +353,7 @@ app.post("/", (req, res) => {
                                                 else if(pendingUserAssessmentLogs[0]['UserAssessmentLogs']['NextQuestionROWID']==null){
                                                     console.info((new Date()).toString()+"|"+prependToLog,"Reached End of Assessment. No next question.")
                                                     responseJSON['OperationStatus']='END_OF_ASSESSMENT'
+                                                    responseJSON["UserAssessmentLogID"] = pendingUserAssessmentLogs[0]['UserAssessmentLogs']['ROWID']
                                                 }
                                                 else{
                                                     //Assing the log id
@@ -463,6 +464,10 @@ app.post("/", (req, res) => {
                                                         console.info((new Date()).toString()+"|"+prependToLog,'Sending question '+questionRecord[0].QuestionBank.ROWID+" for Assessment "+responseJSON["UserAssessmentLogID"])
                                                         sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody,res)
                                                     }
+                                                }
+                                                else
+                                                {
+                                                    sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody,res)
                                                 }
                                             }
                                         }).catch((err) => {
