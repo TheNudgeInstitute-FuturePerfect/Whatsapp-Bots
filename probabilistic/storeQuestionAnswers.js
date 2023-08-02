@@ -498,7 +498,8 @@ app.post("/", (req, res) => {
                                 let updateData = {
                                     ROWID:requestBody["UserAssessmentLogID"],
                                     QuestionsAsked:questionsAsked.push(requestBody["QuestionIdentifier"]),
-                                    NextQuestionROWID:nextQuestionId
+                                    NextQuestionROWID:nextQuestionId,
+                                    SessionID:requestBody["SessionID"]
                                 }
                                 let table = catalystApp.datastore().table("UserAssessmentLogs")
                                 table.updateRow(updateData)
@@ -693,7 +694,8 @@ app.post("/", (req, res) => {
                                                         let updateData = {
                                                             ROWID:requestBody["UserAssessmentLogID"],
                                                             QuestionsAsked:questionsAsked.join(","),
-                                                            NextQuestionROWID:nextQuestionId
+                                                            NextQuestionROWID:nextQuestionId,
+                                                            SessionID:requestBody["SessionID"]
                                                         }
                                                         let table = catalystApp.datastore().table("UserAssessmentLogs")
                                                         table.updateRow(updateData)
@@ -739,7 +741,7 @@ app.post("/", (req, res) => {
                                                                 else{
                                                                     responseJSON['OperationStatus'] = 'INCRCT_ANS' //Incorrect Answer
                                                                     if(isEvaluative==true){
-                                                                        if(wrongAnswers>=1){
+                                                                        /*if(wrongAnswers>1){
                                                                             const randomExclamations = process.env.RandomExclamations.toString().split("|")
                                                                             const index = Math.floor(Math.random() * randomExclamations.length)
                                                                             var answersArray = Array.isArray(answers) ? answers : (answers.includes("/")?answers.split("/"):
@@ -748,13 +750,13 @@ app.post("/", (req, res) => {
                                                                             //errorFeedback.toLowerCase().split("You just finished")
                                                                             responseJSON['Feedback'] = randomExclamations[index]+(((typeOfResponse=='Audio') ? " the correct answer is: ": ((randomExclamations[index]=="Let's learn what")||(randomExclamations[index]=="Good try but") ? " the correct answer is: _*"+answersArray[0].toString().trim() + "*_" : ". The correct answer is _*"+answersArray[0].toString().trim()+"*_")))		
                                                                         }
-                                                                        else{
+                                                                        else{*/
                                                                             responseJSON['Feedback'] = errorFeedback.replace("@contacts.name",contactName)
                                                                             if(errorAVURL != 'None'){
                                                                                 responseJSON['FeedbackURLFlag'] = true
                                                                                 responseJSON['FeedbackURL'] = errorAVURL
                                                                             }
-                                                                        }
+                                                                        //}
                                                                     }
                                                                     else{
                                                                         responseJSON['Feedback'] = alwaysSucccessFeedback
