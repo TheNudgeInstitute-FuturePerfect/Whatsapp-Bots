@@ -38,7 +38,7 @@ const sendResponse = (prependToLog,responseJSON,startTimeStamp,requestBody,res) 
             flowID: requestBody["FlowID"],
             contactID: requestBody["contact"]["id"],
             resultJSON: JSON.stringify({
-                randomquestions: responseObject,
+                randomquestions: responseJSON,
             }),
         })
         .then((glificResponse) => {})
@@ -370,6 +370,7 @@ app.post("/", (req, res) => {
                                                             responseJSON['OperationStatus']='FAILED_TO_GET_PREV_ANS'
                                                         }
                                                         else{
+                                                            const previousQuestions = previousResponsesResult.map(data=>data.UserAssessment.QuestionROWID).filter(unique)
                                                             if((maxQuestions!=-1)&&(previousResponsesResult.length >= maxQuestions)){
                                                                 console.info((new Date()).toString()+"|"+prependToLog,"Max "+maxQuestions+" already answered by User")
                                                                 responseJSON['OperationStatus']='END_OF_ASSESSMENT'
@@ -378,7 +379,7 @@ app.post("/", (req, res) => {
                                                                 //Get the data of next question to be asked
                                                                 questionRecord = questionBank.filter(record=>record.QuestionBank.ROWID==pendingUserAssessmentLogs[0]['UserAssessmentLogs']['NextQuestionROWID'])
                                                                 responseJSON['OperationStatus']='CONTINUED_ASSESSMENT'
-                                                                responseJSON['QuestionNumber']=previousResponsesResult.length+1
+                                                                responseJSON['QuestionNumber']=previousQuestions.length+1
                                                             }
                                                         }
                                                     }

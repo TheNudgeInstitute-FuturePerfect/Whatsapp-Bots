@@ -325,8 +325,6 @@ app.post("/", async (req, res) => {
 
 app.post("/mongo", async (req, res) => {
     
-    let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
-    
     const requestBody = req.body;
  
     const executionID = Math.random().toString(36).slice(2)
@@ -447,14 +445,15 @@ app.post("/mongo", async (req, res) => {
             try{
                 var searchReturned = null
                 if(insertData[i]['AskingOrder']!=-1){
-                    searchReturned = questionBank.find({
+                    searchReturned = await questionBank.find({
                         SystemPromptROWID:insertData[i]['SystemPromptROWID'],
                         AskingOrder:{$eq:insertData[i]['AskingOrder']},
                         IsActive:true
                     })
+
                 }
-                if(typeof searchReturned['_id']!=='undefined')
-                    throw new Error("Question already exists for the display sequence")
+                if(searchReturned.length>0)
+                    throw new Error("Question ID "+searchReturned[0]['_id']+" already exists for the display sequence")
                 const rowReturned = await questionBank.create((insertData[i]))
                 console.info((new Date()).toString()+"|"+prependToLog,"Records Inserted")
                 console.debug((new Date()).toString()+"|"+prependToLog,"Inserted Record: "+rowReturned['_id']);
@@ -771,6 +770,116 @@ app.get("/",(req, res) => {
 	})
 })
 
+app.get("/mongo",(req, res) => {
+	let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+
+    const executionID = Math.random().toString(36).slice(2)
+    
+    //Prepare text to prepend with logs
+    const params = ["QuestionBankCRUD",req.method,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+    	
+    let zcql = catalystApp.zcql();
+	var conditionList = []
+	const topic = req.query.topic ? req.query.topic : req.query.prompt ? req.query.prompt : ''
+	const persona = req.query.persona ? req.query.persona : ''
+	if((persona=='')&&(topic=='')){
+		console.info((new Date()).toString()+"|"+prependToLog,`End of Execution. Required parameter: topic or persona`)
+        res.status(500).send("Required parameter: topic or persona")
+    }
+	if(topic!='')
+		conditionList.push("SystemPrompts.Name='"+topic+"'")
+	if(persona!='')
+		conditionList.push("SystemPrompts.Persona in ('"+persona.replace(/,/g,"','")+"')")
+    
+	let query = "select {} from SystemPrompts "
+				+"where "+conditionList.join(" and ")
+	
+	getAllRows("SystemPrompts.ROWID, SystemPrompts.Name, SystemPrompts.Persona",query,zcql,prependToLog)
+    .then(async (allJsonReport)=>{
+        if(Array.isArray(allJsonReport)){
+            console.info((new Date()).toString()+"|"+prependToLog,"Fetched "+allJsonReport.length+" records from SystemPrompts")
+            
+            var jsonReport = allJsonReport
+            console.debug((new Date()).toString()+"|"+prependToLog,'Retrieved Report of length: '+jsonReport.length+" | "+JSON.stringify(jsonReport))
+
+            const systemPromptROWIDs = jsonReport.map(data=>parseInt(data.SystemPrompts.ROWID))
+            const allQuestions = await questionBank.find({
+                                                        SystemPromptROWID:{
+                                                            $in: systemPromptROWIDs
+                                                        }
+                                                    })
+
+            var responseJSON = jsonReport.map((record) => {
+                
+                const questions = allQuestions.filter(data=>data.SystemPromptROWID == record.SystemPrompts.ROWID)
+                const topicQuestions = questions.map(questionRecord=>{
+                    var feedback = ((questionRecord['Feedback']==null) || (questionRecord['Feedback'].length==0)) ? null:(questionRecord['Feedback'].length > 0 ? JSON.parse(questionRecord['Feedback']):null)
+                    if((typeof feedback['onSuccess'] === 'undefined')||(typeof feedback['onSuccessAVURL'] === 'undefined')||(typeof feedback['onError'] === 'undefined')||(typeof feedback['onErrorAVURL'] === 'undefined'))
+                        feedback = JSON.parse(feedback)
+
+                    var responsevalidation = ((questionRecord['ResponseValidations']==null) || (questionRecord['ResponseValidations'].length==0)) ? null:(questionRecord['ResponseValidations'].length>0 ? JSON.parse(questionRecord['ResponseValidations']):null)
+                    var constraint = null
+                    var constraintMessage = null
+                    if(responsevalidation!=null){
+                        const constraintList = responsevalidation.map(validation=>{
+                            if ((validation.responseType=="Audio")&&(validation.operandLHS=="original_duration")&&(validation.operation==">="))
+                                return "min_audio_len "+validation.operandRHS
+                            if ((validation.responseType=="Audio")&&(validation.operandLHS=="original_duration")&&(validation.operation=="<="))
+                                return "max_audio_len "+validation.operandRHS
+                            else
+                                return validation.operation +" " +validation.operandRHS
+                        })
+                        constraint = constraintList.join(",")
+                        constraintMessage = responsevalidation != null ? responsevalidation[0]['errorMessage'] :null
+                    }
+
+                    return {
+                        displaySequence: questionRecord.AskingOrder,
+                        questionID: questionRecord.ROWID,
+                        questionType: questionRecord.QuestionType,
+                        question: questionRecord.Question,
+                        audioURL: questionRecord.avURL,
+                        imageURL:questionRecord.ImageURL,
+                        responseType: questionRecord.ResponseFormat,
+                        options: questionRecord.Options,
+                        answers: questionRecord.Answers,
+                        tags: questionRecord.Tags,
+                        successMessage : feedback==null?null:feedback['onSuccess']=="null"?null:feedback['onSuccess'],
+                        errorMessage : feedback==null?null:feedback['onError']=="null"?null:feedback['onError'],
+                        successAVURL : feedback==null?null:feedback['onSuccessAVURL']=="null"?null:feedback['onSuccessAVURL'],
+                        errorAVURL : feedback==null?null:feedback['onErrorAVURL']=="null"?null:feedback['onErrorAVURL'],
+                        constraints : constraint,
+                        constraintMessage:constraintMessage,
+                        questionTimeOut : questionRecord.ResponseTimeOut,
+                        isEvaluative:questionRecord.IsEvaluative,
+                        skipLogic:questionRecord.SkipLogic != null ? JSON.parse(questionRecord.SkipLogic) : null,
+                        isActive:record.QuestionBank.IsActive,
+                    }
+                })
+                return {
+                    topicID: record.SystemPrompts.ROWID,
+                    topic: record.SystemPrompts.Name,
+                    persona: record.SystemPrompts.Persona,
+                    questions:topicQuestions
+                }
+            })
+            console.info((new Date()).toString()+"|"+prependToLog,`End of Execution. Returned ${responseJSON.length} questions`)
+            res.status(200).json(responseJSON)
+        }
+        else{
+            console.info((new Date()).toString()+"|"+prependToLog,`End of Execution. No record satisfying the query params`)
+            res.status(200).json([])
+        }
+    })
+    .catch(err => {
+        console.info((new Date()).toString()+"|"+prependToLog,'End of Execution with Error')
+		console.error((new Date()).toString()+"|"+prependToLog,'Encountered Error: '+err)
+		res.status(500).send(err)
+	})
+})
 
 app.delete("/*", (req, res) => {
     let startTimeStamp = new Date();
