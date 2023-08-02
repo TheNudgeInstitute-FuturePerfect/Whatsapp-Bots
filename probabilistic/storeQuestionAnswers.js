@@ -405,11 +405,11 @@ app.post("/", (req, res) => {
                                         if(sequentialQuestions.length==0){//Only random questions remaining
                                             const randomIndex = Math.floor(Math.random()*(remainingQuestions.length-1))
                                             nextAskingOrder = [remainingQuestions[randomIndex]]
-                                            console.info((new Date()).toString()+"|"+prependToLog,"Remianing questions to be asked randonly. Selected Question ROWID = "+nextAskingOrder[0]['QuestionBank']['ROWID']);
+                                            console.info((new Date()).toString()+"|"+prependToLog,"Remianing questions to be asked randonly. Selected Question ROWID = ",nextAskingOrder);
                                         }
                                         else{//Sequential question to be asked
                                             nextAskingOrder = remainingQuestions.filter(record=>record.QuestionBank.AskingOrder==(currentAskingOrder+1))
-                                            console.info((new Date()).toString()+"|"+prependToLog,"Next question in sequence to be asked. Selected Question ROWID = "+nextAskingOrder[0]['QuestionBank']['ROWID']);
+                                            console.info((new Date()).toString()+"|"+prependToLog,"Next question in sequence to be asked. Selected Question ROWID = ",nextAskingOrder);
                                         }
 
                                         if(!((nextAskingOrder!=null)&&(nextAskingOrder.length>0))){
