@@ -3,6 +3,8 @@
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
+const questionBank = require("./models/questionBank.js");
+
 
 // const app = express();
 // app.use(express.json());
@@ -320,6 +322,166 @@ app.post("/", async (req, res) => {
         res.status(200).json(responseObject)
     }
 })
+
+app.post("/mongo", async (req, res) => {
+    
+    let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+    
+    const requestBody = req.body;
+ 
+    const executionID = Math.random().toString(36).slice(2)
+    
+    //Prepare text to prepend with logs
+    const params = ["QuestionBankCRUD",req.method,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+    
+    //Initialize Response Object
+    var responseObject = {
+        "OperationStatus":"SUCCESS"
+    }
+
+    const areElementsOK = validateRequest(requestBody,req.method)
+
+    if(areElementsOK.some(record=>record.length>0))
+		res.status(422).send(areElementsOK)
+	else{
+        const insertData = requestBody.map((row, rowIndex) => {
+			
+
+			console.debug((new Date()).toString()+"|"+prependToLog,`Row being processed=${JSON.stringify(row)}`)
+            console.info((new Date()).toString()+"|"+prependToLog,"Parsing Row Index "+rowIndex)
+			
+			const responseTypePresent = (typeof row['responseType'] === 'undefined') ? false : row['responseType']==null ? false : row['responseType'].length > 0 ? true:false
+			const optionsPresent = (typeof row['options'] === 'undefined') ? false : row['options']==null ? false : row['options'].length > 0 ? true:false
+			const audioURLPresent = (typeof row['audioURL'] === 'undefined') ? false : row['audioURL']==null ? false : row['audioURL'].length > 0 ? true:false
+			const imageURLPresent = (typeof row['imageURL'] === 'undefined') ? false : row['imageURL']==null ? false : row['imageURL'].length > 0 ? true:false
+
+			
+			//Build ResponseValidation
+			const constraints = (typeof row['constraints'] === 'undefined') ? null : row['constraints']
+			var responsevalidation = []
+			if(constraints!=null){
+				const constraintMsg = (typeof row['constraintMessage'] === 'undefined') ? null : row['constraintMessage']
+				//Split constraints by comma to get list of all constraints
+				const constraintList = constraints.split(",")
+				//For each constraint in constraintList
+				responsevalidation = constraintList.map(constraint => {
+					var validationObject = {
+						responseType:row["responseType"],
+						operandLHS:null,
+						operation:null,
+						operandRHS:null
+					}
+					var constraintTokens = constraint.split(" ")
+					constraintTokens = constraintTokens.filter(token=>token.toString().trim().length>0)
+					if(constraintTokens[0] == "min_word_count"){
+						validationObject['operandLHS']="text",
+						validationObject['operation'] = "word_count"
+						validationObject['operandRHS']=constraintTokens[1]
+					}
+					else if(constraintTokens[0] == "min_audio_len"){
+						validationObject['operandLHS']="original_duration",
+						validationObject['operation'] = ">="
+						validationObject['operandRHS']=constraintTokens[1]
+					}
+					else if(constraintTokens[0] == "max_audio_len"){
+						validationObject['operandLHS']="original_duration",
+						validationObject['operation'] = "<="
+						validationObject['operandRHS']=constraintTokens[1]
+					}
+					else{
+						validationObject['operandLHS']="text",
+						validationObject['operation'] = constraintTokens[0]
+						validationObject['operandRHS']=constraintTokens[1]
+					}
+					validationObject['errorMessage']=constraintMsg
+					return validationObject
+				})
+			}
+
+			//console.log(responsevalidation)
+			const options = row['options']!=null ? row['options'].filter(option=> (option!=null) && (option.length>0)) : null
+			const answers = row['answers']!=null ? row['answers'].filter(answer=> (answer!=null) && (answer.length>0)) : null
+			const tagValues = row['tags']!=null ? row['tags'].filter(tag=> (tag!=null) && (tag.length>0)) : null
+			const questionTimeOutPresent = (typeof row['questionTimeOut'] === 'undefined') ? false : row['questionTimeOut']==null ? false : row['questionTimeOut'].toString().length > 0 ? true:false
+			var isVideoURL = false
+			if(audioURLPresent == true)
+			{
+				const urlTokens = row['audioURL'].split('.')
+				if(["mp4","3gpp"].includes(urlTokens[urlTokens.length-1])){
+					isVideoURL = true
+				}
+			}
+			
+			return {
+                SystemPromptROWID:row['topicID'],
+				QuestionType: (isVideoURL == true) ? "Video" : (((((audioURLPresent==true)) && (imageURLPresent==true)))?"Audio+Image":((imageURLPresent==true)?"Image":((audioURLPresent==true)?"Audio":"Text"))),
+				Question: row['question'],
+				avURL: row['audioURL'],
+				ImageURL: row['imageURL'],
+				ResponseFormat: row['responseType'],
+				Options: options==null?null:options,
+				Answers: answers==null?null:answers,
+				ResponseValidations: (responsevalidation.length==0)?null:responsevalidation,
+				Tags: tagValues==null?null:tagValues,
+				Feedback: {
+                    onSuccess:((typeof row['successMessage'] !== 'undefined') && (row['successMessage']!=null) && (row['successMessage'].length>0)) ? row['successMessage'] : null,
+                    onSuccessAVURL: ((typeof row['successAVURL'] !== 'undefined') && (row['successAVURL']!=null)) ? row['successAVURL']: null,
+                    onError:((typeof row['errorMessage'] !== 'undefined') && (row['errorMessage']!=null) && (row['errorMessage'].length>0)) ? row['errorMessage'] : null,
+                    onErrorAVURL:((typeof row['errorAVURL'] !== 'undefined') && (row['errorAVURL'] != null)) ? row['errorAVURL']:null
+                },
+				ResponseTimeOut: questionTimeOutPresent==true ? row['questionTimeOut'] : null,
+				IsEvaluative:(typeof row['isEvaluative']!=='undefined')?row['isEvaluative']:null,
+				SkipLogic: (typeof row['skipLogic']!=='undefined')?JSON.stringify(row['skipLogic']):null,
+                IsActive: (typeof row['isActive']!=='undefined')?row['isActive']:true,
+                AskingOrder: (typeof row['displaySequence']!=='undefined')?row['displaySequence']:-1
+			}
+        })
+        console.info((new Date()).toString()+"|"+prependToLog,"Total records to be inserted: "+insertData.length)
+		console.debug((new Date()).toString()+"|"+prependToLog,`Record being inserted in table=${JSON.stringify(insertData)}`)
+		var returnArray = []
+        
+        for(var i=0; i<insertData.length; i++){
+            try{
+                var searchReturned = null
+                if(insertData[i]['AskingOrder']!=-1){
+                    searchReturned = questionBank.find({
+                        SystemPromptROWID:insertData[i]['SystemPromptROWID'],
+                        AskingOrder:{$eq:insertData[i]['AskingOrder']},
+                        IsActive:true
+                    })
+                }
+                if(typeof searchReturned['_id']!=='undefined')
+                    throw new Error("Question already exists for the display sequence")
+                const rowReturned = await questionBank.create((insertData[i]))
+                console.info((new Date()).toString()+"|"+prependToLog,"Records Inserted")
+                console.debug((new Date()).toString()+"|"+prependToLog,"Inserted Record: "+rowReturned['_id']);
+                returnArray.push(
+                    {
+                        Question:decodeURIComponent(rowReturned['Question']),
+                        QuestionID:rowReturned['_id']
+                    }
+                )
+            }
+            catch(err){
+                console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with error")
+                console.error((new Date()).toString()+"|"+prependToLog,'Encountered error while inserting record in Question Bank: '+err)
+                returnArray.push(
+                    {
+                        Question:decodeURIComponent(insertData[i]['Question']),
+                        QuestionID:err
+                    }
+                )
+            }
+        }
+        responseObject['QuestionsConfigured'] = returnArray
+        console.info((new Date()).toString()+"|"+prependToLog,"End of Execution:",responseObject)
+        res.status(200).json(responseObject)
+    }
+})
+
 
 app.patch("/", (req, res) => {
     
