@@ -3,6 +3,7 @@
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
+const Version = require("./models/versions");
 
 // const app = express();
 // app.use(express.json());
@@ -27,24 +28,14 @@ const getAllRows = (fields,query,zcql) => {
 	})
 }
 
-app.get("/versions", (req, res) => {
-
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
-
-	const requestBody = req.body;
-
-	//Get table meta object without details.
-	let zcql = catalystApp.zcql();
-
-	let query = "select {} from Versions"
-
-	getAllRows("*",query,zcql)
-	.then((rows)=>{
+app.get("/versions", async (req, res) => {
+    await Version.find({})
+    .then((rows) => {
 		const report = rows //rows.map(data=>data.Users)
 		console.log("End of Execution. Total Versions Data = ",rows.length)
 		res.status(200).json(report);
 	})
-	.catch((err) => {
+    .catch((err) =>{
 		console.log(err);
 		res.status(500).send(err);
 	});

@@ -2,10 +2,14 @@ const dotenv = require("dotenv");
 dotenv.config();
 const express = require("express");
 const cors = require("cors");
-
+const mongoose = require("mongoose");
 const probabilistic = require("./probabilistic/index.js");
 
 const app = express();
+
+const db = process.env.MONGO_CONNECTION_URL;
+// connect to db
+mongoose.connect(db);
 
 // Use the json and urlencoded middlewares
 app.use(express.json());
