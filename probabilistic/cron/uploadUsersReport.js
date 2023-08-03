@@ -141,7 +141,7 @@ getAllRows("ROWID, Mobile",query,zcql)
 						userReport['OnboardingVersion'] = regTimeStampVersion[0]['Versions']['Version']
 						if(userReport['OnboardingVersion']==4.3)
 							userReport['Onboarded'] = users[i]["Users"]["EnglishProficiency"]!=null ? "Yes" : "No"
-						else if(userReport['OnboardingVersion']==4.4){
+						else if(userReport['OnboardingVersion']>=4.4){
 							const sessionRecord = obdSessions.filter(record=>record.Sessions.Mobile == userReport['Mobile'])
 							userReport['Onboarded'] = sessionRecord.some(record=>record.Sessions.EndOfSession == true) ? "Yes":"No"
 						}
