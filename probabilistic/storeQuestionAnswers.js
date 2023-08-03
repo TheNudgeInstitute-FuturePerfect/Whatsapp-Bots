@@ -45,7 +45,7 @@ const sendResponse = (prependToLog,responseJSON,startTimeStamp,requestBody, res)
             flowID: requestBody["FlowID"],
             contactID: requestBody["contact"]["id"],
             resultJSON: JSON.stringify({
-                randomquestions: responseJSON,
+                storedanswer: responseJSON,
             }),
         })
         .then((glificResponse) => {})
