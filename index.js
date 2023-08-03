@@ -2,10 +2,15 @@ const dotenv = require("dotenv");
 dotenv.config();
 const express = require("express");
 const cors = require("cors");
+const mongoose = require('mongoose')
 
 const probabilistic = require("./probabilistic/index.js");
 
 const app = express();
+
+mongoose.connect(process.env.MongoDBConnStrng+"whatsapp-bots", {
+  useNewUrlParser: true,
+});
 
 // Use the json and urlencoded middlewares
 app.use(express.json());

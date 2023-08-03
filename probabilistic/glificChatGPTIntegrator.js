@@ -107,7 +107,7 @@ const runQuery = async (query, zcql) => {
 app.post("/chatgpt", async (request, response) => {
   const app = catalyst.initialize(request, { type: catalyst.type.applogic });
 
-  const executionID = Math.random().toString(36).slice(2);
+  const executionID = request.body.SessionID; //Math.random().toString(36).slice(2)
 
   //Prepare text to prepend with logs
   const params = ["glificChatGPTIntegrator", request.url, executionID, ""];

@@ -5,6 +5,14 @@ module.exports = async (basicIO) => {
 
 	const catalystApp = catalyst.initialize();
 
+	const executionID = Math.random().toString(36).slice(2)
+
+	//Prepare text to prepend with logs
+	const params = ["Update Configuration Param",executionID,""]
+	const prependToLog = params.join(" | ")
+		
+	console.info((new Date()).toString()+"|"+prependToLog,"Execution Started")
+
 	var result = {
 		OperationStatus : "SUCCESS"
 	}
@@ -12,7 +20,7 @@ module.exports = async (basicIO) => {
 	if(typeof systemPromptROWID === 'undefined'){
 		result['OperationStatus']="REQ_ERR"
 		result['ErrorDescription']="Missing parameter : id. Need Topic Prompt's ROWID"
-		console.log("Execution Completed: ",result);
+		console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result);
 		return JSON.stringify(result);
 		
 	}
@@ -21,7 +29,7 @@ module.exports = async (basicIO) => {
 		if(typeof name === 'undefined'){
 			result['OperationStatus']="REQ_ERR"
 			result['ErrorDescription']="Missing parameter: param"
-			console.log("Execution Completed: ",result);
+			console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result);
 			return JSON.stringify(result);
 			
 		}
@@ -31,7 +39,7 @@ module.exports = async (basicIO) => {
 			if(typeof val === 'undefined'){
 				result['OperationStatus']="REQ_ERR"
 				result['ErrorDescription']="Missing parameter: value"
-				console.log("Execution Completed: ",result);
+				console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result);
 				return JSON.stringify(result);
 				
 			}
@@ -51,12 +59,13 @@ module.exports = async (basicIO) => {
 						result['OperationStatus']="NO_CFG_PRMPT"
 						result['StatusDescription']="There is no record for given configuration param and systemprompt"
 					}
-					console.log("Execution Completed: ",result);
+					console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result);
 					return JSON.stringify(result);
 				} catch(error){
 					result['OperationStatus']="ZCQL_ERR"
 					result['ErrorDescription']="Error in execution update query"
-					console.log("Execution Completed: ",result,error,updateQuery);
+					console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed with error: ",result)
+					console.error((new Date()).toString()+"|"+prependToLog,"Execution Completed with error: ",error,updateQuery);
 					return JSON.stringify(result);
 				}
 			}

@@ -90,7 +90,7 @@ module.exports = async (basicIO) => {
             "\n\n Returned error response: ",
           responseJSON
         );
-        return responseJSON;
+        return JSON.stringify(responseJSON);
       }
     } catch (error) {
       responseJSON["OperationStatus"] = "REST_API_ERR";
@@ -101,7 +101,7 @@ module.exports = async (basicIO) => {
           "\n\n Returned error response: ",
         responseJSON
       );
-      return responseJSON;
+      return JSON.stringify(responseJSON);
     }
   }
 };

@@ -23,6 +23,9 @@ const getLatestSession = require("./getLatestSession.js");
 const getUserSessionCounts = require("./getUserSessionCount.js");
 const wordle = require("./WordleCRUD.js");
 const wordleOfDay = require("./wordleOfDay.js");
+const questionBank = require("./QuestionBankCRUD.js");
+const getRandomQuestions = require("./getRandomQuestions.js");
+const storeQuestionAnswers = require("./storeQuestionAnswers.js");
 
 // Basic I/O const
 const addUserData = require("./common/addUserData.js");
@@ -67,6 +70,9 @@ app.use("/getLatestSession",getLatestSession);
 app.use("/getUserSessionCounts",getUserSessionCounts)
 app.use("/wordle",wordle)
 app.use("/wordleofday",wordleOfDay)
+app.use("/question",questionBank)
+app.use("/getquestion",getRandomQuestions)
+app.use("/storeanswer",storeQuestionAnswers)
 
 // Basic I/O  routes
 app.use("/addUserData",addUserData);
