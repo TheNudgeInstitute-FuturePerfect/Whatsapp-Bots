@@ -266,7 +266,7 @@ app.post("/", (req, res) => {
 
                             console.info((new Date()).toString()+"|"+prependToLog,"MaxAttempts="+maxAttempts+" | MaxQuestions="+maxQuestions)
 
-                            query = "Select ROWID, NextQuestionROWID, IsAssessmentComplete from UserAssessmentLogs where SystemPromptROWID = '"+requestBody["TopicID"]+"'"
+                            query = "Select ROWID, NextQuestionROWID, IsAssessmentComplete from UserAssessmentLogs where SystemPromptROWID = '"+requestBody["TopicID"]+"' and UserROWID = '"+userROWID+"'"
                             console.debug((new Date()).toString()+"|"+prependToLog,"Get Total Attempts for SystemPrompt/Topic: "+query);
                             zcql.executeZCQLQuery(query)
                             .then((topicAttempts) => {
