@@ -51,7 +51,7 @@ let query = "select {} from UsersReport"
 getAllRows("ROWID, Mobile",query,zcql)
 .then((currentReport)=>{
 	query = "select {} from Users"
-	getAllRows("Name, Mobile, Consent, RegisteredTime, NudgeTime, Excluded, EnglishProficiency, SourcingChannel",query,zcql)
+	getAllRows("Name, Mobile, Consent, RegisteredTime, NudgeTime, Excluded, EnglishProficiency, SourcingChannel, CREATEDTIME",query,zcql)
 	.then(async  (users)=>{
 		const mobiles = users.map(user=>user.Users.Mobile)
 		
@@ -64,7 +64,7 @@ getAllRows("ROWID, Mobile",query,zcql)
 
         query = "SELECT contact_phone as Mobile, max(format_datetime('%Y-%m-%d %H:%I:%S',inserted_at)) as CREATEDTIME "+
                 "FROM `"+process.env.GCPProjectID+".91"+process.env.GlificBotNumber+".messages` "+
-                "where flow = 'inbound' and inserted_at >=  (CURRENT_DATE('Asia/Kolkata')- 4) "+
+                "where flow = 'inbound' and ((body = 'Chat with Ramya Bot') or (flow_name like 'Probabilistic%')) "+ //and inserted_at >=  (CURRENT_DATE('Asia/Kolkata')- 4) "+
                 "and contact_phone in ('91"+mobiles.join("','91")+"') "+
                 "group by 1"
         console.info((new Date()).toString()+"|"+prependToLog,`BQ Query: `,query)
@@ -125,6 +125,7 @@ getAllRows("ROWID, Mobile",query,zcql)
 							userReport['Name'] = users[i]["Users"]["Name"]
 						}
 						userReport['Mobile'] = users[i]["Users"]["Mobile"]
+						userReport['UserCreatedAt'] = users[i]["Users"]["CREATEDTIME"].toString().slice(0,19)
 						const rowID = currentReport.length == 0 ? null : currentReport.filter(data=>data['UsersReport']['Mobile']==userReport['Mobile'])
 						if((rowID!=null)&&(rowID.length>0))
 							userReport['ROWID'] = rowID[0]['UsersReport']['ROWID']

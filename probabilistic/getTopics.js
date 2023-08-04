@@ -4,6 +4,8 @@ const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
+let userTopicSubscriptionMapper = require("./models/userTopicSubscriptionMapper.js")
+let getConfigurationParam = require("./common/getConfigurationParam.js");
 
 // const app = express();
 // app.use(express.json());
@@ -24,6 +26,8 @@ app.post("/topiclist", (req, res) => {
   
   console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
     
+  const module = (typeof requestBody["Module"] === 'undefined') ? null : requestBody["Module"]
+  console.info((new Date()).toString()+"|"+prependToLog,"Module="+module)
 
   const nextStartIndex = requestBody["NextStartIndex"] - 1;
   var responseJSON = {
@@ -37,7 +41,7 @@ app.post("/topiclist", (req, res) => {
     .then((promptsResult) => {
       const allPrompts = JSON.parse(promptsResult);
       if (allPrompts["OperationStatus"] == "SUCCESS") {
-        var promptNames = allPrompts["Prompts"].map((data) => data.Name);
+        var promptNames = allPrompts["Prompts"].filter(data=>data.Module==module).map((data) => data.Name);
         promptNames = promptNames.filter(unique);
         for (var i = nextStartIndex; i < promptNames.length; i++) {
           responseJSON["Topic" + (i - nextStartIndex + 1)] = promptNames[i];
@@ -133,29 +137,76 @@ app.post("/allocatetopic", (req, res) => {
 
         const checkLockStatusForUser = (isPaid, mobile, systemPromptROWID) => {
           return new Promise((resolve, reject)=>{
-            if(isPaid!=true){
-              console.info("Topic selected is free")
-              resolve("Unlocked")
+            if(isPaid!=true){            
+              getConfigurationParam({
+                id: systemPromptROWID,
+                param: ["maxsessions"],
+              })
+              .then((topicConfigResult)=>{
+                const topicConfig = JSON.parse(topicConfigResult);
+                if (topicConfig.OperationStatus != "SUCCESS")
+                  reject(topicConfig)
+                else{
+                  if(topicConfig.Values==null){
+                    console.info((new Date()).toString()+"|"+prependToLog,"No maxsessions configured for the topic")
+                    resolve('Unlocked')
+                  }
+                  else if(typeof topicConfig.Values['maxsessions'] !== 'undefined'){
+                    zcql.executeZCQLQuery("select distinct SessionID from Sessions where SystemPromptsROWID='"+systemPromptROWID+"'")
+                    .then((sessions)=>{
+                      if(!Array.isArray(sessions)){
+                        console.info((new Date()).toString()+"|"+prependToLog,"Failed to get session count for the user ")
+                        reject(sessions)
+                      }
+                      else{
+                        if(sessions.length > topicConfig.Values['maxsessions']){
+                          console.info((new Date()).toString()+"|"+prependToLog,"maxsessions reached for the topic. Send Sign-Up notification")
+                          resolve('MaxSessionsReached')
+                        }
+                        else{
+                          console.info((new Date()).toString()+"|"+prependToLog,"maxsessions not reached for the topic.")
+                          resolve('Unlocked')
+                        }
+                      }
+                    })
+                    .catch(error=>{
+                      console.info((new Date()).toString()+"|"+prependToLog,"Error in getting total count of sessions.")
+                      reject(error)
+                    })
+                  }
+                  else if(typeof topicConfig.Values['maxsessions'] === 'undefined'){
+                    console.info((new Date()).toString()+"|"+prependToLog,"No maxsessions configured for the topic")
+                    resolve('Unlocked')
+                  }
+                }
+              })
+              .catch(error=>{
+                console.info((new Date()).toString()+"|"+prependToLog,"Error in getting maxsessions.")
+                reject(error)
+              })
             }
             else{
-              console.info("Topic selected is paid. Checking status for the user")
-              let query = "Select ROWID from UserPaidTopicMapper "
-                          +"left join Users on Users.ROWID = UserPaidTopicMapper.UserROWID "
-                          +"where IsActive = true and Users.Mobile="+mobile+" and UserPaidTopicMapper.SystemPromptROWID="+systemPromptROWID
+              console.info((new Date()).toString()+"|"+prependToLog,"Topic selected is paid. Checking status for the user")
+              let query = "Select ROWID from Users where IsActive = true and Users.Mobile="+mobile
               console.debug("Checking status of Topic for the user:",query)
               zcql.executeZCQLQuery(query)
-              .then((unlockedCourses)=>{
-                if(!Array.isArray(unlockedCourses)&&(unlockedCourses.length>0)){
-                  console.info((new Date()).toString()+"|"+prependToLog,"Error in query for getting unlock status")
-                  reject(unlockedCourses)
+              .then(async (user)=>{
+                if(!Array.isArray(user)){
+                  console.info((new Date()).toString()+"|"+prependToLog,"Error in query for getting user info")
+                  reject(user)
                 }
                 else{
+                  const unlockedCourses = await userTopicSubscriptionMapper.find({
+                    UserROWID:user[0]['Users']['ROWID'],
+                    SystemPromptROWIDs:systemPrompts[0]["SystemPrompts"]["ROWID"],
+                    IsUnlocked: true
+                  })
                   if(unlockedCourses.length==0){
-                    console.info("User has not unlocked the topic")
+                    console.info((new Date()).toString()+"|"+prependToLog,"User has not unlocked the topic")
                     resolve("Locked")
                   }
                   else{
-                    console.info("User has unlocked the topic")
+                    console.info((new Date()).toString()+"|"+prependToLog,"User has unlocked the topic")
                     resolve("Unlocked")
                   }
                 }
@@ -173,7 +224,7 @@ app.post("/allocatetopic", (req, res) => {
 
         checkLockStatusForUser(systemPrompts[0]["SystemPrompts"]["IsPaid"],mobile,systemPrompts[0]["SystemPrompts"]["ROWID"])
         .then((lockStatus)=>{
-          if(lockStatus!='Unlocked'){
+          if(lockStatus=='Locked'){
             responseObject["OperationStatus"] = "TPC_LOCKED";
             responseObject["StatusDescription"] = "User has not unlocked the topic"
             responseObject["TopicID"] = systemPrompts[0]["SystemPrompts"]["ROWID"];
@@ -206,6 +257,18 @@ app.post("/allocatetopic", (req, res) => {
               responseObject["ObjectiveMessageFlag"] =
                 responseObject["ObjectiveMessage"] != null;
               responseObject["ShowLearningContent"] = systemPrompts[0]["SystemPrompts"]["ShowLearningContent"] == true
+              
+              //---- 2023-08-04 | GLOW 5.3 | ravi.bhushan@dhwaniris.com | Begin----
+              responseObject["LearningObjective"] =
+                systemPrompts[0]["SystemPrompts"]["LearningObjective"];
+              responseObject["LearningObjectiveFlag"] =
+                responseObject["LearningObjective"] != null;
+              
+              if(lockStatus=='MaxSessionsReached'){
+                responseObject["OperationStatus"] = "MAX_SSN_RCHD";
+                responseObject["StatusDescription"] = "User has completed max sessions"
+              }
+              //---- 2023-08-04 | GLOW 5.3 | ravi.bhushan@dhwaniris.com | End----
 
               console.info((new Date()).toString()+"|"+prependToLog,"End of execution:", responseObject);
               res.status(200).json(responseObject);
@@ -313,6 +376,11 @@ app.post("/allocatetopic", (req, res) => {
                     responseObject["SupportingImageURLFlag"] ||
                     responseObject["SupportingAVURLFlag"];
                   responseObject["ShowLearningContent"] = systemPrompts[0]["SystemPrompts"]["ShowLearningContent"] == true
+                  
+                  //---- 2023-08-04 | GLOW 5.3 | ravi.bhushan@dhwaniris.com | Begin----
+                  responseObject["LearningObjective"] = systemPrompts[0]["SystemPrompts"]["LearningObjective"];
+                  responseObject["LearningObjectiveFlag"] = responseObject["LearningObjective"] != null;
+                  //---- 2023-08-04 | GLOW 5.3 | ravi.bhushan@dhwaniris.com | End----
 
                   console.info((new Date()).toString()+"|"+prependToLog,"End of execution:", responseObject);
                   res.status(200).json(responseObject);
@@ -376,9 +444,9 @@ app.post("/topicpersonas", (req, res) => {
 
   //Get table meta object without details.
   let getAssessmentContribution = require("./common/getAssessmentContribution.js");
-
+  
   getAssessmentContribution({ isactive: true, prompt: topic })
-    .then((promptsResult) => {
+    .then(async (promptsResult) => {
       var allPrompts = JSON.parse(promptsResult);
       if (allPrompts["OperationStatus"] == "SUCCESS") {
         allPrompts = allPrompts["Prompts"].filter(
@@ -389,9 +457,30 @@ app.post("/topicpersonas", (req, res) => {
           allPrompts != null &&
           allPrompts.length > 0
         ) {
+          let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+          let zcql = catalystApp.zcql()
           for (var i = nextStartIndex; i < allPrompts.length; i++) {
-            responseJSON["Persona" + (i - nextStartIndex + 1)] =
-              allPrompts[i]["Persona"] + (allPrompts[i]["IsPaid"]==true? " 🔐" : "");
+            if(allPrompts[i]["IsPaid"]!=true)
+              responseJSON["Persona" + (i - nextStartIndex + 1)] = allPrompts[i]["Persona"]
+            else{
+              try{
+                const user = await zcql.executeZCQLQuery("Select ROWID from Users where Mobile = '"+requestBody["Mobile"].slice(-10)+"'")
+                if(!Array.isArray(user))
+                  throw new Error(user)
+                console.info((new Date()).toString()+"|"+prependToLog,"Fetched User's ID")
+                const userSubscriptions = await userTopicSubscriptionMapper.find({
+                  UserROWID:user[0]['Users']['ROWID'],
+                  SystemPromptROWIDs:allPrompts[i]["ROWID"],
+                  IsUnlocked: true
+                })
+                console.info((new Date()).toString()+"|"+prependToLog,"Fetched Topic Subscription Status of User")
+                responseJSON["Persona" + (i - nextStartIndex + 1)] = allPrompts[i]["Persona"]+ (userSubscriptions.length==0? " 🔐" : "");
+              }
+              catch(error){
+                console.info((new Date()).toString()+"|"+prependToLog,"Encountered error in searching Users Table:",error)
+                responseJSON["Persona" + (i - nextStartIndex + 1)] = allPrompts[i]["Persona"]+ " 🔐";
+              }
+            }
           }
           if (allPrompts.length > nextStartIndex) {
             responseJSON["TotalPersonas"] = allPrompts.length - nextStartIndex;
@@ -448,8 +537,7 @@ app.post("/unlocktopic", (req, res) => {
   const topicID = requestBody["TopicID"];
   const transactionID = requestBody["TransactionID"];
   var mobile = requestBody["Mobile"];
-  var isActive = requestBody["IsActive"];
-  var status = requestBody["PaymentStatus"];
+  var isUnlocked = requestBody["IsUnlocked"];
   
   mobile = mobile.toString().slice(-10);
 

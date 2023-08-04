@@ -122,6 +122,9 @@ module.exports = async (basicIO) => {
                 return JSON.stringify(result);
               } else {
 
+                var learningObjective = basicIO["learningObjective"];
+                var module = basicIO["module"];
+
                 var isPaid = basicIO["isPaid"];
                 if (
                   typeof isPaid !== "boolean" &&
@@ -146,7 +149,9 @@ module.exports = async (basicIO) => {
                     ObjectiveMessage: objectiveMessage,
                     Type: typeof type === "undefined" ? "Topic Prompt" : type,
                     ShowLearningContent : (typeof showLearningContent === "undefined") ? false : showLearningContent,
-                    IsPaid : (typeof isPaid === "undefined") ? false : isPaid
+                    IsPaid : (typeof isPaid === "undefined") ? false : isPaid,
+                    LearningObjective: learningObjective,
+                    Module: module
                   };
                   const datastore = catalystApp.datastore();
                   let table = datastore.table("SystemPrompts");
@@ -159,12 +164,21 @@ module.exports = async (basicIO) => {
                     let setConfigurationParam = require("./setConfigurationParam.js");
                     allConfig["defaultConfig"].forEach(async (cfg) => {
                       try {
-                        let addedCFG = await setConfigurationParam({
+                        //----2023-08-03:ravi.bhushan@dhwaniris.com:GLOW 5.3 Modifiction Begin-------
+                        let cfgPayload = {
                           param: cfg.Name,
                           value: cfg.Value,
                           description: cfg.Description,
                           id: insertQueryResult["ROWID"],
-                        });
+                        }
+
+                        //If it's a free topic, set subcription amount to 0
+                        if((cfg.Name=="subsciptionamt")&&(insertQueryResult['IsPaid']!=true))
+                          cfgPayload['value']=0
+                        
+                        let addedCFG = await setConfigurationParam(cfgPayload);
+                        //-----GLOW 5.3 Modifiction End-------
+                        
                         console.info((new Date()).toString()+"|"+prependToLog," default configuration:", addedCFG);
                       } catch (error) {
                         console.info((new Date()).toString()+"|"+prependToLog,
