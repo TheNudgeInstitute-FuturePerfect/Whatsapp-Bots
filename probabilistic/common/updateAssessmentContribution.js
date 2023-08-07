@@ -135,7 +135,15 @@ module.exports = async (basicIO) => {
 								var type = basicIO["type"]
 									if(typeof type !== 'undefined')
 									updateData["Type"]=type
-												
+								
+								var learningObjective = basicIO["learningObjective"]
+									if(typeof learningObjective !== 'undefined')
+									updateData["LearningObjective"]=learningObjective
+								
+								var module = basicIO["module"]
+									if(typeof module !== 'undefined')
+									updateData["Module"]=module
+								
 
 								if((typeof seqNO !== 'undefined')||(typeof name !== 'undefined'))
 									updateData["PrimaryKey"]=name+"-"+seqNO								
