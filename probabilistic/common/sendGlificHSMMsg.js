@@ -2,153 +2,163 @@
 const catalyst = require("zoho-catalyst-sdk");
 
 module.exports = async (basicIO) => {
-	const catalystApp = catalyst.initialize();	
-	let msgID = basicIO["messageID"]
-	let contactID = basicIO["contactID"]
-	var params = basicIO["params"]
-	console.log("Request: ",msgID," | ",contactID)
-	var responseJSON = {
-		OperationStatus:"REQ_ERR",
-		StatusDescription:null
-	}
-	if(typeof msgID === 'undefined'){
-		responseJSON["StatusDescription"] = "messageID missing";
-		console.log("Returned: ",responseJSON)
-		return JSON.stringify(responseJSON);
-	}
-	else if(typeof contactID === 'undefined'){
-		responseJSON["StatusDescription"] = "contactID missing";
-		console.log("Returned: ",responseJSON)
-		return JSON.stringify(responseJSON);
-	}
-	else if((typeof params !== 'undefined')&&(Array.isArray(params) == false)){
-		responseJSON["StatusDescription"] = "params must be an array";
-		console.log("Returned: ",responseJSON)
-		return JSON.stringify(responseJSON);
-	}
-	else{
-		if(typeof params === 'undefined'){
-			params = []
+	return new Promise((resolve,reject)=>{
+		const catalystApp = catalyst.initialize();	
+		const executionID = Math.random().toString(36).slice(2)
+			
+		//Prepare text to prepend with logs
+		const logParams = ["sendGlificHSMMsg",executionID,""]
+		const prependToLog = logParams.join(" | ")
+		
+		console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+		
+		let msgID = basicIO["messageID"]
+		let contactID = basicIO["contactID"]
+		var params = basicIO["params"]
+		console.info((new Date()).toString()+"|"+prependToLog,"Request: ",msgID," | ",contactID)
+		var responseJSON = {
+			OperationStatus:"REQ_ERR",
+			StatusDescription:null
 		}
-		responseJSON['OperationStatus'] = "SUCCESS"
-		console.info("Sending request to Glific to send HSM message");
-		const request = require('request');
-		//Get Auth Token
-		var options = {
-			'method': process.env.authMethod,
-			'url': process.env.authURL.toString().replace('{1}',process.env.authUser.toString()).replace('{2}',process.env.authPwd.toString()),
-			'headers': {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				query: ``,
-				variables: {}
-			})
-		};
-		request(options, function (error, response) {
-			if (error){
-				console.log("Error in Glific Authentication API Call: "+error);
-				console.log("Request Parameters: "+JSON.stringify(options));
-				responseJSON['OperationStatus'] = "GLFC_AUTH_ERR"
-				responseJSON['StatusDescription'] = error
-				return JSON.stringify(responseJSON)
+		if(typeof msgID === 'undefined'){
+			responseJSON["StatusDescription"] = "messageID missing";
+			console.info((new Date()).toString()+"|"+prependToLog,"Returned: ",responseJSON)
+			reject(JSON.stringify(responseJSON));
+		}
+		else if(typeof contactID === 'undefined'){
+			responseJSON["StatusDescription"] = "contactID missing";
+			console.info((new Date()).toString()+"|"+prependToLog,"Returned: ",responseJSON)
+			reject(JSON.stringify(responseJSON));
+		}
+		else if((typeof params !== 'undefined')&&(Array.isArray(params) == false)){
+			responseJSON["StatusDescription"] = "params must be an array";
+			console.info((new Date()).toString()+"|"+prependToLog,"Returned: ",responseJSON)
+			reject(JSON.stringify(responseJSON));
+		}
+		else{
+			if(typeof params === 'undefined'){
+				params = []
 			}
-			else if(response.body == 'Something went wrong'){
-				console.log("Error returned by Glific Authentication API: "+response.body);
-				console.log("Request Parameters: "+JSON.stringify(options));
-				responseJSON['OperationStatus'] = "GLFC_AUTH_ERR"
-				responseJSON['StatusDescription'] = response.body
-				return JSON.stringify(responseJSON)
-			}
-			else{
-				console.info("Successfully Authenticated with Glific");
-				try{
-					let responseBody = JSON.parse(response.body)
-					const authToken = responseBody.data.access_token;
-					console.info("Extracted access token from response."+
-								"\nSending Message ID "+msgID+" to "+ contactID);
-					
-					options = {
-						'method': process.env.operationMethod.toString(),
-						'url': process.env.operationURL.toString(),
-						'headers': {
-							'Authorization': authToken,
-							'Content-Type': 'application/json'
-						},
-						body: JSON.stringify({
-							query: `mutation sendHsmMessage($templateId: ID!, $receiverId: ID!, $parameters: [String]) {
-								sendHsmMessage(templateId: $templateId, receiverId: $receiverId, parameters: $parameters) {
-									message{
-										id
-										body
-										isHsm
+			responseJSON['OperationStatus'] = "SUCCESS"
+			console.info((new Date()).toString()+"|"+prependToLog,"Sending request to Glific to send HSM message");
+			const request = require('request');
+			//Get Auth Token
+			var options = {
+				'method': process.env.authMethod,
+				'url': process.env.authURL.toString().replace('{1}',process.env.authUser.toString()).replace('{2}',process.env.authPwd.toString()),
+				'headers': {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					query: ``,
+					variables: {}
+				})
+			};
+			request(options, function (error, response) {
+				if (error){
+					console.info((new Date()).toString()+"|"+prependToLog,"Error in Glific Authentication API Call: "+error);
+					console.info((new Date()).toString()+"|"+prependToLog,"Request Parameters: "+JSON.stringify(options));
+					responseJSON['OperationStatus'] = "GLFC_AUTH_ERR"
+					responseJSON['StatusDescription'] = error
+					reject(JSON.stringify(responseJSON))
+				}
+				else if(response.body == 'Something went wrong'){
+					console.info((new Date()).toString()+"|"+prependToLog,"Error returned by Glific Authentication API: "+response.body);
+					console.info((new Date()).toString()+"|"+prependToLog,"Request Parameters: "+JSON.stringify(options));
+					responseJSON['OperationStatus'] = "GLFC_AUTH_ERR"
+					responseJSON['StatusDescription'] = response.body
+					reject(JSON.stringify(responseJSON))
+				}
+				else{
+					console.info((new Date()).toString()+"|"+prependToLog,"Successfully Authenticated with Glific");
+					try{
+						let responseBody = JSON.parse(response.body)
+						const authToken = responseBody.data.access_token;
+						console.info((new Date()).toString()+"|"+prependToLog,"Extracted access token from response."+
+									"\nSending Message ID "+msgID+" to "+ contactID);
+						
+						options = {
+							'method': process.env.operationMethod.toString(),
+							'url': process.env.operationURL.toString(),
+							'headers': {
+								'Authorization': authToken,
+								'Content-Type': 'application/json'
+							},
+							body: JSON.stringify({
+								query: `mutation sendHsmMessage($templateId: ID!, $receiverId: ID!, $parameters: [String]) {
+									sendHsmMessage(templateId: $templateId, receiverId: $receiverId, parameters: $parameters) {
+										message{
+											id
+											body
+											isHsm
+										}
+										errors {
+											key
+											message
+										}
 									}
-									errors {
-										key
-										message
-									}
+								}`,
+								variables: {
+									"templateId": msgID,
+									"receiverId": contactID,
+									"parameters": params
 								}
-							}`,
-							variables: {
-								"templateId": msgID,
-								"receiverId": contactID,
-								"parameters": params
-							}
-						})
-					};
-					request(options, function (error, response) {
-						//If any error in API call throw error
-						if (error){
-							console.log("Error in resuming flow in Glific: "+error);
-							console.log("Request Parameters: "+JSON.stringify(options));
-							responseJSON['OperationStatus'] = "GLFC_API_ERR"
-							responseJSON['StatusDescription'] = error
-						    return JSON.stringify(responseJSON)
-						}
-						else{
-							console.log('Glific Response: '+response.body+"\n"+
-										"\nRequest Parameters: "+JSON.stringify(options));
-							const hsmMsgResponse = JSON.parse(response.body)
-							//If any error retruned by Glific API throw error
-							if(hsmMsgResponse.errors != null)
-							{
-								console.log("Error rreturned by HSM Message API: "+JSON.stringify(hsmMsgResponse.errors));
-								console.log("Request Parameters: "+JSON.stringify(options));
+							})
+						};
+						request(options, function (error, response) {
+							//If any error in API call throw error
+							if (error){
+								console.info((new Date()).toString()+"|"+prependToLog,"Error in resuming flow in Glific: "+error);
+								console.info((new Date()).toString()+"|"+prependToLog,"Request Parameters: "+JSON.stringify(options));
 								responseJSON['OperationStatus'] = "GLFC_API_ERR"
-								responseJSON['StatusDescription'] = hsmMsgResponse.errors
-								return JSON.stringify(responseJSON)
+								responseJSON['StatusDescription'] = error
+								reject(JSON.stringify(responseJSON))
 							}
-							else
-							{
-								const elementData = hsmMsgResponse.data
-								const elementSendHsmMessage = elementData.sendHsmMessage
-								const elementErrors = elementSendHsmMessage.errors
-								if(elementErrors != null) 
+							else{
+								console.info((new Date()).toString()+"|"+prependToLog,'Glific Response: '+response.body+"\n"+
+											"\nRequest Parameters: "+JSON.stringify(options));
+								const hsmMsgResponse = JSON.parse(response.body)
+								//If any error retruned by Glific API throw error
+								if(hsmMsgResponse.errors != null)
 								{
-									console.log('Error returned by Glific API '+JSON.stringify(hsmMsgResponse))
+									console.info((new Date()).toString()+"|"+prependToLog,"Error rreturned by HSM Message API: "+JSON.stringify(hsmMsgResponse.errors));
+									console.info((new Date()).toString()+"|"+prependToLog,"Request Parameters: "+JSON.stringify(options));
 									responseJSON['OperationStatus'] = "GLFC_API_ERR"
-									responseJSON['StatusDescription'] = elementErrors
-									return JSON.stringify(responseJSON)
+									responseJSON['StatusDescription'] = hsmMsgResponse.errors
+									reject(JSON.stringify(responseJSON))
 								}
 								else
 								{
-									console.info("Successfully resumed flow in Glific");
-									responseJSON['OperationStatus'] = "SUCCESS"
-									return JSON.stringify(responseJSON)
-								}
+									const elementData = hsmMsgResponse.data
+									const elementSendHsmMessage = elementData.sendHsmMessage
+									const elementErrors = elementSendHsmMessage.errors
+									if(elementErrors != null) 
+									{
+										console.info((new Date()).toString()+"|"+prependToLog,'Error returned by Glific API '+JSON.stringify(hsmMsgResponse))
+										responseJSON['OperationStatus'] = "GLFC_API_ERR"
+										responseJSON['StatusDescription'] = elementErrors
+										reject(JSON.stringify(responseJSON))
+									}
+									else
+									{
+										console.info((new Date()).toString()+"|"+prependToLog,"Successfully resumed flow in Glific");
+										responseJSON['OperationStatus'] = "SUCCESS"
+										resolve(JSON.stringify(responseJSON))
+									}
 
+								}
 							}
-						}
-					});
+						});
+					}
+					catch(error){
+						console.info((new Date()).toString()+"|"+prependToLog,"Error in sending HSM in Glific: "+error,"\nGlific Response: ",response.body);
+						console.info((new Date()).toString()+"|"+prependToLog,"Request Parameters: "+JSON.stringify(options));
+						responseJSON['OperationStatus'] = "GLFC_AUTH_API_ERR"
+						responseJSON['StatusDescription'] = error
+						reject(JSON.stringify(responseJSON))
+					}
 				}
-				catch(error){
-					console.log("Error in sending HSM in Glific: "+error,"\nGlific Response: ",response.body);
-					console.log("Request Parameters: "+JSON.stringify(options));
-					responseJSON['OperationStatus'] = "GLFC_AUTH_API_ERR"
-					responseJSON['StatusDescription'] = error
-					return JSON.stringify(responseJSON)
-				}
-			}
-		});
-	}
+			});
+		}
+	})
 }

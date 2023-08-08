@@ -26,6 +26,7 @@ const wordleOfDay = require("./wordleOfDay.js");
 const questionBank = require("./QuestionBankCRUD.js");
 const getRandomQuestions = require("./getRandomQuestions.js");
 const storeQuestionAnswers = require("./storeQuestionAnswers.js");
+const payment = require("./PaymentCRUD.js");
 
 // Basic I/O const
 const addUserData = require("./common/addUserData.js");
@@ -67,12 +68,13 @@ app.use("/storeFeedback",storeFeedback);
 app.use("/closeLatestSession",closeLatestSession);
 app.use("/getTopics",getTopics);
 app.use("/getLatestSession",getLatestSession);
-app.use("/getUserSessionCounts",getUserSessionCounts)
-app.use("/wordle",wordle)
-app.use("/wordleofday",wordleOfDay)
-app.use("/question",questionBank)
-app.use("/getquestion",getRandomQuestions)
-app.use("/storeanswer",storeQuestionAnswers)
+app.use("/getUserSessionCounts",getUserSessionCounts);
+app.use("/wordle",wordle);
+app.use("/wordleofday",wordleOfDay);
+app.use("/question",questionBank);
+app.use("/getquestion",getRandomQuestions);
+app.use("/storeanswer",storeQuestionAnswers);
+app.use("/payment",payment);
 
 // Basic I/O  routes
 app.use("/addUserData",addUserData);
