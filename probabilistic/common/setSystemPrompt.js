@@ -124,6 +124,7 @@ module.exports = async (basicIO) => {
 
                 var learningObjective = basicIO["learningObjective"];
                 var module = basicIO["module"];
+                var game = basicIO["game"];
 
                 var isPaid = basicIO["isPaid"];
                 if (
@@ -151,7 +152,8 @@ module.exports = async (basicIO) => {
                     ShowLearningContent : (typeof showLearningContent === "undefined") ? false : showLearningContent,
                     IsPaid : (typeof isPaid === "undefined") ? false : isPaid,
                     LearningObjective: learningObjective,
-                    Module: module
+                    Module: module,
+                    Game: game
                   };
                   const datastore = catalystApp.datastore();
                   let table = datastore.table("SystemPrompts");

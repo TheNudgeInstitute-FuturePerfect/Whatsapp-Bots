@@ -144,6 +144,10 @@ module.exports = async (basicIO) => {
 									if(typeof module !== 'undefined')
 									updateData["Module"]=module
 								
+								var game = basicIO["game"]
+									if(typeof game !== 'undefined')
+									updateData["Game"]=game
+								
 
 								if((typeof seqNO !== 'undefined')||(typeof name !== 'undefined'))
 									updateData["PrimaryKey"]=name+"-"+seqNO								

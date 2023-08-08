@@ -26,7 +26,7 @@ app.post("/topiclist", (req, res) => {
   
   console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
     
-  const module = (typeof requestBody["Module"] === 'undefined') ? null : requestBody["Module"]
+  const module = (typeof requestBody["Module"] === 'undefined') ? null : ((requestBody["Module"] == 'Start Practice')||(requestBody["Module"].startsWith("@contact"))||(requestBody["Module"].startsWith("@result"))) ? null : requestBody["Module"]
   console.info((new Date()).toString()+"|"+prependToLog,"Module="+module)
 
   const nextStartIndex = requestBody["NextStartIndex"] - 1;
@@ -118,7 +118,7 @@ app.post("/allocatetopic", (req, res) => {
 
   //Get the SystemPrompt details for the topics
   let query =
-    "select distinct SystemPrompts.ROWID, SystemPrompts.Sequence, SystemPrompts.SupportingText, SystemPrompts.SupportingImageURL, SystemPrompts.SupportingAVURL, SystemPrompts.ObjectiveMessage, SystemPrompts.IsPaid, SystemPrompts.ShowLearningContent from SystemPrompts where SystemPrompts.Name = '" +
+    "select distinct SystemPrompts.ROWID, SystemPrompts.Sequence, SystemPrompts.SupportingText, SystemPrompts.SupportingImageURL, SystemPrompts.SupportingAVURL, SystemPrompts.ObjectiveMessage, SystemPrompts.IsPaid, SystemPrompts.ShowLearningContent, SystemPrompts.LearningObjective, SystemPrompts.Game from SystemPrompts where SystemPrompts.Name = '" +
     topic +
     "' and SystemPrompts.IsActive = true";
   if (persona != null)
@@ -263,7 +263,10 @@ app.post("/allocatetopic", (req, res) => {
                 systemPrompts[0]["SystemPrompts"]["LearningObjective"];
               responseObject["LearningObjectiveFlag"] =
                 responseObject["LearningObjective"] != null;
-              
+              responseObject["Game"] =
+                systemPrompts[0]["SystemPrompts"]["Game"];
+              responseObject["GameFlag"] =
+                responseObject["Game"] != null;
               if(lockStatus=='MaxSessionsReached'){
                 responseObject["OperationStatus"] = "MAX_SSN_RCHD";
                 responseObject["StatusDescription"] = "User has completed max sessions"
