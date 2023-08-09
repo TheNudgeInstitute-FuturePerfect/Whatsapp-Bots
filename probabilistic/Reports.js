@@ -1327,12 +1327,12 @@ app.get("/sessionevents", (req, res) => {
 	today.setMinutes(today.getMinutes()+30)
 	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
 	const dataLimit = req.query.limit ? req.query.limit : null
-	const event = req.query.event ? req.query.event : null
+	const event = req.query.event ? req.query.event.split(",") : null
 
 	let query = "Select {} from SessionEvents left join SystemPrompts on SystemPrompts.ROWID=SessionEvents.SystemPromptROWID where SessionEvents.CREATEDTIME >='"+startDate+" 00:00:00' and SessionEvents.CREATEDTIME <= '"+endDate+" 23:59:59' order by CREATEDTIME ASC"
 	getAllRows("Mobile, SessionID, Event, SystemPrompts.Name, SystemPrompts.Persona, SessionEvents.CREATEDTIME", query,zcql,dataLimit)
 			.then((sessions)=>{
-				var eventData = sessions.filter(data=> event == null ? true : (data.SessionEvents.Event==event))
+				var eventData = sessions.filter(data=> event == null ? true : event.includes(data.SessionEvents.Event))
 				var report = eventData.map(data=>{
 					return {
 						Mobile : data.SessionEvents.Mobile,

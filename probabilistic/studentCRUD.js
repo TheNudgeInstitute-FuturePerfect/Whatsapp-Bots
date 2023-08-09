@@ -13,6 +13,14 @@ const app = express.Router();
 app.post("/create", (req, res) => {
   let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
+  const executionID = Math.random().toString(36).slice(2)
+    
+  //Prepare text to prepend with logs
+  const params = ["StudentCRUD",req.url,executionID,""]
+  const prependToLog = params.join(" | ")
+  
+  console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
   const requestBody = req.body;
   //Prepare Date
   const currentDate = new Date();
@@ -28,7 +36,7 @@ app.post("/create", (req, res) => {
     ("0" + currentDate.getMinutes()).slice(-2) +
     ":" +
     ("0" + currentDate.getSeconds()).slice(-2);
-  //console.log('Current TimeStamp= '+currentDate)
+  //console.info((new Date()).toString()+"|"+prependToLog,'Current TimeStamp= '+currentDate)
 
   //Get table meta object without details.
   let table = catalystApp.datastore().table("Users");
@@ -54,13 +62,13 @@ app.post("/create", (req, res) => {
 
   insertPromise
     .then((row) => {
-      console.log("\nInserted Row : " + JSON.stringify(row));
+      console.info((new Date()).toString()+"|"+prependToLog,"\nInserted Row : " + JSON.stringify(row));
       res.status(200).json({ OperationStatus: "USER_RECORD_CREATED" });
     })
     .catch((err) => {
-      console.log(err);
+      console.info((new Date()).toString()+"|"+prependToLog,err);
       if (err.indexOf("DUPLICATE_VALUE") != 0) {
-        console.log("Response Sent:", { OperationStatus: "USER_ALRDY_PRSNT" });
+        console.info((new Date()).toString()+"|"+prependToLog,"Response Sent:", { OperationStatus: "USER_ALRDY_PRSNT" });
         res.status(200).json({ OperationStatus: "USER_ALRDY_PRSNT" });
       } else res.status(500).send(err);
     });
@@ -68,6 +76,15 @@ app.post("/create", (req, res) => {
 
 app.post("/update", async (req, res) => {
   let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+  
+  const executionID = Math.random().toString(36).slice(2)
+    
+  //Prepare text to prepend with logs
+  const params = ["StudentCRUD",req.url,executionID,""]
+  const prependToLog = params.join(" | ")
+  
+  console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
   //Initialze ZCQL
   let zcql = catalystApp.zcql();
 
@@ -77,15 +94,15 @@ app.post("/update", async (req, res) => {
   //Get the User's mobile number
   //const mobile = requestBody['contact'].phone.length == 12 ? requestBody['contact'].phone-910000000000 : requestBody['contact'].phone
   const mobile = requestBody["Mobile"].toString().slice(-10);
-  console.log("User Mobile Number: " + mobile);
+  console.info((new Date()).toString()+"|"+prependToLog,"User Mobile Number: " + mobile);
   //Get the Consent Status: Yes/No
   var updateFields = [];
   var requestOK = true;
   var errorDescription = "";
   //Consent
-  //console.log(typeof requestBody.consent)
-  //console.log(typeof requestBody["contact"]["fields"]["consent"]["value"])
-  //console.log(requestBody["contact"]["fields"]["consent"]["value"].length)
+  //console.info((new Date()).toString()+"|"+prependToLog,typeof requestBody.consent)
+  //console.info((new Date()).toString()+"|"+prependToLog,typeof requestBody["contact"]["fields"]["consent"]["value"])
+  //console.info((new Date()).toString()+"|"+prependToLog,requestBody["contact"]["fields"]["consent"]["value"].length)
   if (typeof requestBody["Consent"] !== "undefined") {
     if (requestBody["Consent"].length > 0) {
       updateFields.push("Consent=" + requestBody["Consent"]);
@@ -130,13 +147,22 @@ app.post("/update", async (req, res) => {
         "Either Language is null or has invalid value like @result. ";
     }
 
-  //1:1 Nudge Time
+  //Nudge Time
   if (typeof requestBody["NudgeTime"] !== "undefined")
     if (requestBody["NudgeTime"].length > 0)
       updateFields.push("NudgeTime='" + requestBody["NudgeTime"] + "'");
     else {
       requestOK = false;
       errorDescription += "NudgeTime is empty. ";
+    }
+
+  //Goal
+  if (typeof requestBody["GoalInMinutes"] !== "undefined")
+    if (isNaN(parseInt(requestBody["GoalInMinutes"]))==false)
+      updateFields.push("GoalInMinutes=" + parseInt(requestBody["GoalInMinutes"]));
+    else {
+      requestOK = false;
+      errorDescription += "GoalInMinutes must be a number. ";
     }
 
   //Unsubscribed/Re-Subscribed
@@ -185,7 +211,7 @@ app.post("/update", async (req, res) => {
           "EnglishProficiency not one of Beginner,Intermediate and Advanced. ";
       }
       else{
-        console.log("No value in English Proficiency")
+        console.info((new Date()).toString()+"|"+prependToLog,"No value in English Proficiency")
       }
 
   //Unsubscribed/Re-Subscribed
@@ -245,14 +271,14 @@ app.post("/update", async (req, res) => {
 
 
   //Final fields to update
-  console.log("Final fields to update: " + updateFields.join(","));
+  console.info((new Date()).toString()+"|"+prependToLog,"Final fields to update: " + updateFields.join(","));
   if (requestOK == false) {
-    console.log("Issue with request: ", errorDescription);
+    console.info((new Date()).toString()+"|"+prependToLog,"Issue with request: ", errorDescription);
     responseJSON["ErrorDescription"] = errorDescription;
     responseJSON["OperationStatus"] = "REQ_ERR";
     res.status(200).json(responseJSON);
   } else if (updateFields.length == 0) {
-    console.log("No field to update");
+    console.info((new Date()).toString()+"|"+prependToLog,"No field to update");
     responseJSON["ErrorDescription"] = "No field to update";
     responseJSON["OperationStatus"] = "SUCCESS";
     res.status(200).json(responseJSON);
@@ -264,7 +290,7 @@ app.post("/update", async (req, res) => {
       " where Mobile='" +
       mobile +
       "'";
-    console.log("Query : " + query);
+    console.info((new Date()).toString()+"|"+prependToLog,"Query : " + query);
     //Execute Query
     let zcqlQuestions = zcql.executeZCQLQuery(query);
 
@@ -274,26 +300,26 @@ app.post("/update", async (req, res) => {
         if (questionQueryResult.length == 0) {
           //Send the response
           responseJSON["OperationStatus"] = "USER_NOT_FOUND";
-          console.log("USER_NOT_FOUND ERROR");
+          console.info((new Date()).toString()+"|"+prependToLog,"USER_NOT_FOUND ERROR");
           res.status(200).json(responseJSON);
         }
         //If there are more than one records active for a mobile number, return error that there are more than one User.
         else if (questionQueryResult.length > 1) {
           //Send the response
           responseJSON["OperationStatus"] = "DUPLICATE_USERS_FOUND";
-          console.log("DUPLICATE_USERS_FOUND: " + questionQueryResult);
+          console.info((new Date()).toString()+"|"+prependToLog,"DUPLICATE_USERS_FOUND: " + questionQueryResult);
           res.status(200).json(responseJSON);
         } else {
           responseJSON["OperationStatus"] = "SUCCESS";
           responseJSON["UserROWID"] = questionQueryResult[0]["Users"]["ROWID"];
-          console.log(
+          console.info((new Date()).toString()+"|"+prependToLog,
             "Updated User Record - " + JSON.stringify(questionQueryResult)
           );
           res.status(200).json(responseJSON);
         }
       })
       .catch((err) => {
-        console.log(err);
+        console.info((new Date()).toString()+"|"+prependToLog,err);
         res.status(500).send(err);
       });
   }
@@ -302,11 +328,19 @@ app.post("/update", async (req, res) => {
 app.post("/search", (req, res) => {
   let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
+  const executionID = Math.random().toString(36).slice(2)
+    
+  //Prepare text to prepend with logs
+  const params = ["StudentCRUD",req.url,executionID,""]
+  const prependToLog = params.join(" | ")
+  
+  console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
   const requestBody = req.body;
   //Get the User's mobile number
   //const mobile = requestBody['contact'].phone.length == 12 ? requestBody['contact'].phone-910000000000 : requestBody['contact'].phone
   const mobile = requestBody["Mobile"].slice(-10);
-  console.log("User Mobile Number: " + mobile);
+  console.info((new Date()).toString()+"|"+prependToLog,"User Mobile Number: " + mobile);
 
   //Initialze ZCQL
   let zcql = catalystApp.zcql();
@@ -316,7 +350,7 @@ app.post("/search", (req, res) => {
     "Select ROWID, IsActive from User where Mobile='" +
     mobile +
     "' and isActive=true";
-  console.log("Query : " + query);
+  console.info((new Date()).toString()+"|"+prependToLog,"Query : " + query);
   //Execute Query
   let zcqlQuestions = zcql.executeZCQLQuery(query);
   var responseJSON = {};
@@ -326,18 +360,18 @@ app.post("/search", (req, res) => {
       if (questionQueryResult.length == 0) {
         //Send the response
         responseJSON["OperationStatus"] = "USER_NOT_FOUND";
-        console.log("USER_NOT_FOUND ERROR");
+        console.info((new Date()).toString()+"|"+prependToLog,"USER_NOT_FOUND ERROR");
         res.status(200).json(responseJSON);
       }
       //Else return success
       else {
         responseJSON["OperationStatus"] = "SUCCESS";
-        console.log("User Found");
+        console.info((new Date()).toString()+"|"+prependToLog,"User Found");
         res.status(200).json(responseJSON);
       }
     })
     .catch((err) => {
-      console.log(err);
+      console.info((new Date()).toString()+"|"+prependToLog,err);
       res.status(500).send(err);
     });
 });
@@ -345,17 +379,25 @@ app.post("/search", (req, res) => {
 app.post("/searchfield", (req, res) => {
   let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
+  const executionID = Math.random().toString(36).slice(2)
+    
+  //Prepare text to prepend with logs
+  const params = ["StudentCRUD",req.url,executionID,""]
+  const prependToLog = params.join(" | ")
+  
+  console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
   const requestBody = req.body;
   //Get the User's mobile number
   //const mobile = requestBody['contact'].phone.length == 12 ? requestBody['contact'].phone-910000000000 : requestBody['contact'].phone
   const mobile = requestBody["Mobile"].slice(-10);
-  console.log("User Mobile Number: " + mobile);
+  console.info((new Date()).toString()+"|"+prependToLog,"User Mobile Number: " + mobile);
   var fields = requestBody["Fields"];
-  console.log("Fields: " + fields);
+  console.info((new Date()).toString()+"|"+prependToLog,"Fields: " + fields);
   if (!Array.isArray(fields)) {
     fields = fields.split(",");
   }
-  console.log("Field Array: " + fields);
+  console.info((new Date()).toString()+"|"+prependToLog,"Field Array: " + fields);
   //Initialze ZCQL
   let zcql = catalystApp.zcql();
 
@@ -366,7 +408,7 @@ app.post("/searchfield", (req, res) => {
     " from Users where Mobile='" +
     mobile +
     "' and IsActive=true";
-  console.log("Query : " + query);
+  console.info((new Date()).toString()+"|"+prependToLog,"Query : " + query);
   //Execute Query
   let zcqlQuestions = zcql.executeZCQLQuery(query);
   var responseJSON = {};
@@ -376,7 +418,7 @@ app.post("/searchfield", (req, res) => {
       if (questionQueryResult.length == 0) {
         //Send the response
         responseJSON["OperationStatus"] = "USER_NOT_FOUND";
-        console.log("USER_NOT_FOUND ERROR");
+        console.info((new Date()).toString()+"|"+prependToLog,"USER_NOT_FOUND ERROR");
         res.status(200).json(responseJSON);
       }
       //Else return success
@@ -393,27 +435,36 @@ app.post("/searchfield", (req, res) => {
             }
           } else responseJSON[fields[i]] = null;
         }
-        console.log("End of execution", responseJSON);
+        console.info((new Date()).toString()+"|"+prependToLog,"End of execution", responseJSON);
         res.status(200).json(responseJSON);
       }
     })
     .catch((err) => {
-      console.log(err);
+      console.info((new Date()).toString()+"|"+prependToLog,err);
       res.status(500).send(err);
     });
 });
 
 app.post("/createuserdata", (req, res) => {
+
+  const executionID = Math.random().toString(36).slice(2)
+    
+  //Prepare text to prepend with logs
+  const params = ["StudentCRUD",req.url,executionID,""]
+  const prependToLog = params.join(" | ")
+  
+  console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
   const requestBody = req.body;
   //Get table meta object without details.
   /*let circuit = catalystApp.circuit();
 	circuit.execute("Test",Math.random().toString(36).slice(2),requestBody)
 	.then((result)=>{
-		console.log("\nInserted Row : " + JSON.stringify(result));
+		console.info((new Date()).toString()+"|"+prependToLog,"\nInserted Row : " + JSON.stringify(result));
 		res.status(200).json({"OperationStatus":"SUCCESS"});
 	})
 	.catch((err)=>{
-		console.log(err);
+		console.info((new Date()).toString()+"|"+prependToLog,err);
 		res.status(500).send(err);
 	})*/
   let validateUserDataRequest = require("./common/validateUserDataRequest.js");
@@ -421,18 +472,18 @@ app.post("/createuserdata", (req, res) => {
     .then((validationResultString) => {
       const validationResult = JSON.parse(validationResultString);
       if (validationResult["OperationStatus"] == "SUCCESS") {
-        console.log("Validated Request");
+        console.info((new Date()).toString()+"|"+prependToLog,"Validated Request");
         searchUserbyMobile(requestBody)
           .then((userROWIDResultString) => {
             const userROWIDResult = JSON.parse(userROWIDResultString);
             if (userROWIDResult["OperationStatus"] == "SUCCESS") {
-              console.log("User ROWID Retrieved");
+              console.info((new Date()).toString()+"|"+prependToLog,"User ROWID Retrieved");
               var argument = requestBody;
               argument["UserROWID"] = userROWIDResult["UserROWID"];
               addUserData(argument)
                 .then((userDataResultString) => {
                   const userDataResult = JSON.parse(userDataResultString);
-                  console.log("End of Execution", userDataResult);
+                  console.info((new Date()).toString()+"|"+prependToLog,"End of Execution", userDataResult);
                   res.status(200).json(userDataResult);
                   try {
                     sendResponseToGlific({
@@ -443,29 +494,29 @@ app.post("/createuserdata", (req, res) => {
                       }),
                     });
                   } catch (e) {
-                    console.log(e);
+                    console.info((new Date()).toString()+"|"+prependToLog,e);
                   }
                 })
                 .catch((err) => {
-                  console.log(err);
+                  console.info((new Date()).toString()+"|"+prependToLog,err);
                   res.status(500).send(err);
                 });
             } else {
-              console.log("End of Execution", userROWIDResult);
+              console.info((new Date()).toString()+"|"+prependToLog,"End of Execution", userROWIDResult);
               res.status(200).json(userROWIDResult);
             }
           })
           .catch((err) => {
-            console.log(err);
+            console.info((new Date()).toString()+"|"+prependToLog,err);
             res.status(500).send(err);
           });
       } else {
-        console.log("End of Execution", validationResult);
+        console.info((new Date()).toString()+"|"+prependToLog,"End of Execution", validationResult);
         res.status(200).json(validationResult);
       }
     })
     .catch((err) => {
-      console.log(err);
+      console.info((new Date()).toString()+"|"+prependToLog,err);
       res.status(500).send(err);
     });
 });
