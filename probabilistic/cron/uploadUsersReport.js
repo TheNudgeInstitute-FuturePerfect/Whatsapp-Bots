@@ -191,25 +191,26 @@ getAllRows("ROWID, Mobile",query,zcql)
 						let allSessionDates = uniqueDates
 						allSessionDates.push(userReport['OnboardingDate'].slice(0,10))
 						allSessionDates = allSessionDates.filter(unique).sort().reverse()
+						userReport['LastActiveDate'] = allSessionDates.length == 0 ? null : allSessionDates[0]
+						var currentTimeStamp = new Date()
+						//currentTimeStamp.setHours(currentTimeStamp.getHours()+5)
+						//currentTimeStamp.setMinutes(currentTimeStamp.getMinutes()+30)
+						const lastActiveDate = new Date(userReport['LastActiveDate'])
+						var daysSinceLastActivity = Math.floor((currentTimeStamp-lastActiveDate)/1000/60/60/24)
 						for(var j=allSessionDates.length-1; j>0; j--){
-							const gap = ((new Date(uniqueDates[j-1]))-(new Date(uniqueDates[j])))/1000/60/60/24
+							const gap = ((new Date(allSessionDates[j-1]))-(new Date(allSessionDates[j])))/1000/60/60/24
 							let maxGap = 3
-							if(uniqueDates>='2023-08-07') //Date after release of 5.3 version
+							if(allSessionDates[j-1]>='2023-08-07') //Date after release of 5.3 version
 								maxGap = 5
 							if(gap > maxGap){
 								resurrected = "Yes"
-								resurrectionDate = uniqueDates[j-1]
+								resurrectionDate = allSessionDates[j-1]
 							}
 						}
 						uniqueDates.sort()
 						const sortedUniqueDates = uniqueDates
-						userReport['LastActiveDate'] = uniqueDates.length == 0 ? null : sortedUniqueDates[sortedUniqueDates.length-1]
+						//userReport['LastActiveDate'] = uniqueDates.length == 0 ? null : sortedUniqueDates[sortedUniqueDates.length-1]
 						
-						var currentTimeStamp = new Date()
-						currentTimeStamp.setHours(currentTimeStamp.getHours()+5)
-						currentTimeStamp.setMinutes(currentTimeStamp.getMinutes()+30)
-						const lastActiveDate = new Date(userReport['LastActiveDate'])
-						var daysSinceLastActivity = Math.floor((currentTimeStamp-lastActiveDate)/1000/60/60/24)
 						userReport['Resurrected'] = resurrected
 						userReport['ResurrectionDate'] = resurrectionDate
 						const resurrectionVersion = versions.filter(data=>{
