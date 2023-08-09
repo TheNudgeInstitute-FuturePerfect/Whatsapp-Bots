@@ -15,6 +15,71 @@ const unique = (value, index, self) => {
   return self.indexOf(value) === index;
 };
 
+app.post("/modulelist", (req, res) => {
+  const requestBody = req.body;
+
+  const executionID = Math.random().toString(36).slice(2)
+    
+  //Prepare text to prepend with logs
+  const params = ["getTopics",req.url,executionID,""]
+  const prependToLog = params.join(" | ")
+  
+  console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+    
+  const nextStartIndex = requestBody["NextStartIndex"] - 1;
+  var responseJSON = {
+    OperationStatus: "SUCCESS",
+  };
+
+  //Get table meta object without details.
+  let getAssessmentContribution = require("./common/getAssessmentContribution.js");
+
+  getAssessmentContribution({ isactive: true, type: "Topic Prompt" })
+    .then((promptsResult) => {
+      const allPrompts = JSON.parse(promptsResult);
+      if (allPrompts["OperationStatus"] == "SUCCESS") {
+        var promptNames = allPrompts["Prompts"].filter(data=>data.Module!=null).map((data) => data.Module);
+        promptNames = promptNames.filter(unique);
+        var i = nextStartIndex
+        for (; i < promptNames.length; i++) {
+          responseJSON["Module" + (i - nextStartIndex + 1)] = promptNames[i];
+        }
+        responseJSON["Module" + (i - nextStartIndex + 1)] = "Other Topics";
+        i++;
+        responseJSON["Module" + (i - nextStartIndex + 1)] = "My Performance";
+
+        if (promptNames.length+2 > nextStartIndex) {
+          responseJSON["TotalModules"] = promptNames.length+2 - nextStartIndex;
+          responseJSON["MaxModules"] = promptNames.length+2;
+        } else {
+          responseJSON["OperationStatus"] = "NO_MR_MODS";
+          responseJSON["StatusDescription"] = "No more Modules";
+        }
+        console.info((new Date()).toString()+"|"+prependToLog,"End of execution - ", responseJSON);
+        res.status(200).json(responseJSON);
+        sendResponseToGlific({
+          flowID: requestBody["FlowID"],
+          contactID: requestBody["contact"]["id"],
+          resultJSON: JSON.stringify({
+            modules: responseJSON,
+          }),
+        })
+          .then(() => {})
+          .catch((err) => console.error((new Date()).toString()+"|"+prependToLog,"Glific Response - ", err));
+      } else {
+        responseJSON["OperationStatus"] = "APP_ERR";
+        responseJSON["StatusDescription"] = "Application Error";
+        console.info((new Date()).toString()+"|"+prependToLog,"End of execution with application error - ", allPrompts);
+        res.status(200).json(responseJSON);
+      }
+    })
+    .catch((err) => {
+      console.info((new Date()).toString()+"|"+prependToLog,"End of execution with technical error - ", err);
+      res.status(500).send(err);
+    });
+});
+
+
 app.post("/topiclist", (req, res) => {
   const requestBody = req.body;
 
