@@ -39,21 +39,30 @@ zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"))
 	{
 		const recordsToFetch = 300
 		const startingRow = 1
-		const getAllRows = (fields) => {
+		const getAllRows = (fields,query,zcql,prependToLog,dataLimit) => {
 			return new Promise(async (resolve) => {			
 				var jsonReport = []
 				const dataQuery = query.replace("{}",fields)
-				for(var i = startingRow; i <= maxRows ; i=i+recordsToFetch){
-					query = dataQuery+" LIMIT "+i+", "+recordsToFetch
-					console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+recordsToFetch-1)+
+				const lmt = dataLimit ? dataLimit : 300
+				var i = 1
+				while(true){
+					query = dataQuery+" LIMIT "+i+", "+lmt
+					console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+300-1)+
 								'\nQuery: '+query)
 					const queryResult = await zcql.executeZCQLQuery(query)
-						jsonReport = jsonReport.concat(queryResult)
+					console.info((new Date()).toString()+"|"+prependToLog,queryResult.length)
+					if((queryResult.length == 0)||(!Array.isArray(queryResult))){
+						if(!Array.isArray(queryResult))
+							console.info((new Date()).toString()+"|"+prependToLog,"Error in query - ",queryResult)
+						break;
+					}
+					jsonReport = jsonReport.concat(queryResult)					
+					i=i+300
 				}
 				resolve(jsonReport)
 			})
-		}
-		getAllRows("Mobile, GlificID, RegisteredTime, NudgeTime")
+		}		
+		getAllRows("Mobile, GlificID, RegisteredTime, NudgeTime",query,zcql,prependToLog)
 		.then(async (users) =>	{
 			console.info((new Date()).toString()+"|"+prependToLog,"Fetched Records")
 			//If there is no record, then the mobile number does not exist in system. Return error				
@@ -102,7 +111,7 @@ zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"))
 				query = "select {} from UsersReport where (OnboardingDate is null) or (OnboardingDate < '"+currentDt+" 00:00:00') and Mobile in ("+mobiles.join(",")+") group by Mobile"
 				maxRows = parseInt(users.length)
 				console.info((new Date()).toString()+"|"+prependToLog,'Total UsersReport Data: '+maxRows)
-				getAllRows("Mobile, OnboardingDate")
+				getAllRows("Mobile, OnboardingDate",query,zcql,prependToLog)
 				.then((usersReport)=>{
 					if(!Array.isArray(usersReport))
 						throw new Error(usersReport)
@@ -129,29 +138,47 @@ zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"))
 						}
 					})
 					
-					query = "select {} from Sessions where Mobile in ("+mobiles.join(",")+") group by Mobile"
 					maxRows = parseInt(users.length)
 					console.info((new Date()).toString()+"|"+prependToLog,'Total Sessions Data: '+maxRows)
-					getAllRows("Mobile, max(CREATEDTIME)")
-					.then(async (sessions) =>	{
+					query = "select {} from Sessions where Mobile in ("+mobiles.join(",")+") group by Mobile"
+					const userSessionQuery = getAllRows("Mobile, max(CREATEDTIME)",query,zcql,prependToLog)
+					const learningQuery = "Select {} from UserAssessment left join UserAssessmentLogs on UserAssessment.UserAssessmentLogROWID = UserAssessmentLogs.ROWID left join Users on Users.ROWID = UserAssessmentLogs.UserROWID where Users.Mobile in ("+mobiles.join(",")+") group by Users.Mobile"
+          			const userAssessmentQuery = getAllRows("Users.Mobile, max(UserAssessment.CREATEDTIME)",learningQuery,zcql,prependToLog)
+					const gameQuery = "Select {} from WordleAttempts left join Users on Users.ROWID = WordleAttempts.UserROWID where Users.Mobile in ("+mobiles.join(",")+") group by Users.Mobile "
+          			const userGameQuery = getAllRows("Users.Mobile, max(WordleAttempts.CREATEDTIME)",gameQuery,zcql,prependToLog)
+
+					Promise.all([userSessionQuery,userAssessmentQuery,userGameQuery])				
+					.then(async ([sessions,userAssessments,gameSessions]) =>	{
 						console.info((new Date()).toString()+"|"+prependToLog,"Fetched Sessions Records")
-						//If there is no record, then the mobile number does not exist in system. Return error				
-						if(!((typeof sessions !== 'undefined')&&(sessions != null)&&(sessions.length > 0))){
-							console.info((new Date()).toString()+"|"+prependToLog,'No session data. Using RegisteredTime of user');
-						}
-						else{
-							//Calculate days since last activity for each user
-							userSessions.forEach(userSession=>{
+						//Calculate days since last activity for each user
+						userSessions.forEach(userSession=>{
+							let sessionDates = []
+							if(Array.isArray(sessions))
 								if(sessions.some(session=>session.Sessions.Mobile == userSession.Mobile)){
 									const sesssionData = sessions.filter(session=>session.Sessions.Mobile == userSession.Mobile)
 									const sessionDate = new Date(sesssionData[0].Sessions.CREATEDTIME.toString().slice(0,10))
-									const minutesElapsed = Math.floor((currentDate - sessionDate)/1000/60)
-									const duration = Math.floor((currentDate - sessionDate)/1000/60/60/24)
-									userSession['DaysSinceLastActivity'] = Math.min(duration,userSession['DaysSinceLastActivity'])
-									userSession['IsRecentActivity'] = minutesElapsed < 10 ? true : false
+									sessionDates.push(sessionDate)
 								}
-							})
-						}		
+							if(Array.isArray(userAssessments))
+								if(userAssessments.some(session=>session.Users.Mobile == userSession.Mobile)){
+									const sesssionData = userAssessments.filter(session=>session.Users.Mobile == userSession.Mobile)
+									const sessionDate = new Date(sesssionData[0].UserAssessment.CREATEDTIME.toString().slice(0,10))
+									sessionDates.push(sessionDate)
+								}
+							if(Array.isArray(gameSessions))
+								if(gameSessions.some(session=>session.Users.Mobile == userSession.Mobile)){
+									const sesssionData = gameSessions.filter(session=>session.Users.Mobile == userSession.Mobile)
+									const sessionDate = new Date(sesssionData[0].WordleAttempts.CREATEDTIME.toString().slice(0,10))
+									sessionDates.push(sessionDate)
+								}
+							const latestSessionDate = Math.max(...sessionDates)
+							const minutesElapsed = Math.floor((currentDate - latestSessionDate)/1000/60)
+							const duration = Math.floor((currentDate - latestSessionDate)/1000/60/60/24)
+							userSession['DaysSinceLastActivity'] = Math.min(duration,userSession['DaysSinceLastActivity'])
+							userSession['IsRecentActivity'] = minutesElapsed < 10 ? true : false
+							
+						})
+						
 						console.debug((new Date()).toString()+"|"+prependToLog,userSessions)			
 						const timer = (sleepTime) => {
 							return new Promise( async (resolve,reject) => {
@@ -281,7 +308,7 @@ zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"))
 										//			"\nRequest Parameters: "+JSON.stringify(options));
 										try{
 											const apiResponse = JSON.parse(response.body)
-											//If any error retruned by Glific API throw error
+											//If any error returned by Glific API throw error
 											if(apiResponse.errors != null)
 											{
 												console.error((new Date()).toString()+"|"+prependToLog,"Error returned by Glific API: "+JSON.stringify(apiResponse.errors));
@@ -459,7 +486,7 @@ zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"))
 		});
 	}
 	else{
-		console.info((new Date()).toString()+"|"+prependToLog,"Closing Execution. No records retruned by query")
+		console.info((new Date()).toString()+"|"+prependToLog,"Closing Execution. No records returned by query")
 	}
 }).catch(err => {
 	console.error((new Date()).toString()+"|"+prependToLog,'Closing Execution. Encountered Error in getting count of records: '+err)

@@ -1869,6 +1869,7 @@ app.get("/wordleattempts", (req, res) => {
 
 	let zcql = catalystApp.zcql()
 
+	const mobile = req.query.mobile ? req.query.mobile.slice(-10) : null
 	const startDate = req.query.startDate ? req.query.startDate : '1970-01-01'
 	var today = new Date()
 	today.setHours(today.getHours()+5)
@@ -1881,6 +1882,7 @@ app.get("/wordleattempts", (req, res) => {
 					"left join Users on WordleAttempts.UserROWID = Users.ROWID "+
 					"left join WordleConfiguration on WordleAttempts.WordleROWID = WordleConfiguration.ROWID "+
 					"where WordleAttempts.CREATEDTIME >='"+startDate+" 00:00:00' and WordleAttempts.CREATEDTIME <= '"+endDate+" 23:59:59' "+
+					(mobile !=null ? (" and Users.Mobile="+mobile+" "):"")+
 					"order by WordleAttempts.UserROWID, WordleAttempts.CREATEDTIME asc"
 	getAllRows("WordleConfiguration.ROWID, WordleConfiguration.MaxAttempts, WordleConfiguration.Word, WordleConfiguration.RecommendedTopic, Users.Mobile, WordleAttempts.ROWID, WordleAttempts.CREATEDTIME, WordleAttempts.IsCorrect, WordleAttempts.Answer, WordleAttempts.Source",query,zcql,dataLimit)
 	.then((cfuAttempts)=>{
@@ -1909,8 +1911,8 @@ app.get("/wordleattempts", (req, res) => {
 							const wordleAttemptData = cfuAttempts.filter(data=>(data.WordleConfiguration.ROWID==wordlePlayed)&&(data.Users.Mobile == userReport['Mobile']))
 							//Get the wordle attempt timestamps
 							const wordleAttemptTimeStamps = wordleAttemptData.map(data=>data.WordleAttempts.CREATEDTIME).filter(unique).sort()
-							userReport['SessionStartedTime'] = wordleAttemptTimeStamps[0]
-							userReport['SessionEndTime'] = wordleAttemptTimeStamps[wordleAttemptTimeStamps.length-1]
+							userReport['SessionStartedTime'] = wordleAttemptTimeStamps[0].slice(0,19)
+							userReport['SessionEndTime'] = wordleAttemptTimeStamps[wordleAttemptTimeStamps.length-1].slice(0,19)
 							//Get the total attempts
 							userReport['NumberOfGuesses'] = wordleAttemptData.length
 							//If wordle has been answered correctly or max attempts has been reached
@@ -2105,6 +2107,72 @@ app.get("/cfuattempts", (req, res) => {
 	});
 });
 
+
+app.get("/allattempts", (req, res) => {
+
+    const executionID = Math.random().toString(36).slice(2)
+    
+    //Prepare text to prepend with logs
+    const params = ["Reports",req.url,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+
+	const axios = require("axios");
+    const gameQuery = axios.get(process.env.WordleReportURL)
+	const conversationQuery = axios.get(process.env.UserSessionAttemptReportURL)
+	const quizQuery = axios.get(process.env.CFUAttemptReportURL)
+
+	Promise.all([gameQuery,conversationQuery,quizQuery])
+	.then(([gameQueryResult,conversationQueryResult,quizQueryResult])=>{
+		console.info((new Date()).toString()+"|"+prependToLog,"Fetched Games Report of length:",gameQueryResult.data.length)
+		console.info((new Date()).toString()+"|"+prependToLog,"Fetched Quiz Attempt Report of length:",quizQueryResult.data.length)
+		console.info((new Date()).toString()+"|"+prependToLog,"Fetched Conversation Attempt Report of length:",conversationQueryResult.data.length)
+
+		const quizQueryIDs = quizQueryResult.data.map(data=>data.AssessmentID).filter(unique)
+		var report = quizQueryIDs.map(id=>{
+			const data = quizQueryResult.data.filter(report=>report.AssessmentID==id)
+			return {
+				Mobile: data[0].Mobile,
+				Type: "Learn",
+				SessionID: data[0].AssessmentID,
+				SessionStartTime: data[0].AssessmentStartTime,
+				SessionEndTime: data[0].AssessmentEndTime,
+				SessionComplete: data[0].IsAssessmentComplete == true ? "Yes":"No"
+			}
+		})
+		console.info((new Date()).toString()+"|"+prependToLog,"Appended Quiz Report Data")
+		report = report.concat(gameQueryResult.data.map(data=>{
+			return {
+				Mobile: data.Mobile,
+				Type: "Game",
+				SessionID: data.WordleID,
+				SessionStartTime: data.SessionStartedTime,
+				SessionEndTime: data.SessionEndTime,
+				SessionComplete: data.CompletedWordle
+			}
+		}))
+		console.info((new Date()).toString()+"|"+prependToLog,"Appended Game Report Data")
+		report = report.concat(gameQueryResult.data.map(data=>{
+			return {
+				Mobile: data.Mobile,
+				Type: "Conversation",
+				SessionID: data.SessionID,
+				SessionStartTime: data.SessionStartTime,
+				SessionEndTime: data.SessionEndTime,
+				SessionComplete: data.IsActive == false ? "Yes":"No"
+			}
+		}))
+		console.info((new Date()).toString()+"|"+prependToLog,"Appended Conversation Report Data")
+		res.status(200).json(report)
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution")
+	})
+	.catch((err) => {
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+		console.error((new Date()).toString()+"|"+prependToLog,err);
+		res.status(500).send(err);
+	});
+});         
 
 app.all("/", (req,res) => {
 
