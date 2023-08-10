@@ -438,7 +438,7 @@ app.post("/goalachievementcalendar", (req, res) => {
                 
                       //For each day in current month
                       const dayMapper = [ '🅼',  '🆃',  '🆆',  '🆃',  '🅵',  '🆂',  '🆂']
-                      let report = [dayMapper.join("")]
+                      let report = [dayMapper.join(" ")]
                       let dateOfMonth = new Date(monthStart)
                       let reportRecord = ['🔲','🔲','🔲','🔲','🔲','🔲','🔲']
                       let calendarEndDate = new Date()
