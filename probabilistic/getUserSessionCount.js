@@ -50,31 +50,38 @@ app.post("/totalsessions", (req, res) => {
     
     console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
     const mobile = requestBody["Mobile"].slice(-10)
-    
-    let query = "Select {} from UserSessionAttemptReport where Mobile = "+mobile
-    const sessionQuery = getAllRows("distinct SessionID, IsActive",query,zcql,prependToLog)
+    const systemPromptROWID = requestBody["TopicID"] ? ((requestBody["TopicID"].startsWith("@result")||requestBody["TopicID"].startsWith("@contact")) ? null : requestBody["TopicID"]):null
+    const game = requestBody["Game"] ? ((requestBody["Game"].startsWith("@result")||requestBody["Game"].startsWith("@contact")) ? null : requestBody["Game"]):null
+        
+    let query = "Select {} from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID where Sessions.Mobile = "+mobile
+    const sessionQuery = getAllRows("distinct SystemPrompts.Persona, Sessions.SystemPromptsROWID, Sessions.SessionID, Sessions.IsActive",query,zcql,prependToLog)
     const learningQuery = "Select {} from UserAssessmentLogs left join Users on Users.ROWID = UserAssessmentLogs.UserROWID where Users.Mobile = "+mobile
     const userAssessmentQuery = getAllRows("distinct ROWID, IsAssessmentComplete",learningQuery,zcql,prependToLog)
     const axios = require("axios");
     const gameQuery = axios.get(process.env.WordleReportURL+mobile)
+    const learningStartQuery = "Select {} from SessionEvents where Event = 'Learn Session Start' and Mobile = "+mobile
+    const runLearningStartQuery = getAllRows("distinct ROWID",learningStartQuery,zcql,prependToLog)
+    
 
-    Promise.all([sessionQuery,userAssessmentQuery,gameQuery])
-    .then(([userSessions,userAssessmentLogs,wordleAttempts])=>{
+    Promise.all([sessionQuery,userAssessmentQuery,gameQuery,runLearningStartQuery])
+    .then(([userSessions,userAssessmentLogs,wordleAttempts,learningStart])=>{
         if(!Array.isArray(userSessions))
           throw new Error(userSessions)
         else if(!Array.isArray(userAssessmentLogs))
           throw new Error(userAssessmentLogs)
+        else if(!Array.isArray(learningStart))
+          throw new Error(learningStart)
         else{
           const sessions = userSessions.filter(
             (data) =>
               !(
-                data.UserSessionAttemptReport.SessionID.endsWith("Hint") ||
-                data.UserSessionAttemptReport.SessionID.endsWith("Translation") ||
-                data.UserSessionAttemptReport.SessionID.endsWith("ObjectiveFeedback") ||
-                data.UserSessionAttemptReport.SessionID.startsWith("Onboarding") ||
-                data.UserSessionAttemptReport.SessionID.endsWith("Onboarding") ||
-                data.UserSessionAttemptReport.SessionID.startsWith("onboarding") ||
-                data.UserSessionAttemptReport.SessionID.endsWith("onboarding")
+                data.Sessions.SessionID.endsWith("Hint") ||
+                data.Sessions.SessionID.endsWith("Translation") ||
+                data.Sessions.SessionID.endsWith("ObjectiveFeedback") ||
+                data.Sessions.SessionID.startsWith("Onboarding") ||
+                data.Sessions.SessionID.endsWith("Onboarding") ||
+                data.Sessions.SessionID.startsWith("onboarding") ||
+                data.Sessions.SessionID.endsWith("onboarding")
               )
           );
           console.info((new Date()).toString()+"|"+prependToLog,"Fetched Conversation Data. Total Records: ",sessions.length)
@@ -84,18 +91,32 @@ app.post("/totalsessions", (req, res) => {
           var responseObject = {
                 "OperationStatus":"SUCCESS"
           }
-          if((sessions.length==0)&&(userAssessmentLogs.length==0)&&(wordleAttemptsReport.length==0)){
+          if((sessions.length==0)&&(userAssessmentLogs.length==0)&&(wordleAttemptsReport.length==0)&&(learningStart.length==0)){
               responseObject['OperationStatus'] = "NO_SESSION_RECORD"
               responseObject['StatusDescription'] = "No Session Data"
           }
           else{
-              const uniqueSession = sessions.map(data=>data.UserSessionAttemptReport.SessionID).filter(unique)
-              responseObject['TotalConvesationSessions']=uniqueSession.length
-              responseObject['TotalConvesationSessionsCompleted']=sessions.filter(data=>data.UserSessionAttemptReport.IsActive==false).map(data=>data.UserSessionAttemptReport.SessionID).filter(unique).length
+              //All Conversations Started
+              responseObject['TotalConvesationSessions']=sessions.map(data=>data.Sessions.SessionID).filter(unique).length
+              //All Conversations Completed
+              responseObject['TotalConvesationSessionsCompleted']=responseObject['TotalConvesationSessions'] - sessions.filter(data=>data.Sessions.IsActive==true).map(data=>data.Sessions.SessionID).filter(unique).length
+              //All Quiz Sesssions Completed
               responseObject['TotalLearningSessions']=userAssessmentLogs.length
+              //All Learning Sesssions Complered
+              responseObject['TotalLearningSessionsStarted'] = learningStart.length
+              //All Learning/Quiz Sesssions Completed
               responseObject['TotalLearningSessionsCompleted']=userAssessmentLogs.filter(data=>data.UserAssessmentLogs.IsAssessmentComplete==true).length
+              //All Game Sessions Started
               responseObject['TotalGameSessions']=wordleAttemptsReport.length
+              //All Game Sessions Completed
               responseObject['TotalGameSessionsCompleted']=wordleAttemptsReport.filter(data=>data.CompletedWordle=="Yes").length
+              //Filtering for Persona
+              if(systemPromptROWID != null){
+                const personaSessions = sessions.filter(data=>data.Sessions.SystemPromptsROWID==systemPromptROWID)
+                responseObject['Persona'] = personaSessions[0]['SystemPrompts']['Persona']
+                responseObject['TotalPersonaSessionsStartd'] = personaSessions.map(data=>data.Sessions.SessionID).filter(unique).length
+                responseObject['TotalPersonaSessionsCompleted'] = responseObject['TotalPersonaSessionsStartd'] - personaSessions.filter(data=>data.Sessions.IsActive==true).map(data=>data.Sessions.SessionID).filter(unique)
+              }
           }
           console.info((new Date()).toString()+"|"+prependToLog,"End of Execution")
           console.debug((new Date()).toString()+"|"+prependToLog,"End of Execution. Response:",responseObject)
@@ -108,7 +129,7 @@ app.post("/totalsessions", (req, res) => {
               flowID: requestBody["FlowID"],
               contactID: requestBody["contact"]["id"],
               resultJSON: JSON.stringify({
-                practices: responseObject,
+                practicesessions: responseObject,
               }),
             })
             .then((glificResponse) => {})
