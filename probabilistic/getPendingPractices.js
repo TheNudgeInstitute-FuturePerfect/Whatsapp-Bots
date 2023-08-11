@@ -123,7 +123,7 @@ app.post("/pendingpractices", (req, res) => {
                   res.status(200).json(responseObject);
                 } 
                 else {
-                  let startingDate = new Date(userReport[0]['UsersReport']['DeadlineDate'].toString().slice(0,10))
+                  let startingDate = new Date(userReport.length > 0?userReport[0]['UsersReport']['DeadlineDate'].toString().slice(0,10):users[0]['Users']['RegisteredTime'])
                   startingDate.setDate(startingDate.getDate()-parseInt(process.env.Period)+1)
                   const daysSinceStart = Math.floor((today - startingDate)/1000/60/60/24)
                   

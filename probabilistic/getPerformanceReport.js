@@ -365,7 +365,7 @@ app.post("/goalachievementcalendar", (req, res) => {
     let zcql = catalystApp.zcql();
     //get the user's goal 
     let query = "Select {} from Users where Mobile = "+mobile
-    getAllRows("ROWID, GoalInMinutes",query,zcql,prependToLog)
+    getAllRows("ROWID, RegisteredTime, GoalInMinutes",query,zcql,prependToLog)
     .then((users)=>{
       if(!Array.isArray(users))
         throw new Error(users)
@@ -412,14 +412,26 @@ app.post("/goalachievementcalendar", (req, res) => {
           const runGameAttemptQuery = getAllRows("WordleAttempts.WordleROWID, WordleAttempts.CREATEDTIME",gameAttemptQuery,zcql,prependToLog)
           
           Promise.all([runSessionQuery,runAssessmentQuery,runGameAttemptQuery])
-          .then(([sessions,userassessment,wordleAttempts]) => {
-            if(!Array.isArray(sessions))
-              throw new Error(sessions) 
+          .then(([allsessions,userassessment,wordleAttempts]) => {
+            if(!Array.isArray(allsessions))
+              throw new Error(allsessions) 
             else if(!Array.isArray(userassessment))
               throw new Error(userassessment)
             else if(!Array.isArray(wordleAttempts))
               throw new Error(wordleAttempts)
             else{
+              const sessions = allsessions.filter(
+                (data) =>
+                  !(
+                    //data.Sessions.SessionID.endsWith("Hint") ||
+                    //data.Sessions.SessionID.endsWith("Translation") ||
+                    data.Sessions.SessionID.endsWith("ObjectiveFeedback") ||
+                    data.Sessions.SessionID.startsWith("Onboarding") ||
+                    data.Sessions.SessionID.endsWith("Onboarding") ||
+                    data.Sessions.SessionID.startsWith("onboarding") ||
+                    data.Sessions.SessionID.endsWith("onboarding")
+                  )
+              );
               let practiceDates = sessions.map(data=>data.Sessions.CREATEDTIME)
               console.info((new Date()).toString()+"|"+prependToLog,"Fetched Conversation TimeStamps:",practiceDates)                
               practiceDates =  practiceDates.concat(userassessment.map(data=>data.UserAssessment.CREATEDTIME))
@@ -449,7 +461,7 @@ app.post("/goalachievementcalendar", (req, res) => {
 
                 //If no session data found, add emoji and continue
                 if(dateSessions.length==0){
-                  if(dateOfMonth<=currentTimeStamp)
+                  if((dateOfMonth>=(new Date(users[0]['Users']['RegisteredTime'].toString().slice(0,10))))&&(dateOfMonth<=currentTimeStamp))
                     reportRecord[dayOfWeek]="🟧"
                 }
                 else{
@@ -598,14 +610,26 @@ app.post("/dailygoalprogress", (req, res) => {
           const runGameAttemptQuery = getAllRows("WordleAttempts.CREATEDTIME",gameAttemptQuery,zcql,prependToLog)
 
           Promise.all([runSessionQuery,runAssessmentQuery,runGameAttemptQuery])
-          .then(([sessions,userassessment,wordleAttempts]) => {
-            if(!Array.isArray(sessions))
-              throw new Error(sessions)
+          .then(([allsessions,userassessment,wordleAttempts]) => {
+            if(!Array.isArray(allsessions))
+              throw new Error(allsessions)
             else if(!Array.isArray(userassessment))
               throw new Error(userassessment)
             if(!Array.isArray(wordleAttempts))
               throw new Error(wordleAttempts)
             else{
+              const sessions = allsessions/*.filter(
+                (data) =>
+                  !(
+                    //data.Sessions.SessionID.endsWith("Hint") ||
+                    //data.Sessions.SessionID.endsWith("Translation") ||
+                    data.Sessions.SessionID.endsWith("ObjectiveFeedback") ||
+                    data.Sessions.SessionID.startsWith("Onboarding") ||
+                    data.Sessions.SessionID.endsWith("Onboarding") ||
+                    data.Sessions.SessionID.startsWith("onboarding") ||
+                    data.Sessions.SessionID.endsWith("onboarding")
+                  )
+              );*/
               let practiceDates = sessions.map(data=>data.Sessions.CREATEDTIME)
               console.info((new Date()).toString()+"|"+prependToLog,"Got Conversation Data:",practiceDates)
               practiceDates = practiceDates.concat(userassessment.map(data=>data.UserAssessment.CREATEDTIME))
@@ -633,7 +657,7 @@ app.post("/dailygoalprogress", (req, res) => {
               responseObject['OperationStatus']=totalDuration>=goal ? "GOAL_RCHD" : "GOAL_NT_RCHD"
               responseObject['Report'] = "➡️"
               for(var i=1; i<=5;i++){
-                if(pctCompletion >= (0.2*i))
+                if(pctCompletion >= (i/5))
                   responseObject['Report'] += "🌕"
                 else
                   responseObject['Report'] += "🌑"

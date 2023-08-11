@@ -111,7 +111,7 @@ app.post("/totalsessions", (req, res) => {
               //All Game Sessions Completed
               responseObject['TotalGameSessionsCompleted']=wordleAttemptsReport.filter(data=>data.CompletedWordle=="Yes").length
               //Filtering for Persona
-              if(systemPromptROWID != null){
+              if((systemPromptROWID != null)&&(sessions.length>0)){
                 const personaSessions = sessions.filter(data=>data.Sessions.SystemPromptsROWID==systemPromptROWID)
                 responseObject['Persona'] = personaSessions[0]['SystemPrompts']['Persona']
                 responseObject['TotalPersonaSessionsStartd'] = personaSessions.map(data=>data.Sessions.SessionID).filter(unique).length
