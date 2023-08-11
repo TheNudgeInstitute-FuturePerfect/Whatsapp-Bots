@@ -287,7 +287,8 @@ app.post("/storeuserresponse", (req, res) => {
                                 WordleROWID : requestBody['WordleROWID'],
                                 Answer : requestBody['Response'],
                                 IsCorrect : requestBody['Response'].toLowerCase()==wordleofday[0]['WordleConfiguration']['Word'].toLowerCase(),
-                                Source : requestBody['WordleSource'].startsWith("@result") ? "Wordle Reminder" : requestBody['WordleSource']
+                                Source : requestBody['WordleSource'].startsWith("@result") ? "Wordle Reminder" : requestBody['WordleSource'],
+                                SystemPromptROWID : requestBody['TopicID'] ? (requestBody['TopicID'].startsWith("@result") ? null:requestBody['TopicID']):null
                             }
                             let table = catalystApp.datastore().table('WordleAttempts')
                             table.insertRow(insertData)
@@ -304,6 +305,20 @@ app.post("/storeuserresponse", (req, res) => {
                         console.info((new Date()).toString()+"|"+prependToLog,"End of Execution")
                         console.debug((new Date()).toString()+"|"+prependToLog,"End of Execution. Response:",responseObject)
                         res.status(200).json(responseObject)
+                        //Send Reponse to Glific
+                        let endTimeStamp = new Date();
+                        let executionDuration = (endTimeStamp - startTimeStamp) / 1000;
+                        if (executionDuration > 5) {
+                            sendResponseToGlific({
+                                flowID: requestBody["FlowID"],
+                                contactID: requestBody["contact"]["id"],
+                                resultJSON: JSON.stringify({
+                                    storeanswer: responseObject,
+                                }),
+                            })
+                            .then((glificResponse) => {})
+                            .catch((err) => console.log("Error returned from Glific: ", err));
+                        }
                     }
                     else{
                         responseObject['OperationStatus'] = "NO_WRDL"
@@ -330,20 +345,6 @@ app.post("/storeuserresponse", (req, res) => {
             console.error((new Date()).toString()+"|"+prependToLog,"Error in getting user record: \n",query,"\n",error)
             res.status(500).send(error)
         })
-    }
-    //Send Reponse to Glific
-    let endTimeStamp = new Date();
-    let executionDuration = (endTimeStamp - startTimeStamp) / 1000;
-    if (executionDuration > 5) {
-        sendResponseToGlific({
-            flowID: requestBody["FlowID"],
-            contactID: requestBody["contact"]["id"],
-            resultJSON: JSON.stringify({
-                storeanswer: responseObject,
-            }),
-        })
-        .then((glificResponse) => {})
-        .catch((err) => console.log("Error returned from Glific: ", err));
     }
 })
 
