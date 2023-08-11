@@ -27,6 +27,7 @@
     "music-metadata": "^7.12.2",
     "nodemon": "^2.0.22",
     "openai": "^3.3.0",
+    "razorpay": "^2.9.1",
     "request": "^2.88.2",
     "word-exists": "^1.0.0",
     "zoho-catalyst-sdk": "^1.0.4"

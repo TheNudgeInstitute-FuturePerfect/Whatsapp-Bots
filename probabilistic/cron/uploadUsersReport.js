@@ -51,7 +51,7 @@ let query = "select {} from UsersReport"
 getAllRows("ROWID, Mobile",query,zcql)
 .then((currentReport)=>{
 	query = "select {} from Users"
-	getAllRows("Name, Mobile, Consent, RegisteredTime, NudgeTime, Excluded, EnglishProficiency, SourcingChannel",query,zcql)
+	getAllRows("Name, Mobile, Consent, RegisteredTime, NudgeTime, Excluded, EnglishProficiency, SourcingChannel, CREATEDTIME",query,zcql)
 	.then(async  (users)=>{
 		const mobiles = users.map(user=>user.Users.Mobile)
 		
@@ -64,7 +64,7 @@ getAllRows("ROWID, Mobile",query,zcql)
 
         query = "SELECT contact_phone as Mobile, max(format_datetime('%Y-%m-%d %H:%I:%S',inserted_at)) as CREATEDTIME "+
                 "FROM `"+process.env.GCPProjectID+".91"+process.env.GlificBotNumber+".messages` "+
-                "where flow = 'inbound' and inserted_at >=  (CURRENT_DATE('Asia/Kolkata')- 4) "+
+                "where flow = 'inbound' and ((body = 'Chat with Ramya Bot') or (flow_name like 'Probabilistic%')) "+ //and inserted_at >=  (CURRENT_DATE('Asia/Kolkata')- 4) "+
                 "and contact_phone in ('91"+mobiles.join("','91")+"') "+
                 "group by 1"
         console.info((new Date()).toString()+"|"+prependToLog,`BQ Query: `,query)
@@ -125,6 +125,7 @@ getAllRows("ROWID, Mobile",query,zcql)
 							userReport['Name'] = users[i]["Users"]["Name"]
 						}
 						userReport['Mobile'] = users[i]["Users"]["Mobile"]
+						userReport['UserCreatedAt'] = users[i]["Users"]["CREATEDTIME"].toString().slice(0,19)
 						const rowID = currentReport.length == 0 ? null : currentReport.filter(data=>data['UsersReport']['Mobile']==userReport['Mobile'])
 						if((rowID!=null)&&(rowID.length>0))
 							userReport['ROWID'] = rowID[0]['UsersReport']['ROWID']
@@ -147,13 +148,6 @@ getAllRows("ROWID, Mobile",query,zcql)
 						}
 						else
 							userReport['Onboarded'] = "Yes"
-						var deadline = new Date(users[i]["Users"]["RegisteredTime"])
-						if(deadline <= "2023-07-18 18:00:00"){
-							deadline.setHours(deadline.getHours()+5)
-							deadline.setMinutes(deadline.getMinutes()+30)
-						}
-						deadline.setDate(deadline.getDate()+parseInt(process.env.Period))
-						userReport['DeadlineDate'] = deadline.getFullYear()+"-"+("0"+(deadline.getMonth()+1)).slice(-2)+"-"+("0"+deadline.getDate()).slice(-2)+" "+("0"+deadline.getHours()).slice(-2)+":"+("0"+deadline.getMinutes()).slice(-2)+":"+("0"+deadline.getSeconds()).slice(-2)
 						userReport['ReminderTime'] = users[i]["Users"]["NudgeTime"] == "None" ? "No Reminder" : users[i]["Users"]["NudgeTime"]
 						const userSessions = sessions.filter(data=>data.Sessions.Mobile == userReport['Mobile'])
 						const sessionDates = userSessions.map(data=>(data.Sessions.CREATEDTIME).toString().slice(0,10))
@@ -163,6 +157,7 @@ getAllRows("ROWID, Mobile",query,zcql)
 						const bqData = bqUsers.filter(data=>data.Mobile == "91"+userReport["Mobile"])
 						if(bqData.length>0)
 							uniqueDates.push(bqData[0]["CREATEDTIME"].toString().slice(0,10))
+						uniqueDates = uniqueDates.filter(unique).sort().reverse()
 						//console.debug((new Date()).toString()+"|"+prependToLog,users[i]["Users"]["Mobile"],' | uniqueDates | ',uniqueDates)
 						const uniqueSessions = (userSessions.map(data=>data.Sessions.SessionID)).filter(unique)
 						//console.debug((new Date()).toString()+"|"+prependToLog,users[i]["Users"]["Mobile"],' | uniqueSessions | ',uniqueSessions)
@@ -193,23 +188,29 @@ getAllRows("ROWID, Mobile",query,zcql)
 						
 						var resurrected = null
 						var resurrectionDate = null
-						for(var j=uniqueDates.length-1; j>0; j--){
-							const gap = ((new Date(uniqueDates[j-1]))-(new Date(uniqueDates[j])))/1000/60/60/24
-							if(gap > 3){
+						let allSessionDates = uniqueDates
+						allSessionDates.push(userReport['OnboardingDate'].slice(0,10))
+						allSessionDates = allSessionDates.filter(unique).sort().reverse()
+						userReport['LastActiveDate'] = allSessionDates.length == 0 ? null : allSessionDates[0]
+						var currentTimeStamp = new Date()
+						//currentTimeStamp.setHours(currentTimeStamp.getHours()+5)
+						//currentTimeStamp.setMinutes(currentTimeStamp.getMinutes()+30)
+						const lastActiveDate = new Date(userReport['LastActiveDate'])
+						var daysSinceLastActivity = Math.floor((currentTimeStamp-lastActiveDate)/1000/60/60/24)
+						for(var j=allSessionDates.length-1; j>0; j--){
+							const gap = ((new Date(allSessionDates[j-1]))-(new Date(allSessionDates[j])))/1000/60/60/24
+							let maxGap = 3
+							if(allSessionDates[j-1]>='2023-08-07') //Date after release of 5.3 version
+								maxGap = 5
+							if(gap > maxGap){
 								resurrected = "Yes"
-								resurrectionDate = uniqueDates[j-1]
+								resurrectionDate = allSessionDates[j-1]
 							}
 						}
 						uniqueDates.sort()
 						const sortedUniqueDates = uniqueDates
-						userReport['LastActiveDate'] = uniqueDates.length == 0 ? null : sortedUniqueDates[sortedUniqueDates.length-1]
+						//userReport['LastActiveDate'] = uniqueDates.length == 0 ? null : sortedUniqueDates[sortedUniqueDates.length-1]
 						
-						var currentTimeStamp = new Date()
-						currentTimeStamp.setHours(currentTimeStamp.getHours()+5)
-						currentTimeStamp.setMinutes(currentTimeStamp.getMinutes()+30)
-						const lastActiveDate = new Date(userReport['LastActiveDate'])
-						var daysSinceLastActivity = Math.floor((currentTimeStamp-lastActiveDate)/1000/60/60/24)
-						userReport['Churned'] = daysSinceLastActivity > 3 ? "Yes":"No"
 						userReport['Resurrected'] = resurrected
 						userReport['ResurrectionDate'] = resurrectionDate
 						const resurrectionVersion = versions.filter(data=>{
@@ -233,6 +234,23 @@ getAllRows("ROWID, Mobile",query,zcql)
 								))
 						})
 						userReport['RessurectionVersion'] = resurrectionVersion.length == 0 ? null : resurrectionVersion[0]['Versions']['Version']
+
+						//----GLOW 5.3: ravi.bhushan@dhwaniris.com: Updated Deadline Date Logic Start-------
+						var deadline = new Date(userReport['ResurrectionDate'] > userReport['OnboardingDate'] ? userReport['ResurrectionDate'] : userReport['OnboardingDate'])
+						if(deadline <= "2023-07-18 18:00:00"){
+							deadline.setHours(deadline.getHours()+5)
+							deadline.setMinutes(deadline.getMinutes()+30)
+						}
+						deadline.setDate(deadline.getDate()+parseInt(process.env.Period))
+						userReport['DeadlineDate'] = deadline.getFullYear()+"-"+("0"+(deadline.getMonth()+1)).slice(-2)+"-"+("0"+deadline.getDate()).slice(-2)+" "+("0"+deadline.getHours()).slice(-2)+":"+("0"+deadline.getMinutes()).slice(-2)+":"+("0"+deadline.getSeconds()).slice(-2)
+						const obdrsrctVersion = userReport['ResurrectionDate'] > userReport['OnboardingDate'] ? userReport['ResurrectionVersion'] : userReport['OnboardingVersion']
+						if(obdrsrctVersion<5.3)
+							userReport['Churned'] = (daysSinceLastActivity > 3) ? "Yes":"No"
+						else
+							userReport['Churned'] = (daysSinceLastActivity >= 5) ? "Yes":(daysSinceLastActivity >= 3) ? "At Risk": "No"
+						
+						//----GLOW 5.3: ravi.bhushan@dhwaniris.com: Updated Deadline Date Logic End-------
+
 						const regDate = regTimeStamp.getFullYear()+"-"+('0'+(regTimeStamp.getMonth()+1)).slice(-2)+"-"+('0'+regTimeStamp.getDate()).slice(-2)
 						const resurrectionDt = resurrectionDate != null ? resurrectionDate.toString().slice(0,10) : '' //resurrectionDate.getFullYear()+"-"+('0'+(resurrectionDate.getMonth()+1)).slice(-2)+"-"+('0'+resurrectionDate.getDate()).slice(-2)
 						const cmpltnOnOBDRSDt = startedSessions.some(data=>(data.TotalSessionsCompleted >=1) && ((data.SessionDate == regDate)||(data.SessionDate == resurrectionDt)))

@@ -113,7 +113,7 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
             "where ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) " + //and SessionID not in ('"+closedSessions.join("','")+"') "+
             "order by Sessions.CREATEDTIME ASC";
           getAllRows(
-            "Sessions.IsActive, Sessions.PerformanceReportURL, Sessions.EndOfSession, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.ROWID, SystemPrompts.Name, SystemPrompts.Persona, Sessions.Message, Sessions.MessageType, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens",
+            "Sessions.IsActive, Sessions.PerformanceReportURL, Sessions.EndOfSession, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.ROWID, SystemPrompts.Name, SystemPrompts.Persona, SystemPrompts.Module, Sessions.Message, Sessions.MessageType, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens",
             query,
             zcql
           )
@@ -213,12 +213,13 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                               );
                               const uniqueTopics =
                                 userSessionsTopics.filter(unique);
-                              if (uniqueTopics.length == 0) {
+                              if (uniqueTopics.length == 0) {                                    
                                 var userReport = {};
                                 userReport["Mobile"] =
                                   users[i]["UsersReport"]["Mobile"];
                                 userReport["Topic"] = "";
                                 userReport["Persona"] = "";
+                                userReport["Module"] = "";
                                 userReport["Attempt"] = "";
                                 userReport["IsActive"] = "";
                                 userReport["Completed"] = "";
@@ -280,10 +281,8 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                       uniqueTopics[j] == null
                                         ? ""
                                         : uniqueTopics[j].split("-")[0];
-                                    userReport["Topic"] =
-                                      userReport["Topic"] == null
-                                        ? ""
-                                        : userReport["Topic"];
+                                    userReport["Module"] = userReport["Module"]==null ? "" : userReport["Module"]
+                                    userReport["Topic"] = userReport["Topic"]==null ? "" : userReport["Topic"]
                                     userReport["Persona"] =
                                       topicSessionsData[0].SystemPrompts.Persona;
                                     userReport["SessionID"] =
@@ -611,13 +610,21 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                             }
                             //var uniqueUserSessionsTopics = [...new Map(userSessionsTopics.map(item => [item.SessionID, item])).values()]
                             report = report.filter(
-                              (data) =>
-                                data.SessionID != "" &&
-                                data.Topic != "" &&
-                                data.Topic != null &&
-                                data.Topic != "null"
+                              (data) => (data.SessionID != "")// && (data.Topic != "") && (data.Topic != null) && (data.Topic != 'null')
                             );
                             report = report.sort((a, b) => {
+                              if (a["Mobile"] == b["Mobile"]) {
+                                return 0;
+                              }
+                              if (a["Mobile"] < b["Mobile"]) {
+                                return -1;
+                              }
+                              if (a["Mobile"] > b["Mobile"]) {
+                                return 1;
+                              }
+                              // a must be equal to b
+                              return 0;
+                            }).sort((a, b) => {
                               if (
                                 a["Mobile"] == b["Mobile"] &&
                                 a.SessionStartTime < b.SessionStartTime
@@ -628,15 +635,6 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                 a["Mobile"] == b["Mobile"] &&
                                 a.SessionStartTime > b.SessionStartTime
                               ) {
-                                return 1;
-                              }
-                              if (a["Mobile"] == b["Mobile"]) {
-                                return 0;
-                              }
-                              if (a["Mobile"] < b["Mobile"]) {
-                                return -1;
-                              }
-                              if (a["Mobile"] > b["Mobile"]) {
                                 return 1;
                               }
                               // a must be equal to b

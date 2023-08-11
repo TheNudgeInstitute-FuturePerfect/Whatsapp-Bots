@@ -25,7 +25,7 @@ module.exports = async (basicIO) => {
 
 
 	const prompt = basicIO["prompt"];
-	let query = "select ROWID, Name, Content, IsActive, SupportingText, SupportingAVURL, SupportingImageURL, Sequence, Persona, ObjectiveMessage, Type, ShowLearningContent, IsPaid from SystemPrompts"
+	let query = "select Game, Module, LearningObjective, ROWID, Name, Content, IsActive, SupportingText, SupportingAVURL, SupportingImageURL, Sequence, Persona, ObjectiveMessage, Type, ShowLearningContent, IsPaid from SystemPrompts"
 	var conditions = []
 	if(typeof prompt !== 'undefined'){
 		var promptList = Array.isArray(prompt) ? prompt : prompt.split(",")
