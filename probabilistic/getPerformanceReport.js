@@ -618,7 +618,7 @@ app.post("/dailygoalprogress", (req, res) => {
             if(!Array.isArray(wordleAttempts))
               throw new Error(wordleAttempts)
             else{
-              const sessions = allsessions/*.filter(
+              const sessions = allsessions.filter(
                 (data) =>
                   !(
                     //data.Sessions.SessionID.endsWith("Hint") ||
@@ -629,7 +629,7 @@ app.post("/dailygoalprogress", (req, res) => {
                     data.Sessions.SessionID.startsWith("onboarding") ||
                     data.Sessions.SessionID.endsWith("onboarding")
                   )
-              );*/
+              );
               let practiceDates = sessions.map(data=>data.Sessions.CREATEDTIME)
               console.info((new Date()).toString()+"|"+prependToLog,"Got Conversation Data:",practiceDates)
               practiceDates = practiceDates.concat(userassessment.map(data=>data.UserAssessment.CREATEDTIME))
