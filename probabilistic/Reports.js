@@ -2153,7 +2153,7 @@ app.get("/allattempts", (req, res) => {
 			}
 		}))
 		console.info((new Date()).toString()+"|"+prependToLog,"Appended Game Report Data")
-		report = report.concat(gameQueryResult.data.map(data=>{
+		report = report.concat(conversationQueryResult.data.map(data=>{
 			return {
 				Mobile: data.Mobile,
 				Type: "Conversation",
