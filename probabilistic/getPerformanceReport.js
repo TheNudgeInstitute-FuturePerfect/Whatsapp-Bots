@@ -393,23 +393,16 @@ app.post("/goalachievementcalendar", (req, res) => {
             "Select {} " +
             "from Sessions " +
             "where Mobile = " +mobile+
-            " and Sessions.CREATEDTIME>='"+monthStart+"' and Sessions.CREATEDTIME<'"+nextMonthStartDate+"'"+
-            " and Sessions.MessageType = 'UserMessage' "+
-            "order by Sessions.CREATEDTIME ASC";
-          const runSessionQuery = getAllRows("Sessions.SessionID, Sessions.CREATEDTIME",sessionQuery,zcql,prependToLog)
+            " and Sessions.CREATEDTIME>='"+monthStart+"' and Sessions.CREATEDTIME<'"+nextMonthStartDate+"' "+
+            "group by Sessions.SessionID, Sessions.IsActive";
+          const runSessionQuery = getAllRows("Sessions.SessionID, Sessions.IsActive, max(Sessions.CREATEDTIME)",sessionQuery,zcql,prependToLog)
           const assessmentQuery = "Select {} " +
-            "from UserAssessment " +
-            "left join UserAssessmentLogs on UserAssessment.UserAssessmentLogROWID = UserAssessmentLogs.ROWID " +
-            "where UserAssessmentLogs.UserROWID = '" +users[0]['Users']['ROWID']+"' "+
-            " and UserAssessment.CREATEDTIME>='"+monthStart+"' and UserAssessment.CREATEDTIME<'"+nextMonthStartDate+"'"+
-            " order by UserAssessment.CREATEDTIME ASC";
-          const runAssessmentQuery = getAllRows("UserAssessmentLogs.ROWID, UserAssessment.CREATEDTIME",assessmentQuery,zcql,prependToLog)
-          const gameAttemptQuery = "Select {} " +
-            "from WordleAttempts " +
-            "where WordleAttempts.UserROWID = '" +users[0]['Users']['ROWID']+"' "+
-            " and WordleAttempts.CREATEDTIME>='"+monthStart+"' and WordleAttempts.CREATEDTIME<'"+nextMonthStartDate+"'"+
-            " order by WordleAttempts.CREATEDTIME ASC";
-          const runGameAttemptQuery = getAllRows("WordleAttempts.WordleROWID, WordleAttempts.CREATEDTIME",gameAttemptQuery,zcql,prependToLog)
+            "from UserAssessmentLogs " +
+            "where UserAssessmentLogs.UserROWID = '" +users[0]['Users']['ROWID']+"'"+
+            " and UserAssessmentLogs.IsAssessmentComplete = true"
+          const runAssessmentQuery = getAllRows("UserAssessmentLogs.ROWID, UserAssessmentLogs.MODIFIEDTIME",assessmentQuery,zcql,prependToLog)
+          const axios = require("axios");
+          const runGameAttemptQuery = axios.get(process.env.WordleReportURL+mobile)          
           
           Promise.all([runSessionQuery,runAssessmentQuery,runGameAttemptQuery])
           .then(([allsessions,userassessment,wordleAttempts]) => {
@@ -417,14 +410,13 @@ app.post("/goalachievementcalendar", (req, res) => {
               throw new Error(allsessions) 
             else if(!Array.isArray(userassessment))
               throw new Error(userassessment)
-            else if(!Array.isArray(wordleAttempts))
-              throw new Error(wordleAttempts)
             else{
-              const sessions = allsessions.filter(
+              const openSessions = allsessions.filter(data=>data.Sessions.IsActive==true).map(data=>data.Sessions.SessionID)
+              const sessions = allsessions.filter(data=>openSessions.includes(data.Sessions.SessionID)==false).filter(
                 (data) =>
                   !(
-                    //data.Sessions.SessionID.endsWith("Hint") ||
-                    //data.Sessions.SessionID.endsWith("Translation") ||
+                    data.Sessions.SessionID.endsWith("Hint") ||
+                    data.Sessions.SessionID.endsWith("Translation") ||
                     data.Sessions.SessionID.endsWith("ObjectiveFeedback") ||
                     data.Sessions.SessionID.startsWith("Onboarding") ||
                     data.Sessions.SessionID.endsWith("Onboarding") ||
@@ -434,17 +426,17 @@ app.post("/goalachievementcalendar", (req, res) => {
               );
               let practiceDates = sessions.map(data=>data.Sessions.CREATEDTIME)
               console.info((new Date()).toString()+"|"+prependToLog,"Fetched Conversation TimeStamps:",practiceDates)                
-              practiceDates =  practiceDates.concat(userassessment.map(data=>data.UserAssessment.CREATEDTIME))
+              practiceDates =  practiceDates.concat(userassessment.map(data=>data.UserAssessmentLogs.MODIFIEDTIME))
               console.info((new Date()).toString()+"|"+prependToLog,"Fetched Learning TimeStamps:",practiceDates)
-              practiceDates = practiceDates.concat(wordleAttempts.map(data=>data.WordleAttempts.CREATEDTIME))
+              practiceDates = practiceDates.concat(wordleAttempts.data.map(data=>data.SessionEndTime))
               console.info((new Date()).toString()+"|"+prependToLog,"Fetched Wordle TimeStamps:",practiceDates)
 
               practiceDates.sort()
                 
               //For each day in current month
-              const dayMapper = [ '🅼',  '🆃',  '🆆',  '🆃',  '🅵',  '🆂',  '🆂']
-              let report = [dayMapper.join(" ")]
-              let dateOfMonth = new Date(monthStart)
+              //const dayMapper = [ '🅼',  '🆃',  '🆆',  '🆃',  '🅵',  '🆂',  '🆂']
+              let report = [] //[dayMapper.join("  ")]
+              let dateOfMonth = new Date(practiceDates[0].toString().slice(0,10))
               let reportRecord = ['🔲','🔲','🔲','🔲','🔲','🔲','🔲']
               const toDay = currentTimeStamp.getFullYear()+"-"+('0'+(currentTimeStamp.getMonth()+1)).slice(-2)+"-"+('0'+currentTimeStamp.getDate()).slice(-2)
               const dateToday = new Date(toDay+" 00:00:00")
@@ -465,39 +457,22 @@ app.post("/goalachievementcalendar", (req, res) => {
                     reportRecord[dayOfWeek]="🟧"
                 }
                 else{
-                  const dateSessionDurations = dateSessions.map((data,i)=>{
-                    if(i<(dateSessions.length-1)){
-                      const duration = (new Date(dateSessions[i+1]) - new Date(data))/1000/60
-                      if(duration>10)
-                        return 0
-                      else 
-                        return duration
-                    }
-                    else
-                      return 0
-                  })
-                  
-                  const totalDuration = dateSessionDurations.length == 0 ? 0: Math.round(dateSessionDurations.reduce((a,b)=>a=a+b))
-                  console.debug((new Date()).toString()+"|"+prependToLog,"Total Duration on ",day," : ",totalDuration)
-                  
-                  if(totalDuration>=goal)
                     reportRecord[dayOfWeek]="✅" 
-                  else
-                    reportRecord[dayOfWeek]="🟧"
                 }
                 if(dateOfMonth.getDate() == dateToday.getDate()){
                   //Get total sessions completed today
                   const todaysSessionCount = sessions.filter(data=>data.Sessions.CREATEDTIME.toString().slice(0,10)==toDay).map(data=>data.Sessions.SessionID).filter(unique).length
                   //Whether more than one conversation session has been completed
-                  responseObject['MultipleConversationToday']=todaysSessionCount>1
+                  //responseObject['MultipleConversationToday']=todaysSessionCount>1
                   //Get total assessments completed today
-                  const todaysAssessmentCount = userassessment.filter(data=>data.UserAssessment.CREATEDTIME.toString().slice(0,10)==toDay).map(data=>data.UserAssessmentLogs.ROWID).filter(unique).length
+                  const todaysAssessmentCount = userassessment.filter(data=>data.UserAssessmentLogs.MODIFIEDTIME.toString().slice(0,10)==toDay).map(data=>data.UserAssessmentLogs.ROWID).filter(unique).length
                   //Whether more than one assessment has been completed
-                  responseObject['MultipleLearningToday']=todaysAssessmentCount>1
+                  //responseObject['MultipleLearningToday']=todaysAssessmentCount>1
                   //Get total games completed today
-                  const todaysGameCount = wordleAttempts.filter(data=>data.WordleAttempts.CREATEDTIME.toString().slice(0,10)==toDay).map(data=>data.WordleAttempts.WordleROWID).filter(unique).length
+                  const todaysGameCount = wordleAttempts.data.filter(data=>data.SessionEndTime.toString().slice(0,10)==toDay).map(data=>data.WordleROWID).filter(unique).length
                   //Whether more than one conversation session has been completed
-                  responseObject['MultipleGameToday']=todaysGameCount>1
+                  //responseObject['MultipleGameToday']=todaysGameCount>1
+                  responseObject['MultipleAttempts'] = (todaysSessionCount+todaysAssessmentCount+todaysGameCount)>1
                 }
 
                 //get next date of month for processing
@@ -594,7 +569,7 @@ app.post("/dailygoalprogress", (req, res) => {
             " and Sessions.CREATEDTIME>='"+toDay+" 00:00:00' and Sessions.CREATEDTIME<='"+toDay+" 23:59:59'"+
             " and Sessions.MessageType = 'UserMessage' "+
             "order by Sessions.CREATEDTIME ASC";
-          const runSessionQuery = getAllRows("Sessions.CREATEDTIME",query,zcql,prependToLog)
+          const runSessionQuery = getAllRows("Sessions.SessionID, Sessions.CREATEDTIME",query,zcql,prependToLog)
           const assessmentQuery = "Select {} " +
               "from UserAssessment " +
               "left join UserAssessmentLogs on UserAssessment.UserAssessmentLogROWID = UserAssessmentLogs.ROWID " +
