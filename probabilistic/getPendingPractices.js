@@ -107,7 +107,14 @@ app.post("/pendingpractices", (req, res) => {
                 console.info((new Date()).toString()+"|"+prependToLog,"Fetched Learning TimeStamps:",practiceDates)
                 practiceDates =  practiceDates.concat(wordleAttemptsReport.filter(data=>data.CompletedWordle=="Yes").map(data=>data.SessionEndTime))
                 console.info((new Date()).toString()+"|"+prependToLog,"Fetched Gamme TimeStamps:",practiceDates)
-      
+
+                if(userReport.length > 0)
+                  responseObject["DeadlineDate"] = userReport[0]['UsersReport']['DeadlineDate'].toString().slice(0,10)
+                else{
+                  let regDate = new Date(users[0]['Users']['RegisteredTime'])
+                  regDate.setDate(regDate.getDate()+process.env.Period)
+                  responseObject["DeadlineDate"] = regDate.getFullYear()+"-"+('0'+(regDate.getMonth()+1)).slice(-2)+"-"+('0'+regDate.getDate()).slice(-2)
+                }      
                 if (practiceDates == null) {
                   responseObject["StatusDescription"] = "User has not started any conversation";
                   responseObject["PendingPracticeCount"] = process.env.MinDays;

@@ -998,7 +998,7 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 												
 												var sessionTimeStamps = sessionRecord.map(record=>record.Sessions.CREATEDTIME)
 												sessionTimeStamps = sessionTimeStamps.sort()
-												userReport['SessionStartTime'] = sessionTimeStamps[0]
+												userReport['SessionStartTime'] = sessionTimeStamps[0].toString().slice(0,19)
 												const sessionTimeStampVersion = versions.filter(data=>{
 													/*console.log(new Date(data.Versions.StartDate), "|",
 														new Date(sessionTimeStamps[0]), "|",
@@ -1008,7 +1008,7 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 													return (((new Date(data.Versions.StartDate)) <= (new Date(sessionTimeStamps[0]))) && ((new Date(data.Versions.EndDate)) > (new Date(sessionTimeStamps[0]))))
 												})
 												//userReport['AttemptVersion'] = sessionTimeStampVersion.length == 0 ? '' : sessionTimeStampVersion[0]['Versions']['Version'].toString()
-												userReport['SessionEndTime'] = sessionTimeStamps[sessionTimeStamps.length-1]
+												userReport['SessionEndTime'] = sessionTimeStamps[sessionTimeStamps.length-1].toString().slice(0,19)
 												//userReport['SessionDuration'] = 0
 												/*for(var l = 1; l<sessionTimeStamps.length; l++){
 													const currentTimeStamp = new Date(sessionTimeStamps[l])
@@ -2122,12 +2122,14 @@ app.get("/allattempts", (req, res) => {
     const gameQuery = axios.get(process.env.WordleReportURL)
 	const conversationQuery = axios.get(process.env.UserSessionAttemptReportURL)
 	const quizQuery = axios.get(process.env.CFUAttemptReportURL)
+	const obdQuery = axios.get(process.env.OnboardingReportURL)
 
-	Promise.all([gameQuery,conversationQuery,quizQuery])
-	.then(([gameQueryResult,conversationQueryResult,quizQueryResult])=>{
+	Promise.all([gameQuery,conversationQuery,quizQuery,obdQuery])
+	.then(([gameQueryResult,conversationQueryResult,quizQueryResult,obdQueryResult])=>{
 		console.info((new Date()).toString()+"|"+prependToLog,"Fetched Games Report of length:",gameQueryResult.data.length)
 		console.info((new Date()).toString()+"|"+prependToLog,"Fetched Quiz Attempt Report of length:",quizQueryResult.data.length)
 		console.info((new Date()).toString()+"|"+prependToLog,"Fetched Conversation Attempt Report of length:",conversationQueryResult.data.length)
+		console.info((new Date()).toString()+"|"+prependToLog,"Fetched Onboarding Report of length:",obdQueryResult.data.length)
 
 		const quizQueryIDs = quizQueryResult.data.map(data=>data.AssessmentID).filter(unique)
 		var report = quizQueryIDs.map(id=>{
@@ -2164,6 +2166,18 @@ app.get("/allattempts", (req, res) => {
 			}
 		}))
 		console.info((new Date()).toString()+"|"+prependToLog,"Appended Conversation Report Data")
+		report = report.concat(obdQueryResult.data.map(data=>{
+			return {
+				Mobile: data.Mobile,
+				Type: "Onboarding",
+				SessionID: data.SessionID,
+				SessionStartTime: data.SessionStartTime,
+				SessionEndTime: data.SessionEndTime,
+				SessionComplete: data.IsActive == false ? "Yes":"No"
+			}
+		}))
+		console.info((new Date()).toString()+"|"+prependToLog,"Appended Onboarding Report Data")
+		
 		res.status(200).json(report)
 		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution")
 	})
