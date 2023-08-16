@@ -83,8 +83,8 @@ app.post("/pendingpractices", (req, res) => {
         else {
           const today = new Date();
 
-          let query = "Select {} from UserSessionAttemptReport where IsActive = false and Mobile = "+mobile
-          const sessionQuery = getAllRows("distinct SessionID, SessionEndTime",query,zcql,prependToLog)
+          let query = "Select {} from Sessions where Mobile = "+mobile+" group by Sessions.SessionID, Sessions.IsActive"
+          const sessionQuery = getAllRows("Sessions.SessionID, Sessions.IsActive, max(Sessions.CREATEDTIME)",query,zcql,prependToLog)
           const learningQuery = "Select {} from UserAssessmentLogs left join Users on Users.ROWID = UserAssessmentLogs.UserROWID where UserAssessmentLogs.IsAssessmentComplete = true and Users.Mobile = "+mobile
           const userAssessmentQuery = getAllRows("distinct ROWID, MODIFIEDTIME",learningQuery,zcql,prependToLog)
           const axios = require("axios");
@@ -101,7 +101,20 @@ app.post("/pendingpractices", (req, res) => {
                 throw new Error(userReport)
               else{
                 const wordleAttemptsReport = wordleAttempts.data
-                let practiceDates = userSessions.map(data=>data.UserSessionAttemptReport.SessionEndTime)
+                const openSessions = userSessions.filter(data=>data.Sessions.IsActive==true).map(data=>data.Sessions.SessionID)
+                const sessions = userSessions.filter(data=>openSessions.includes(data.Sessions.SessionID)==false).filter(
+                  (data) =>
+                    !(
+                      data.Sessions.SessionID.endsWith("Hint") ||
+                      data.Sessions.SessionID.endsWith("Translation") ||
+                      data.Sessions.SessionID.endsWith("ObjectiveFeedback") ||
+                      data.Sessions.SessionID.startsWith("Onboarding") ||
+                      data.Sessions.SessionID.endsWith("Onboarding") ||
+                      data.Sessions.SessionID.startsWith("onboarding") ||
+                      data.Sessions.SessionID.endsWith("onboarding")
+                    )
+                );
+                let practiceDates = sessions.map(data=>data.Sessions.CREATEDTIME)
                 console.info((new Date()).toString()+"|"+prependToLog,"Fetched Conversation TimeStamps:",practiceDates)
                 practiceDates =  practiceDates.concat(userAssessmentLogs.map(data=>data.UserAssessmentLogs.MODIFIEDTIME))
                 console.info((new Date()).toString()+"|"+prependToLog,"Fetched Learning TimeStamps:",practiceDates)
