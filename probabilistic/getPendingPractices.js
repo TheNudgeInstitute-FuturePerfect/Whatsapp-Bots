@@ -125,7 +125,7 @@ app.post("/pendingpractices", (req, res) => {
                   responseObject["DeadlineDate"] = userReport[0]['UsersReport']['DeadlineDate'].toString().slice(0,10)
                 else{
                   let regDate = new Date(users[0]['Users']['RegisteredTime'])
-                  regDate.setDate(regDate.getDate()+process.env.Period)
+                  regDate.setDate(regDate.getDate()+parseInt(process.env.Period))
                   responseObject["DeadlineDate"] = regDate.getFullYear()+"-"+('0'+(regDate.getMonth()+1)).slice(-2)+"-"+('0'+regDate.getDate()).slice(-2)
                 }      
                 if (practiceDates == null) {
@@ -143,8 +143,8 @@ app.post("/pendingpractices", (req, res) => {
                   res.status(200).json(responseObject);
                 } 
                 else {
-                  let startingDate = new Date(userReport.length > 0?userReport[0]['UsersReport']['DeadlineDate'].toString().slice(0,10):users[0]['Users']['RegisteredTime'])
-                  startingDate.setDate(startingDate.getDate()-parseInt(process.env.Period)+1)
+                  let startingDate = new Date(responseObject["DeadlineDate"]+" 00:00:00")//new Date(userReport.length > 0?userReport[0]['UsersReport']['DeadlineDate'].toString().slice(0,10):users[0]['Users']['RegisteredTime'])
+                  startingDate.setDate(startingDate.getDate()-parseInt(process.env.Period))
                   const daysSinceStart = Math.floor((today - startingDate)/1000/60/60/24)
                   
                   //Get all practice dates on and after starting date
