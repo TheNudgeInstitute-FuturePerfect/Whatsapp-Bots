@@ -606,15 +606,9 @@ app.post("/dailygoalprogress", (req, res) => {
                   )
               );
               let practiceDates = sessions.map(data=>data.Sessions.CREATEDTIME)
-              console.info((new Date()).toString()+"|"+prependToLog,"Got Conversation Data:",practiceDates)
-              practiceDates = practiceDates.concat(userassessment.map(data=>data.UserAssessment.CREATEDTIME))
-              console.info((new Date()).toString()+"|"+prependToLog,"Got Learning Data:",practiceDates)
-              practiceDates = practiceDates.concat(wordleAttempts.map(data=>data.WordleAttempts.CREATEDTIME))
-              console.info((new Date()).toString()+"|"+prependToLog,"Got Wordle Data:",practiceDates)
-
               practiceDates.sort()
-                              
-              const dateSessionDurations = practiceDates.map((data,i)=>{
+              console.info((new Date()).toString()+"|"+prependToLog,"Got Conversation Data:",practiceDates)
+              let dateSessionDurations = practiceDates.map((data,i)=>{
                 if(i<(practiceDates.length-1)){
                   const duration = (new Date(practiceDates[i+1]) - new Date(data))/1000/60
                   if(duration>10)
@@ -625,6 +619,34 @@ app.post("/dailygoalprogress", (req, res) => {
                 else
                   return 0
               })
+              practiceDates=userassessment.map(data=>data.UserAssessment.CREATEDTIME)
+              practiceDates.sort()
+              console.info((new Date()).toString()+"|"+prependToLog,"Got Learning Data:",practiceDates)
+              dateSessionDurations = dateSessionDurations.concat(practiceDates.map((data,i)=>{
+                if(i<(practiceDates.length-1)){
+                  const duration = (new Date(practiceDates[i+1]) - new Date(data))/1000/60
+                  if(duration>10)
+                    return 0
+                  else 
+                    return duration
+                }
+                else
+                  return 0
+              }))
+              practiceDates=wordleAttempts.map(data=>data.WordleAttempts.CREATEDTIME)
+              practiceDates.sort()
+              console.info((new Date()).toString()+"|"+prependToLog,"Got Wordle Data:",practiceDates)                              
+              dateSessionDurations = dateSessionDurations.concat(practiceDates.map((data,i)=>{
+                if(i<(practiceDates.length-1)){
+                  const duration = (new Date(practiceDates[i+1]) - new Date(data))/1000/60
+                  if(duration>10)
+                    return 0
+                  else 
+                    return duration
+                }
+                else
+                  return 0
+              }))
               const totalDuration=dateSessionDurations.length == 0 ? 0 : Math.round(dateSessionDurations.reduce((a,b)=>a=a+b))
               console.info((new Date()).toString()+"|"+prependToLog,"Total Duration:",totalDuration)
               const pctCompletion = totalDuration/goal
