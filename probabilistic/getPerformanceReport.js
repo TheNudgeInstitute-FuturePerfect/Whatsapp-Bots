@@ -576,13 +576,13 @@ app.post("/dailygoalprogress", (req, res) => {
               "where UserAssessmentLogs.UserROWID = '" +users[0]['Users']['ROWID']+"' "+
               " and UserAssessment.CREATEDTIME>='"+toDay+" 00:00:00' and UserAssessment.CREATEDTIME<='"+toDay+" 23:59:59'"+
               " order by UserAssessment.CREATEDTIME ASC";
-          const runAssessmentQuery = getAllRows("UserAssessment.CREATEDTIME",assessmentQuery,zcql,prependToLog)
+          const runAssessmentQuery = getAllRows("UserAssessment.UserAssessmentLogROWID, UserAssessment.CREATEDTIME",assessmentQuery,zcql,prependToLog)
           const gameAttemptQuery = "Select {} " +
                   "from WordleAttempts " +
                   "where WordleAttempts.UserROWID = '" +users[0]['Users']['ROWID']+"' "+
                   " and WordleAttempts.CREATEDTIME>='"+toDay+" 00:00:00' and WordleAttempts.CREATEDTIME<='"+toDay+" 23:59:59'"+
                   " order by WordleAttempts.CREATEDTIME ASC";
-          const runGameAttemptQuery = getAllRows("WordleAttempts.CREATEDTIME",gameAttemptQuery,zcql,prependToLog)
+          const runGameAttemptQuery = getAllRows("WordleAttempts.WordleROWID, WordleAttempts.CREATEDTIME",gameAttemptQuery,zcql,prependToLog)
 
           Promise.all([runSessionQuery,runAssessmentQuery,runGameAttemptQuery])
           .then(([allsessions,userassessment,wordleAttempts]) => {
@@ -605,48 +605,59 @@ app.post("/dailygoalprogress", (req, res) => {
                     data.Sessions.SessionID.endsWith("onboarding")
                   )
               );
-              let practiceDates = sessions.map(data=>data.Sessions.CREATEDTIME)
-              practiceDates.sort()
+              let dateSessionDurations = []
+              let practiceDates = []
+              const sessionIDs = sessions.map(data=>data.Sessions.SessionID).filter(unique)
+              for(var i=0; i<sessionIDs.length;i++){
+                practiceDates = sessions.filter(data=>data.Sessions.SessionID==sessionIDs[i]).map(data=>data.Sessions.CREATEDTIME)
+                practiceDates.sort()
+                dateSessionDurations = dateSessionDurations.concat(practiceDates.map((data,i)=>{
+                  if(i<(practiceDates.length-1)){
+                    const duration = (new Date(practiceDates[i+1]) - new Date(data))/1000/60
+                    if(duration>10)
+                      return 0
+                    else 
+                      return duration
+                  }
+                  else
+                    return 0
+                }))
+              }
               console.info((new Date()).toString()+"|"+prependToLog,"Got Conversation Data:",practiceDates)
-              let dateSessionDurations = practiceDates.map((data,i)=>{
-                if(i<(practiceDates.length-1)){
-                  const duration = (new Date(practiceDates[i+1]) - new Date(data))/1000/60
-                  if(duration>10)
+              const userassessmentLogIDs = userassessment.map(data=>data.UserAssessment.UserAssessmentLogROWID).filter(unique)
+              for(var i=0; i<userassessmentLogIDs.length;i++){
+                practiceDates=userassessment.filter(data=>data.UserAssessment.UserAssessmentLogROWID == userassessmentLogIDs[i]).map(data=>data.UserAssessment.CREATEDTIME)
+                practiceDates.sort()
+                dateSessionDurations = dateSessionDurations.concat(practiceDates.map((data,i)=>{
+                  if(i<(practiceDates.length-1)){
+                    const duration = (new Date(practiceDates[i+1]) - new Date(data))/1000/60
+                    if(duration>10)
+                      return 0
+                    else 
+                      return duration
+                  }
+                  else
                     return 0
-                  else 
-                    return duration
-                }
-                else
-                  return 0
-              })
-              practiceDates=userassessment.map(data=>data.UserAssessment.CREATEDTIME)
-              practiceDates.sort()
+                }))
+              }
               console.info((new Date()).toString()+"|"+prependToLog,"Got Learning Data:",practiceDates)
-              dateSessionDurations = dateSessionDurations.concat(practiceDates.map((data,i)=>{
-                if(i<(practiceDates.length-1)){
-                  const duration = (new Date(practiceDates[i+1]) - new Date(data))/1000/60
-                  if(duration>10)
+              const wordleIDs = wordleAttempts.map(data=>data.WordleAttempts.WordleROWID).filter(unique)
+              for(var i=0; i<wordleIDs.length;i++){
+                practiceDates=wordleAttempts.filter(data=>data.WordleAttempts.WordleROWID==wordleIDs[i]).map(data=>data.WordleAttempts.CREATEDTIME)
+                practiceDates.sort()
+                dateSessionDurations = dateSessionDurations.concat(practiceDates.map((data,i)=>{
+                  if(i<(practiceDates.length-1)){
+                    const duration = (new Date(practiceDates[i+1]) - new Date(data))/1000/60
+                    if(duration>10)
+                      return 0
+                    else 
+                      return duration
+                  }
+                  else
                     return 0
-                  else 
-                    return duration
-                }
-                else
-                  return 0
-              }))
-              practiceDates=wordleAttempts.map(data=>data.WordleAttempts.CREATEDTIME)
-              practiceDates.sort()
+                }))
+              }
               console.info((new Date()).toString()+"|"+prependToLog,"Got Wordle Data:",practiceDates)                              
-              dateSessionDurations = dateSessionDurations.concat(practiceDates.map((data,i)=>{
-                if(i<(practiceDates.length-1)){
-                  const duration = (new Date(practiceDates[i+1]) - new Date(data))/1000/60
-                  if(duration>10)
-                    return 0
-                  else 
-                    return duration
-                }
-                else
-                  return 0
-              }))
               const totalDuration=dateSessionDurations.length == 0 ? 0 : Math.round(dateSessionDurations.reduce((a,b)=>a=a+b))
               console.info((new Date()).toString()+"|"+prependToLog,"Total Duration:",totalDuration)
               const pctCompletion = totalDuration/goal
