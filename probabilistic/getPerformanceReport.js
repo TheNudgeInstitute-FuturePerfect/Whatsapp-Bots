@@ -9,13 +9,49 @@ const sendResponseToGlific = require("./common/sendResponseToGlific.js");
 // app.use(express.json());
 const app = express.Router();
 
+const getAllRows = (fields,query,zcql,prependToLog,dataLimit) => {
+	return new Promise(async (resolve) => {			
+		var jsonReport = []
+		const dataQuery = query.replace("{}",fields)
+		const lmt = dataLimit ? dataLimit : 300
+		var i = 1
+		while(true){
+			query = dataQuery+" LIMIT "+i+", "+lmt
+			console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+300-1)+
+						'\nQuery: '+query)
+			const queryResult = await zcql.executeZCQLQuery(query)
+			console.info((new Date()).toString()+"|"+prependToLog,queryResult.length)
+			if((queryResult.length == 0)||(!Array.isArray(queryResult))){
+				if(!Array.isArray(queryResult))
+					console.info((new Date()).toString()+"|"+prependToLog,"Error in query - ",queryResult)
+				break;
+			}
+			jsonReport = jsonReport.concat(queryResult)					
+			i=i+300
+		}
+		resolve(jsonReport)
+	})
+}
+//Filter unique elements in an array
+const unique = (value, index, self) => {
+  return self.indexOf(value) === index;
+};
+
 app.post("/getperformancereport", (req, res) => {
   let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
+  const executionID = Math.random().toString(36).slice(2)
+    
+  //Prepare text to prepend with logs
+  const params = ["StudentCRUD",req.url,executionID,""]
+  const prependToLog = params.join(" | ")
+  
+  console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
   const requestBody = req.body;
   const sessionId = requestBody["sessionId"];
-  console.log("requestBody['SessionID']" + requestBody["sessionId"]);
-  console.log("sessionId" + sessionId);
+  console.info((new Date()).toString()+"|"+prependToLog,"requestBody['SessionID']" + requestBody["sessionId"]);
+  console.info((new Date()).toString()+"|"+prependToLog,"sessionId" + sessionId);
   var responseObject = {
     OperationStatus: "SUCCESS",
   };
@@ -23,12 +59,12 @@ app.post("/getperformancereport", (req, res) => {
     responseObject["OperationStatus"] = "REQ_ERR";
     responseObject["StatusDescription"] =
       "Missing mandatory field - SessionROWID";
-    console.log("End of Execution: ", responseObject);
+    console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ", responseObject);
     res.status("200").json(responseObject);
   } else {
     const timer = (sleepTime) => {
       return new Promise(async (resolve, reject) => {
-        console.log("Wait for " + sleepTime);
+        console.info((new Date()).toString()+"|"+prependToLog,"Wait for " + sleepTime);
         setTimeout(resolve, sleepTime);
       });
     };
@@ -40,38 +76,38 @@ app.post("/getperformancereport", (req, res) => {
       "Select ROWID, Message from Sessions where MessageType = 'UserMessage' and SessionID = '" +
       sessionId +
       "' order by CREATEDTIME DESC";
-    console.log(query);
+    console.info((new Date()).toString()+"|"+prependToLog,query);
     zcql
       .executeZCQLQuery(query)
       .then((row) => {
-        console.log(row);
+        console.info((new Date()).toString()+"|"+prependToLog,row);
         if (row == null) {
           responseObject["OperationStatus"] = "NO_DATA";
           responseObject["StatusDescription"] =
             "No record found with ID " + requestBody["SessionROWID"];
-          console.log("End of Execution: ", responseObject);
+          console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ", responseObject);
           res.status("200").json(responseObject);
         } else if (row.length == 0) {
           responseObject["OperationStatus"] = "NO_DATA";
           responseObject["StatusDescription"] =
             "No record found with ID " + requestBody["SessionROWID"];
-          console.log("End of Execution: ", responseObject);
+          console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ", responseObject);
           res.status("200").json(responseObject);
         } else {
           /*else if(row[0]['Sessions']['PerformanceReportURL'] == null){
 			 	responseObject['OperationStatus'] = 'NO_RPRT'
 			 	responseObject['StatusDescription'] = 'No performance report found for ID '+ requestBody['SessionROWID']
-			 	console.log("End of Execution: ",responseObject)
+			 	console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ",responseObject)
 			 	res.status("200").json(responseObject)
 			}*/
-          console.log("in condition " + row.length);
+          console.info((new Date()).toString()+"|"+prependToLog,"in condition " + row.length);
           const allMessages = row
             .map((message) => decodeURIComponent(message.Sessions.Message))
             .join(" ");
           const emojiRegEx = emojiRegex();
           const allWords = allMessages.replace(emojiRegEx, "").split(" ");
           const totalWords = allWords.length; // - 7 if auto generated msg - I want to talk about topic name
-          console.log(totalWords);
+          console.info((new Date()).toString()+"|"+prependToLog,totalWords);
           responseObject["wordcount"] = totalWords;
           responseObject["PerformanceReportType"] = "Text";
 
@@ -101,7 +137,7 @@ app.post("/getperformancereport", (req, res) => {
                   performanceReport["PublicURL"];
               }
               await timer(5000);
-              console.log("End of Execution: ", responseObject);
+              console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ", responseObject);
               res.status("200").json(responseObject);
               sendResponseToGlific({
                 flowID: requestBody["FlowID"],
@@ -112,17 +148,17 @@ app.post("/getperformancereport", (req, res) => {
               })
                 .then((glificResponse) => {})
                 .catch((err) =>
-                  console.log("Error returned from Glific: ", err)
+                  console.info((new Date()).toString()+"|"+prependToLog,"Error returned from Glific: ", err)
                 );
             })
             .catch((err) => {
-              console.log(err);
+              console.info((new Date()).toString()+"|"+prependToLog,err);
               res.status(500).send(err);
             });
         }
       })
       .catch((err) => {
-        console.log(err);
+        console.info((new Date()).toString()+"|"+prependToLog,err);
         res.status(500).send(err);
       });
   }
@@ -131,6 +167,14 @@ app.post("/getperformancereport", (req, res) => {
 app.post("/getoverallperformancereport", (req, res) => {
   let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
+  const executionID = Math.random().toString(36).slice(2)
+    
+  //Prepare text to prepend with logs
+  const params = ["StudentCRUD",req.url,executionID,""]
+  const prependToLog = params.join(" | ")
+  
+  console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
   const requestBody = req.body;
 
   let mobile = requestBody["Mobile"];
@@ -141,7 +185,7 @@ app.post("/getoverallperformancereport", (req, res) => {
   if (typeof mobile === "undefined") {
     responseObject["OperationStatus"] = "REQ_ERR";
     responseObject["StatusDescription"] = "Missing mandatory field - Mobile";
-    console.log("End of Execution: ", responseObject);
+    console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ", responseObject);
     res.status("200").json(responseObject);
   } else {
     mobile = mobile.toString().slice(-10);
@@ -158,7 +202,7 @@ app.post("/getoverallperformancereport", (req, res) => {
       .executeZCQLQuery(query.replace("{}", "count(ROWID)"))
       .then((maxRowsResult) => {
         let maxRows = parseInt(maxRowsResult[0].Sessions.ROWID);
-        console.log("Total Session Records: " + maxRows);
+        console.info((new Date()).toString()+"|"+prependToLog,"Total Session Records: " + maxRows);
         if (maxRows > 0) {
           const recordsToFetch = 300;
           const startingRow = 1;
@@ -168,7 +212,7 @@ app.post("/getoverallperformancereport", (req, res) => {
               const dataQuery = query.replace("{}", fields);
               for (var i = startingRow; i <= maxRows; i = i + recordsToFetch) {
                 query = dataQuery + " LIMIT " + i + ", " + recordsToFetch;
-                console.log(
+                console.info((new Date()).toString()+"|"+prependToLog,
                   "Fetching records from " +
                     i +
                     " to " +
@@ -230,7 +274,7 @@ app.post("/getoverallperformancereport", (req, res) => {
                   );
                   return sessionWCs.reduce((a, b) => a + b, 0);
                 });
-                console.log("topicWC", topicWC);
+                console.info((new Date()).toString()+"|"+prependToLog,"topicWC", topicWC);
                 userReport["MinWordCount"] = Math.min(...topicWC).toString();
                 userReport["MaxWordCount"] = Math.max(...topicWC).toString();
                 userReport["TotalWordCount"] = topicWC.reduce(
@@ -249,13 +293,13 @@ app.post("/getoverallperformancereport", (req, res) => {
                 );
                 const latestSessionID =
                   latestSessionData[0]["Sessions"]["SessionID"];
-                console.log("Latest Session ID: ", latestSessionID);
+                console.info((new Date()).toString()+"|"+prependToLog,"Latest Session ID: ", latestSessionID);
                 const latestSessionIDWCs = topicSessionsData.map((data) =>
                   data.Sessions.SessionID == latestSessionID
                     ? data.Sessions.TotalWords
                     : 0
                 );
-                console.log("latestSessionIDWCs:", latestSessionIDWCs);
+                console.info((new Date()).toString()+"|"+prependToLog,"latestSessionIDWCs:", latestSessionIDWCs);
                 userReport["LastAttemptWordCount"] = latestSessionIDWCs
                   .reduce((a, b) => a + b, 0)
                   .toString();
@@ -275,20 +319,376 @@ app.post("/getoverallperformancereport", (req, res) => {
               res.status(200).json(responseObject);
             })
             .catch((err) => {
-              console.log(err);
+              console.info((new Date()).toString()+"|"+prependToLog,err);
               res.status(500).send(err);
             });
         } else {
           responseObject["OperationStatus"] = "NO_DATA";
           responseObject["StatusDescription"] = "No Session Record found";
-          console.log("End of Execution: ", responseObject);
+          console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ", responseObject);
           res.status("200").json(responseObject);
         }
       })
       .catch((err) => {
-        console.log(err);
+        console.info((new Date()).toString()+"|"+prependToLog,err);
         res.status(500).send(err);
       });
+  }
+});
+
+app.post("/goalachievementcalendar", (req, res) => {
+  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+
+  const executionID = Math.random().toString(36).slice(2)
+    
+  //Prepare text to prepend with logs
+  const params = ["StudentCRUD",req.url,executionID,""]
+  const prependToLog = params.join(" | ")
+  
+  console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
+  const requestBody = req.body;
+
+  let mobile = requestBody["Mobile"];
+
+  var responseObject = {
+    OperationStatus: "SUCCESS",
+  };
+  if (typeof mobile === "undefined") {
+    responseObject["OperationStatus"] = "REQ_ERR";
+    responseObject["StatusDescription"] = "Missing mandatory field - Mobile";
+    console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ", responseObject);
+    res.status("200").json(responseObject);
+  } else {
+    mobile = mobile.toString().slice(-10);
+    
+    let zcql = catalystApp.zcql();
+    //get the user's goal 
+    let query = "Select {} from Users where Mobile = "+mobile
+    getAllRows("ROWID, RegisteredTime, GoalInMinutes",query,zcql,prependToLog)
+    .then((users)=>{
+      if(!Array.isArray(users))
+        throw new Error(users)
+      else{
+      
+        const goal = users[0]['Users']['GoalInMinutes']
+        console.info((new Date()).toString()+"|"+prependToLog,"User's Goal:",goal)
+
+        if(goal == null){
+          responseObject['OperationStatus']="NO_GOAL"
+          responseObject['StatusDescription']="No goal set by user"
+          res.status(200).json(responseObject);
+        }
+        else{
+          //Get the session data for the current month
+          //Get the month date range
+          const currentTimeStamp = new Date();
+          const monthStart = currentTimeStamp.getFullYear()+"-"+('0'+(currentTimeStamp.getMonth()+1)).slice(-2)+"-01 00:00:00"
+          let nextMonthTimeStamp = new Date();
+          //Shift to next month
+          nextMonthTimeStamp.setMonth(nextMonthTimeStamp.getMonth()+1)
+          const nextMonthStartDate = nextMonthTimeStamp.getFullYear()+"-"+('0'+(nextMonthTimeStamp.getMonth()+1)).slice(-2)+"-01 00:00:00"
+
+          const sessionQuery =
+            "Select {} " +
+            "from Sessions " +
+            "where Mobile = " +mobile+
+            " and Sessions.CREATEDTIME>='"+monthStart+"' and Sessions.CREATEDTIME<'"+nextMonthStartDate+"' "+
+            "group by Sessions.SessionID, Sessions.IsActive";
+          const runSessionQuery = getAllRows("Sessions.SessionID, Sessions.IsActive, max(Sessions.CREATEDTIME)",sessionQuery,zcql,prependToLog)
+          const assessmentQuery = "Select {} " +
+            "from UserAssessmentLogs " +
+            "where UserAssessmentLogs.UserROWID = '" +users[0]['Users']['ROWID']+"'"+
+            " and UserAssessmentLogs.IsAssessmentComplete = true"
+          const runAssessmentQuery = getAllRows("UserAssessmentLogs.ROWID, UserAssessmentLogs.MODIFIEDTIME",assessmentQuery,zcql,prependToLog)
+          const axios = require("axios");
+          const runGameAttemptQuery = axios.get(process.env.WordleReportURL+mobile)          
+          
+          Promise.all([runSessionQuery,runAssessmentQuery,runGameAttemptQuery])
+          .then(([allsessions,userassessment,wordleAttempts]) => {
+            if(!Array.isArray(allsessions))
+              throw new Error(allsessions) 
+            else if(!Array.isArray(userassessment))
+              throw new Error(userassessment)
+            else{
+              const openSessions = allsessions.filter(data=>data.Sessions.IsActive==true).map(data=>data.Sessions.SessionID)
+              const sessions = allsessions.filter(data=>openSessions.includes(data.Sessions.SessionID)==false).filter(
+                (data) =>
+                  !(
+                    data.Sessions.SessionID.endsWith("Hint") ||
+                    data.Sessions.SessionID.endsWith("Translation") ||
+                    data.Sessions.SessionID.endsWith("ObjectiveFeedback") ||
+                    data.Sessions.SessionID.startsWith("Onboarding") ||
+                    data.Sessions.SessionID.endsWith("Onboarding") ||
+                    data.Sessions.SessionID.startsWith("onboarding") ||
+                    data.Sessions.SessionID.endsWith("onboarding")
+                  )
+              );
+              let practiceDates = sessions.map(data=>data.Sessions.CREATEDTIME)
+              console.info((new Date()).toString()+"|"+prependToLog,"Fetched Conversation TimeStamps:",practiceDates)                
+              practiceDates =  practiceDates.concat(userassessment.map(data=>data.UserAssessmentLogs.MODIFIEDTIME))
+              console.info((new Date()).toString()+"|"+prependToLog,"Fetched Learning TimeStamps:",practiceDates)
+              practiceDates = practiceDates.concat(wordleAttempts.data.map(data=>data.SessionEndTime))
+              console.info((new Date()).toString()+"|"+prependToLog,"Fetched Wordle TimeStamps:",practiceDates)
+
+              practiceDates.sort()
+                
+              //For each day in current month
+              //const dayMapper = [ '🅼',  '🆃',  '🆆',  '🆃',  '🅵',  '🆂',  '🆂']
+              let report = [] //[dayMapper.join("  ")]
+              let dateOfMonth = new Date(practiceDates[0].toString().slice(0,10))
+              let reportRecord = ['🔲','🔲','🔲','🔲','🔲','🔲','🔲']
+              const toDay = currentTimeStamp.getFullYear()+"-"+('0'+(currentTimeStamp.getMonth()+1)).slice(-2)+"-"+('0'+currentTimeStamp.getDate()).slice(-2)
+              const dateToday = new Date(toDay+" 00:00:00")
+              let calendarEndDate = new Date()
+              calendarEndDate.setDate(calendarEndDate.getDate()+((7-calendarEndDate.getDay())%7))
+              while(true){
+                
+                const dayOfWeek = (dateOfMonth.getDay()+6)%7
+                
+                const day = dateOfMonth.getFullYear()+"-"+('0'+(dateOfMonth.getMonth()+1)).slice(-2)+"-"+('0'+dateOfMonth.getDate()).slice(-2)
+
+                //Get all the Session data created on the date
+                const dateSessions = practiceDates.filter(data=>(data>=(day+" 00:00:00"))&&(data<=(day+" 23:59:59")))
+
+                //If no session data found, add emoji and continue
+                if(dateSessions.length==0){
+                  if((dateOfMonth>=(new Date(users[0]['Users']['RegisteredTime'].toString().slice(0,10))))&&(dateOfMonth<=currentTimeStamp))
+                    reportRecord[dayOfWeek]="🟧"
+                }
+                else{
+                    reportRecord[dayOfWeek]="✅" 
+                }
+                if(dateOfMonth.getDate() == dateToday.getDate()){
+                  //Get total sessions completed today
+                  const todaysSessionCount = sessions.filter(data=>data.Sessions.CREATEDTIME.toString().slice(0,10)==toDay).map(data=>data.Sessions.SessionID).filter(unique).length
+                  //Whether more than one conversation session has been completed
+                  //responseObject['MultipleConversationToday']=todaysSessionCount>1
+                  //Get total assessments completed today
+                  const todaysAssessmentCount = userassessment.filter(data=>data.UserAssessmentLogs.MODIFIEDTIME.toString().slice(0,10)==toDay).map(data=>data.UserAssessmentLogs.ROWID).filter(unique).length
+                  //Whether more than one assessment has been completed
+                  //responseObject['MultipleLearningToday']=todaysAssessmentCount>1
+                  //Get total games completed today
+                  const todaysGameCount = wordleAttempts.data.filter(data=>data.SessionEndTime.toString().slice(0,10)==toDay).map(data=>data.WordleROWID).filter(unique).length
+                  //Whether more than one conversation session has been completed
+                  //responseObject['MultipleGameToday']=todaysGameCount>1
+                  responseObject['MultipleAttempts'] = (todaysSessionCount+todaysAssessmentCount+todaysGameCount)>1
+                }
+
+                //get next date of month for processing
+                dateOfMonth.setDate(dateOfMonth.getDate()+1)
+                //if it's next month start date or calendar end date, push the data to report and exit
+                if((dateOfMonth>=(new Date(nextMonthStartDate)))||(dateOfMonth>calendarEndDate)){
+                  report.push(reportRecord.join(""))
+                  break
+                }
+
+                //If it's last day of week, push the data to report
+                if(dayOfWeek==6){
+                  report.push(reportRecord.join(""))
+                  //Reset variable for next week's data
+                  reportRecord = ['🔲','🔲','🔲','🔲','🔲','🔲','🔲']
+                }
+              }
+              responseObject['Report']=report.join("\n")
+              console.info((new Date()).toString()+"|"+prependToLog,"End of Execution:",responseObject)
+              res.status(200).json(responseObject);
+            }
+          })
+          .catch((err) => {
+            console.info((new Date()).toString()+"|"+prependToLog,"End of Execution:",err);
+            console.error((new Date()).toString()+"|"+prependToLog,err);
+            res.status(500).send(err);
+          });
+        }
+      }
+    })
+    .catch((err) => {
+      console.info((new Date()).toString()+"|"+prependToLog,"End of Execution:",err);
+      console.error((new Date()).toString()+"|"+prependToLog,err);
+      res.status(500).send(err);
+    });
+  }
+});
+
+app.post("/dailygoalprogress", (req, res) => {
+  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+
+  const executionID = Math.random().toString(36).slice(2)
+    
+  //Prepare text to prepend with logs
+  const params = ["StudentCRUD",req.url,executionID,""]
+  const prependToLog = params.join(" | ")
+  
+  console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
+  const requestBody = req.body;
+
+  let mobile = requestBody["Mobile"];
+
+  var responseObject = {
+    OperationStatus: "SUCCESS",
+  };
+  if (typeof mobile === "undefined") {
+    responseObject["OperationStatus"] = "REQ_ERR";
+    responseObject["StatusDescription"] = "Missing mandatory field - Mobile";
+    console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ", responseObject);
+    res.status("200").json(responseObject);
+  } else {
+    mobile = mobile.toString().slice(-10);
+    
+    let zcql = catalystApp.zcql();
+    //get the user's goal 
+    let query = "Select {} from Users where Mobile = "+mobile
+    getAllRows("ROWID, GoalInMinutes",query,zcql,prependToLog)
+    .then((users)=>{
+      if(!Array.isArray(users))
+        throw new Error(users)
+      else{
+      
+        const goal = users[0]['Users']['GoalInMinutes']
+
+        console.info((new Date()).toString()+"|"+prependToLog,"Goal of User :",goal)
+
+        if(goal == null){
+          responseObject['OperationStatus']="NO_GOAL"
+          responseObject['StatusDescription']="No goal set by user"
+          console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ", responseObject);
+          res.status(200).json(responseObject);
+        }
+        else{
+          //Get the session data for the current month
+          //Get the month date range
+          const currentTimeStamp = new Date();
+          const toDay = currentTimeStamp.getFullYear()+"-"+('0'+(currentTimeStamp.getMonth()+1)).slice(-2)+"-"+('0'+currentTimeStamp.getDate()).slice(-2)
+          
+          query =
+            "Select {} " +
+            "from Sessions " +
+            "where Mobile = " +mobile+
+            " and Sessions.CREATEDTIME>='"+toDay+" 00:00:00' and Sessions.CREATEDTIME<='"+toDay+" 23:59:59'"+
+            " and Sessions.MessageType = 'UserMessage' "+
+            "order by Sessions.CREATEDTIME ASC";
+          const runSessionQuery = getAllRows("Sessions.SessionID, Sessions.CREATEDTIME",query,zcql,prependToLog)
+          const assessmentQuery = "Select {} " +
+              "from UserAssessment " +
+              "left join UserAssessmentLogs on UserAssessment.UserAssessmentLogROWID = UserAssessmentLogs.ROWID " +
+              "where UserAssessmentLogs.UserROWID = '" +users[0]['Users']['ROWID']+"' "+
+              " and UserAssessment.CREATEDTIME>='"+toDay+" 00:00:00' and UserAssessment.CREATEDTIME<='"+toDay+" 23:59:59'"+
+              " order by UserAssessment.CREATEDTIME ASC";
+          const runAssessmentQuery = getAllRows("UserAssessment.UserAssessmentLogROWID, UserAssessment.CREATEDTIME",assessmentQuery,zcql,prependToLog)
+          const gameAttemptQuery = "Select {} " +
+                  "from WordleAttempts " +
+                  "where WordleAttempts.UserROWID = '" +users[0]['Users']['ROWID']+"' "+
+                  " and WordleAttempts.CREATEDTIME>='"+toDay+" 00:00:00' and WordleAttempts.CREATEDTIME<='"+toDay+" 23:59:59'"+
+                  " order by WordleAttempts.CREATEDTIME ASC";
+          const runGameAttemptQuery = getAllRows("WordleAttempts.WordleROWID, WordleAttempts.CREATEDTIME",gameAttemptQuery,zcql,prependToLog)
+
+          Promise.all([runSessionQuery,runAssessmentQuery,runGameAttemptQuery])
+          .then(([allsessions,userassessment,wordleAttempts]) => {
+            if(!Array.isArray(allsessions))
+              throw new Error(allsessions)
+            else if(!Array.isArray(userassessment))
+              throw new Error(userassessment)
+            if(!Array.isArray(wordleAttempts))
+              throw new Error(wordleAttempts)
+            else{
+              const sessions = allsessions.filter(
+                (data) =>
+                  !(
+                    //data.Sessions.SessionID.endsWith("Hint") ||
+                    //data.Sessions.SessionID.endsWith("Translation") ||
+                    data.Sessions.SessionID.endsWith("ObjectiveFeedback") ||
+                    data.Sessions.SessionID.startsWith("Onboarding") ||
+                    data.Sessions.SessionID.endsWith("Onboarding") ||
+                    data.Sessions.SessionID.startsWith("onboarding") ||
+                    data.Sessions.SessionID.endsWith("onboarding")
+                  )
+              );
+              let dateSessionDurations = []
+              let practiceDates = []
+              const sessionIDs = sessions.map(data=>data.Sessions.SessionID).filter(unique)
+              for(var i=0; i<sessionIDs.length;i++){
+                practiceDates = sessions.filter(data=>data.Sessions.SessionID==sessionIDs[i]).map(data=>data.Sessions.CREATEDTIME)
+                practiceDates.sort()
+                dateSessionDurations = dateSessionDurations.concat(practiceDates.map((data,i)=>{
+                  if(i<(practiceDates.length-1)){
+                    const duration = (new Date(practiceDates[i+1]) - new Date(data))/1000/60
+                    if(duration>10)
+                      return 0
+                    else 
+                      return duration
+                  }
+                  else
+                    return 0
+                }))
+              }
+              console.info((new Date()).toString()+"|"+prependToLog,"Got Conversation Data:",practiceDates)
+              const userassessmentLogIDs = userassessment.map(data=>data.UserAssessment.UserAssessmentLogROWID).filter(unique)
+              for(var i=0; i<userassessmentLogIDs.length;i++){
+                practiceDates=userassessment.filter(data=>data.UserAssessment.UserAssessmentLogROWID == userassessmentLogIDs[i]).map(data=>data.UserAssessment.CREATEDTIME)
+                practiceDates.sort()
+                dateSessionDurations = dateSessionDurations.concat(practiceDates.map((data,i)=>{
+                  if(i<(practiceDates.length-1)){
+                    const duration = (new Date(practiceDates[i+1]) - new Date(data))/1000/60
+                    if(duration>10)
+                      return 0
+                    else 
+                      return duration
+                  }
+                  else
+                    return 0
+                }))
+              }
+              console.info((new Date()).toString()+"|"+prependToLog,"Got Learning Data:",practiceDates)
+              const wordleIDs = wordleAttempts.map(data=>data.WordleAttempts.WordleROWID).filter(unique)
+              for(var i=0; i<wordleIDs.length;i++){
+                practiceDates=wordleAttempts.filter(data=>data.WordleAttempts.WordleROWID==wordleIDs[i]).map(data=>data.WordleAttempts.CREATEDTIME)
+                practiceDates.sort()
+                dateSessionDurations = dateSessionDurations.concat(practiceDates.map((data,i)=>{
+                  if(i<(practiceDates.length-1)){
+                    const duration = (new Date(practiceDates[i+1]) - new Date(data))/1000/60
+                    if(duration>10)
+                      return 0
+                    else 
+                      return duration
+                  }
+                  else
+                    return 0
+                }))
+              }
+              console.info((new Date()).toString()+"|"+prependToLog,"Got Wordle Data:",practiceDates)                              
+              const totalDuration=dateSessionDurations.length == 0 ? 0 : Math.round(dateSessionDurations.reduce((a,b)=>a=a+b))
+              console.info((new Date()).toString()+"|"+prependToLog,"Total Duration:",totalDuration)
+              const pctCompletion = totalDuration/goal
+              console.info((new Date()).toString()+"|"+prependToLog,"Percentage Completion:",pctCompletion)
+              responseObject['OperationStatus']=totalDuration>=goal ? "GOAL_RCHD" : "GOAL_NT_RCHD"
+              responseObject['Report'] = "➡️"
+              for(var i=1; i<=5;i++){
+                if(pctCompletion >= (i/5))
+                  responseObject['Report'] += "🌕"
+                else
+                  responseObject['Report'] += "🌑"
+              }
+              responseObject['PendingDuration'] = Math.max(0,Math.round(goal-totalDuration))
+              responseObject['CompletedDuration'] = totalDuration
+              console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ", responseObject);
+              res.status(200).json(responseObject);
+            }
+          })
+          .catch((err) => {
+            console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error:",err);
+            console.error((new Date()).toString()+"|"+prependToLog,err);
+            res.status(500).send(err);
+          });
+        }
+      }
+    })
+    .catch((err) => {
+      console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error:",err);
+      console.error((new Date()).toString()+"|"+prependToLog,err);
+      res.status(500).send(err);
+    });
   }
 });
 

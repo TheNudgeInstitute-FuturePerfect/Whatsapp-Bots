@@ -27,10 +27,13 @@ app.post("/latestsession", (req, res) => {
 	else{//If Present
 		//Get the mobile in 10 digit format
 		const mobile = requestBody['Mobile'].toString().slice(-10)
+		const module = (typeof requestBody['Module'] === 'undefined') ? null : (requestBody['Module'].startsWith("@contact") || requestBody['Module'].startsWith("@result")) ? null : requestBody['Module']
 		//Initialize ZCQL
 		let zcql = catalystApp.zcql()
 		//Build query
-		let query = "select Sessions.IsActive, Sessions.Reply, Sessions.ReplyAudioURL, Sessions.SessionID, Sessions.SystemPromptsROWID, SystemPrompts.Name from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID  where Sessions.Mobile = '"+mobile+"' order by Sessions.CREATEDTIME DESC"
+		let query = "select Sessions.IsActive, Sessions.Reply, Sessions.ReplyAudioURL, Sessions.SessionID, Sessions.SystemPromptsROWID, SystemPrompts.Name from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID  where Sessions.Mobile = '"+mobile+"' "+
+					(module != null ? " and SystemPrompts.Module = '"+module+"' ":"")+
+					"order by Sessions.CREATEDTIME DESC"
 		//Execute Query
 		zcql.executeZCQLQuery(query)
 		.then((queryResult)=>{//On successful execution

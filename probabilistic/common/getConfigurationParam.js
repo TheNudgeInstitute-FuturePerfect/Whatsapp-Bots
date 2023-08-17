@@ -18,6 +18,14 @@ module.exports = async (basicIO) => {
 
   const catalystApp = catalyst.initialize();
 
+  const executionID = Math.random().toString(36).slice(2)
+
+	//Prepare text to prepend with logs
+	const params = ["Get Configuration Param",executionID,""]
+	const prependToLog = params.join(" | ")
+		
+	console.info((new Date()).toString()+"|"+prependToLog,"Execution Started")
+
   var result = {
     OperationStatus: "SUCCESS",
   };
@@ -25,7 +33,7 @@ module.exports = async (basicIO) => {
 	if(typeof assessment === 'undefined'){
 		result['OperationStatus']="REQ_ERR"
 		result['ErrorDescription']="Missing parameter: version"
-		console.log("Execution Completed: ",result);
+		console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result);
 		return JSON.stringify(result);
 	}
 	else{*/
@@ -34,7 +42,7 @@ module.exports = async (basicIO) => {
     result["OperationStatus"] = "REQ_ERR";
     result["ErrorDescription"] =
       "Missing parameter : id. Need Topic Prompt's ROWID";
-    console.log("Execution Completed: ", result);
+    console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ", result);
     return JSON.stringify(result);
   } else {
     var name = basicIO["param"];
@@ -72,15 +80,16 @@ module.exports = async (basicIO) => {
           "There is no configuration set for the given topic id";
         result["Values"] = null;
       }
-      console.log("Execution Completed: ", result);
+      console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ", result);
       return JSON.stringify(result);
     } catch (error) {
       result["OperationStatus"] = "ZCQL_ERR";
       result["ErrorDescription"] = "Error in execution of search query";
-      console.log(
-        "Execution Completed: ",
-        result,
-        "\nError:",
+      console.info((new Date()).toString()+"|"+prependToLog,
+        "Execution Completed with error: ",
+        result)
+      console.error((new Date()).toString()+"|"+prependToLog,
+        "Error in execution of search query:",
         error,
         "\nQuery:",
         searchQuery

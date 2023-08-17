@@ -24,6 +24,15 @@ module.exports = async (basicIO) => {
 
 	const catalystApp = catalyst.initialize();
 
+	const executionID = Math.random().toString(36).slice(2)
+
+	//Prepare text to prepend with logs
+	const params = ["Add Configuration Param",executionID,""]
+	const prependToLog = params.join(" | ")
+		
+	console.info((new Date()).toString()+"|"+prependToLog,"Execution Started")
+
+
 	var result = {
 		OperationStatus : "SUCCESS"
 	}
@@ -51,7 +60,7 @@ module.exports = async (basicIO) => {
 				if(typeof name === 'undefined'){
 					result['OperationStatus']="REQ_ERR"
 					result['ErrorDescription']="Missing parameter: param"
-					console.log("Execution Completed: ",result);
+					console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result);
 					return JSON.stringify(result);
 					
 				}
@@ -61,7 +70,7 @@ module.exports = async (basicIO) => {
 					if(typeof val === 'undefined'){
 						result['OperationStatus']="REQ_ERR"
 						result['ErrorDescription']="Missing parameter: value"
-						console.log("Execution Completed: ",result);
+						console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result);
 						return JSON.stringify(result);
 					}
 					else{
@@ -70,7 +79,7 @@ module.exports = async (basicIO) => {
 						if(typeof systemPromptROWID === 'undefined'){
 							result['OperationStatus']="REQ_ERR"
 							result['ErrorDescription']="Missing parameter: id. Please send the ID of System Prompt"
-							console.log("Execution Completed: ",result);
+							console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result);
 							return JSON.stringify(result);
 						}
 						else{
@@ -91,14 +100,14 @@ module.exports = async (basicIO) => {
 								const insertQueryResult = await table.insertRow(insertQuery);
                                 result['OperationStatus']="SUCCESS"
 								result['Configurations']=insertQueryResult
-								console.log("Execution Completed: ",result);
+								console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result);
 								return JSON.stringify(result);
 							} catch(error){
                                 result['OperationStatus']="ZCQL_ERR"
 								if(error.includes("DUPLICATE"))
 									result['OperationStatus']="DUP_RCRD"
 								result['ErrorDescription']="Error in execution insert query"
-								console.log("Execution Completed: ",result,error);
+								console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result,error);
 								return JSON.stringify(result);
 							}
 							

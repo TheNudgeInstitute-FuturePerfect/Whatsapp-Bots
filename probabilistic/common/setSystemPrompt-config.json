@@ -29,6 +29,21 @@
       "Name": "performance template",
       "Descriiption": "Public URL of the prformance template image",
       "Value": "https://storage.googleapis.com/nudgevoicebotbket/probabilisticbot/performance_template.jpg"
+    },
+    {
+      "Name":"progressbarat",
+      "Description":"number of lines of chat after which msg needs to be sent",
+      "Value":"3"  
+    },
+    {
+      "Name":"subscriptionamt",
+      "Description":"Defaut Subscription Amount in Rs.",
+      "Value":"500"  
+    },
+    {
+      "Name":"maxsessions",
+      "Description":"Maximum number of free sessions before signup reminder",
+      "Value":"1"  
     }
   ]
 }

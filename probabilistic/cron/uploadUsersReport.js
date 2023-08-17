@@ -3,10 +3,24 @@ const catalyst = require("zoho-catalyst-sdk");
 
 const catalystApp = catalyst.initialize();
 
+const executionID = Math.random().toString(36).slice(2)
+    
+//Prepare text to prepend with logs
+const params = ["uploadUsersReport",executionID,""]
+const prependToLog = params.join(" | ")
+
+console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+
 //Filter unique elements in an array
 const unique = (value, index, self) => {
 	return self.indexOf(value) === index
 }
+const timer = (sleepTime) => {
+	return new Promise( async (resolve,reject) => {
+		//console.debug((new Date()).toString()+"|"+prependToLog,'Wait for '+sleepTime)
+		setTimeout(resolve, sleepTime)
+	});
+}					
 				
 const getAllRows = (fields,query,zcql,dataLimit) => {
 	return new Promise(async (resolve) => {			
@@ -16,11 +30,14 @@ const getAllRows = (fields,query,zcql,dataLimit) => {
 		var i = 1
 		while(true){
 			query = dataQuery+" LIMIT "+i+", "+lmt
-			console.log('Fetching records from '+i+" to "+(i+300-1)+
+			console.debug((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+300-1)+
 						'\nQuery: '+query)
 			const queryResult = await zcql.executeZCQLQuery(query)
-			if(queryResult.length == 0)
+			if((queryResult.length == 0)||(typeof queryResult[0] === 'undefined')){
+				if((queryResult.length > 0)&&(typeof queryResult[0] === 'undefined'))
+					console.error((new Date()).toString()+"|"+prependToLog,"Encountered error in executing query:",queryResult)
 				break;
+			}
 			jsonReport = jsonReport.concat(queryResult)					
 			i=i+300
 		}
@@ -34,9 +51,40 @@ let query = "select {} from UsersReport"
 getAllRows("ROWID, Mobile",query,zcql)
 .then((currentReport)=>{
 	query = "select {} from Users"
-	getAllRows("Name, Mobile, Consent, RegisteredTime, NudgeTime, Excluded, EnglishProficiency, SourcingChannel",query,zcql)
-	.then((users)=>{
+	getAllRows("Name, Mobile, Consent, RegisteredTime, NudgeTime, Excluded, EnglishProficiency, SourcingChannel, CREATEDTIME",query,zcql)
+	.then(async  (users)=>{
 		const mobiles = users.map(user=>user.Users.Mobile)
+		
+		//Fetch all users from Glific BQ who sent a message to bot in last 4 days
+        const {BigQuery} = require('@google-cloud/bigquery');
+        const bigquery = new BigQuery({
+            keyFilename : process.env.GCPAuthFile,
+            projectId : process.env.GCPProjectID
+        });
+
+        query = "SELECT contact_phone as Mobile, max(format_datetime('%Y-%m-%d %H:%I:%S',inserted_at)) as CREATEDTIME "+
+                "FROM `"+process.env.GCPProjectID+".91"+process.env.GlificBotNumber+".messages` "+
+                "where flow = 'inbound' and ((body = 'Chat with Ramya Bot') or (flow_name like 'Probabilistic%')) "+ //and inserted_at >=  (CURRENT_DATE('Asia/Kolkata')- 4) "+
+                "and contact_phone in ('91"+mobiles.join("','91")+"') "+
+                "group by 1"
+        console.info((new Date()).toString()+"|"+prependToLog,`BQ Query: `,query)
+        var bqUsers = null
+        try{  
+            // Run the query as a job
+            const [job] = await bigquery.createQueryJob({
+                query: query,
+                location: 'US',
+            });
+            console.info((new Date()).toString()+"|"+prependToLog,`BQ Job ${job.id} started.`);
+        
+            // Wait for the query to finish
+            [bqUsers] = await job.getQueryResults();
+            console.info((new Date()).toString()+"|"+prependToLog,`BQ Job ${job.id} finished.`);
+        }
+        catch(error){
+            console.info((new Date()).toString()+"|"+prependToLog,`BQ Job ${job.id} Failed. Error:`,error);
+        }
+
 		query = "Select {} "+
 				"from Sessions "+
 				"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
@@ -71,40 +119,48 @@ getAllRows("ROWID, Mobile",query,zcql)
 					var report = []
 					for(var i=0; i<users.length; i++){
 						var userReport = {}
-						userReport['Name'] = decodeURIComponent(users[i]["Users"]["Name"])
+						try{
+							userReport['Name'] = decodeURIComponent(users[i]["Users"]["Name"])
+						}catch(e){
+							userReport['Name'] = users[i]["Users"]["Name"]
+						}
 						userReport['Mobile'] = users[i]["Users"]["Mobile"]
+						userReport['UserCreatedAt'] = users[i]["Users"]["CREATEDTIME"].toString().slice(0,19)
 						const rowID = currentReport.length == 0 ? null : currentReport.filter(data=>data['UsersReport']['Mobile']==userReport['Mobile'])
 						if((rowID!=null)&&(rowID.length>0))
 							userReport['ROWID'] = rowID[0]['UsersReport']['ROWID']
 						userReport['Consent'] = users[i]["Users"]["Consent"] == true ? "Yes":"No"
 						userReport['Excluded'] = users[i]["Users"]["Excluded"] == true ? "Yes":"No"
 						let regTimeStamp = new Date(users[i]["Users"]["RegisteredTime"])
-						regTimeStamp.setHours(regTimeStamp.getHours()+5)
-						regTimeStamp.setMinutes(regTimeStamp.getMinutes()+30)
+						//If it's an old user shift the timezone
+						if(regTimeStamp <= "2023-07-18 18:00:00"){
+							regTimeStamp.setHours(regTimeStamp.getHours()+5)
+							regTimeStamp.setMinutes(regTimeStamp.getMinutes()+30)
+						}
 						userReport['OnboardingDate'] = regTimeStamp.getFullYear()+"-"+("0"+(regTimeStamp.getMonth()+1)).slice(-2)+"-"+("0"+regTimeStamp.getDate()).slice(-2)+" "+("0"+regTimeStamp.getHours()).slice(-2)+":"+("0"+regTimeStamp.getMinutes()).slice(-2)+":"+("0"+regTimeStamp.getSeconds()).slice(-2)
 						const regTimeStampVersion = versions.filter(data=>((new Date(data.Versions.StartDate)) <= regTimeStamp) && ((new Date(data.Versions.EndDate)) > regTimeStamp))
 						userReport['OnboardingVersion'] = regTimeStampVersion[0]['Versions']['Version']
 						if(userReport['OnboardingVersion']==4.3)
 							userReport['Onboarded'] = users[i]["Users"]["EnglishProficiency"]!=null ? "Yes" : "No"
-						else if(userReport['OnboardingVersion']==4.4){
+						else if(userReport['OnboardingVersion']>=4.4){
 							const sessionRecord = obdSessions.filter(record=>record.Sessions.Mobile == userReport['Mobile'])
 							userReport['Onboarded'] = sessionRecord.some(record=>record.Sessions.EndOfSession == true) ? "Yes":"No"
 						}
 						else
 							userReport['Onboarded'] = "Yes"
-						var deadline = new Date(users[i]["Users"]["RegisteredTime"])
-						deadline.setHours(deadline.getHours()+5)
-						deadline.setMinutes(deadline.getMinutes()+30)
-						deadline.setDate(deadline.getDate()+parseInt(process.env.Period))
-						userReport['DeadlineDate'] = deadline.getFullYear()+"-"+("0"+(deadline.getMonth()+1)).slice(-2)+"-"+("0"+deadline.getDate()).slice(-2)+" "+("0"+deadline.getHours()).slice(-2)+":"+("0"+deadline.getMinutes()).slice(-2)+":"+("0"+deadline.getSeconds()).slice(-2)
 						userReport['ReminderTime'] = users[i]["Users"]["NudgeTime"] == "None" ? "No Reminder" : users[i]["Users"]["NudgeTime"]
 						const userSessions = sessions.filter(data=>data.Sessions.Mobile == userReport['Mobile'])
 						const sessionDates = userSessions.map(data=>(data.Sessions.CREATEDTIME).toString().slice(0,10))
-						//console.log(users[i]["Users"]["Mobile"],' | sessionDates | ',sessionDates)
-						const uniqueDates = sessionDates.filter(unique)
-						//console.log(users[i]["Users"]["Mobile"],' | uniqueDates | ',uniqueDates)
+						//console.debug((new Date()).toString()+"|"+prependToLog,users[i]["Users"]["Mobile"],' | sessionDates | ',sessionDates)
+						var uniqueDates = sessionDates.filter(unique)
+						//Add BQ Activity Date of User to Session Date
+						const bqData = bqUsers.filter(data=>data.Mobile == "91"+userReport["Mobile"])
+						if(bqData.length>0)
+							uniqueDates.push(bqData[0]["CREATEDTIME"].toString().slice(0,10))
+						uniqueDates = uniqueDates.filter(unique).sort().reverse()
+						//console.debug((new Date()).toString()+"|"+prependToLog,users[i]["Users"]["Mobile"],' | uniqueDates | ',uniqueDates)
 						const uniqueSessions = (userSessions.map(data=>data.Sessions.SessionID)).filter(unique)
-						//console.log(users[i]["Users"]["Mobile"],' | uniqueSessions | ',uniqueSessions)
+						//console.debug((new Date()).toString()+"|"+prependToLog,users[i]["Users"]["Mobile"],' | uniqueSessions | ',uniqueSessions)
 						const sessionDuration = uniqueSessions.map(data=>{
 							const sessionData = userSessions.filter(record=>record.Sessions.SessionID == data)
 							var currentSessionDates = sessionData.map(record=>(record.Sessions.CREATEDTIME).toString().slice(0,10))
@@ -118,7 +174,7 @@ getAllRows("ROWID, Mobile",query,zcql)
 								EndDate:sessionCompletionDates[sessionCompletionDates.length-1]
 							}
 						})
-						//console.log(users[i]["Users"]["Mobile"],' | sessionDuration | ',sessionDuration)
+						//console.debug((new Date()).toString()+"|"+prependToLog,users[i]["Users"]["Mobile"],' | sessionDuration | ',sessionDuration)
 						const startedSessions = uniqueDates.map(data=>{
 							const sessionsStarted = sessionDuration.filter(record=>record.StartDate == data)
 							const sessionsCompleted = sessionDuration.filter(record=>record.EndDate == data)
@@ -128,30 +184,37 @@ getAllRows("ROWID, Mobile",query,zcql)
 								TotalSessionsCompleted: sessionsCompleted == null ? 0 : sessionsCompleted.length,
 							}
 						})
-						//console.log(users[i]["Users"]["Mobile"],' | startedSessions | ',startedSessions)
+						//console.debug((new Date()).toString()+"|"+prependToLog,users[i]["Users"]["Mobile"],' | startedSessions | ',startedSessions)
 						
 						var resurrected = null
 						var resurrectionDate = null
-						for(var j=uniqueDates.length-1; j>0; j--){
-							const gap = ((new Date(uniqueDates[j-1]))-(new Date(uniqueDates[j])))/1000/60/60/24
-							if(gap > 3){
+						let allSessionDates = uniqueDates
+						allSessionDates.push(userReport['OnboardingDate'].slice(0,10))
+						allSessionDates = allSessionDates.filter(unique).sort().reverse()
+						userReport['LastActiveDate'] = allSessionDates.length == 0 ? null : allSessionDates[0]
+						var currentTimeStamp = new Date()
+						//currentTimeStamp.setHours(currentTimeStamp.getHours()+5)
+						//currentTimeStamp.setMinutes(currentTimeStamp.getMinutes()+30)
+						const lastActiveDate = new Date(userReport['LastActiveDate'])
+						var daysSinceLastActivity = Math.floor((currentTimeStamp-lastActiveDate)/1000/60/60/24)
+						for(var j=allSessionDates.length-1; j>0; j--){
+							const gap = ((new Date(allSessionDates[j-1]))-(new Date(allSessionDates[j])))/1000/60/60/24
+							let maxGap = 3
+							if(allSessionDates[j-1]>='2023-08-07') //Date after release of 5.3 version
+								maxGap = 5
+							if(gap > maxGap){
 								resurrected = "Yes"
-								resurrectionDate = uniqueDates[j-1]
+								resurrectionDate = allSessionDates[j-1]
 							}
 						}
 						uniqueDates.sort()
 						const sortedUniqueDates = uniqueDates
-						userReport['LastActiveDate'] = uniqueDates.length == 0 ? null : sortedUniqueDates[sortedUniqueDates.length-1]
-						var currentTimeStamp = new Date()
-						currentTimeStamp.setHours(currentTimeStamp.getHours()+5)
-						currentTimeStamp.setMinutes(currentTimeStamp.getMinutes()+30)
-						const lastActiveDate = new Date(userReport['LastActiveDate'])
-						var daysSinceLastActivity = Math.floor((currentTimeStamp-lastActiveDate)/1000/60/60/24)
-						userReport['Churned'] = daysSinceLastActivity > 3 ? "Yes":"No"
+						//userReport['LastActiveDate'] = uniqueDates.length == 0 ? null : sortedUniqueDates[sortedUniqueDates.length-1]
+						
 						userReport['Resurrected'] = resurrected
 						userReport['ResurrectionDate'] = resurrectionDate
 						const resurrectionVersion = versions.filter(data=>{
-							/*console.log(
+							/*console.debug((new Date()).toString()+"|"+prependToLog,
 								new Date(data.Versions.StartDate.toString().slice(0,10)), 
 								new Date(resurrectionDate), 
 								new Date(data.Versions.EndDate),
@@ -171,10 +234,27 @@ getAllRows("ROWID, Mobile",query,zcql)
 								))
 						})
 						userReport['RessurectionVersion'] = resurrectionVersion.length == 0 ? null : resurrectionVersion[0]['Versions']['Version']
+
+						//----GLOW 5.3: ravi.bhushan@dhwaniris.com: Updated Deadline Date Logic Start-------
+						var deadline = new Date(userReport['ResurrectionDate'] > userReport['OnboardingDate'] ? userReport['ResurrectionDate'] : userReport['OnboardingDate'])
+						if(deadline <= "2023-07-18 18:00:00"){
+							deadline.setHours(deadline.getHours()+5)
+							deadline.setMinutes(deadline.getMinutes()+30)
+						}
+						deadline.setDate(deadline.getDate()+parseInt(process.env.Period))
+						userReport['DeadlineDate'] = deadline.getFullYear()+"-"+("0"+(deadline.getMonth()+1)).slice(-2)+"-"+("0"+deadline.getDate()).slice(-2)+" "+("0"+deadline.getHours()).slice(-2)+":"+("0"+deadline.getMinutes()).slice(-2)+":"+("0"+deadline.getSeconds()).slice(-2)
+						const obdrsrctVersion = userReport['ResurrectionDate'] > userReport['OnboardingDate'] ? userReport['ResurrectionVersion'] : userReport['OnboardingVersion']
+						if(obdrsrctVersion<5.3)
+							userReport['Churned'] = (daysSinceLastActivity > 3) ? "Yes":"No"
+						else
+							userReport['Churned'] = (daysSinceLastActivity >= 5) ? "Yes":(daysSinceLastActivity >= 3) ? "At Risk": "No"
+						
+						//----GLOW 5.3: ravi.bhushan@dhwaniris.com: Updated Deadline Date Logic End-------
+
 						const regDate = regTimeStamp.getFullYear()+"-"+('0'+(regTimeStamp.getMonth()+1)).slice(-2)+"-"+('0'+regTimeStamp.getDate()).slice(-2)
 						const resurrectionDt = resurrectionDate != null ? resurrectionDate.toString().slice(0,10) : '' //resurrectionDate.getFullYear()+"-"+('0'+(resurrectionDate.getMonth()+1)).slice(-2)+"-"+('0'+resurrectionDate.getDate()).slice(-2)
 						const cmpltnOnOBDRSDt = startedSessions.some(data=>(data.TotalSessionsCompleted >=1) && ((data.SessionDate == regDate)||(data.SessionDate == resurrectionDt)))
-						//console.log(users[i]["Users"]["Mobile"],' | cmpltnOnOBDRSDt | ',cmpltnOnOBDRSDt,regDate,resurrectionDt)
+						//console.debug((new Date()).toString()+"|"+prependToLog,users[i]["Users"]["Mobile"],' | cmpltnOnOBDRSDt | ',cmpltnOnOBDRSDt,regDate,resurrectionDt)
 						userReport['CmpltnOnOBDRSDt'] = cmpltnOnOBDRSDt == true ? 'Yes' : 'No'
 						//userReport['CmpltnOnOBDRSDt'] = (startedSessions.filter(data=>(data.TotalSessionsCompleted >= 1) && ((data.SessionDate == regTimeStamp.toString().slice(0,10))||(data.SessionDate == resurrectionDate.toString().slice(0,10))))).length > 0 ? 'Yes' : 'No'
 						userReport['CmpltnOnOBDDt'] = (startedSessions.filter(data=>(data.TotalSessionsCompleted >= 1) && (data.SessionDate == regDate))).length > 0 ? 'Yes' : 'No'
@@ -196,7 +276,7 @@ getAllRows("ROWID, Mobile",query,zcql)
 						const allActiveTopics = allActiveSessions.map(data=>data.SystemPrompts.Name)
 						const uniqueActiveTopics = allActiveTopics.filter(unique)
 						userReport['TotalTopicsCompleted'] = uniqueActiveTopics.length
-						//uniqueDates.forEach(data=>console.log(users[i]["Users"]["Mobile"],' | data | ',data,' | regDate | ',regDate,' | ',data > regDate))
+						//uniqueDates.forEach(data=>console.debug((new Date()).toString()+"|"+prependToLog,users[i]["Users"]["Mobile"],' | data | ',data,' | regDate | ',regDate,' | ',data > regDate))
 						userReport['EnglishProficiency'] = users[i]["Users"]["EnglishProficiency"]
 						userReport['SourcingChannel'] = users[i]["Users"]["SourcingChannel"]
 						report.push(userReport)
@@ -205,44 +285,74 @@ getAllRows("ROWID, Mobile",query,zcql)
 					const updateData = report.filter(data=>typeof data['ROWID'] !== 'undefined')
 					const insertData = report.filter(data=>typeof data['ROWID'] === 'undefined')
 					let tableIndex = 0
+					let breakAt = 10
+					console.info((new Date()).toString()+"|"+prependToLog,"Records to Update "+updateData.length);
 					while((updateData.length>0)&&(tableIndex<updateData.length)){
 						try{
-							await table.updateRows(updateData.slice(tableIndex,tableIndex+200))
+							const updated = await table.updateRows(updateData.slice(tableIndex,tableIndex+50))
+							if(!Array.isArray(updated))
+								console.info((new Date()).toString()+"|"+prependToLog,'Status of Update records from index =',tableIndex," : ",updated)
+							else
+								console.info((new Date()).toString()+"|"+prependToLog,'Updated records from index =',tableIndex)
+							tableIndex = tableIndex+50
 						}
 						catch(e){
-							console.log('Could not update data from index =',tableIndex,"\nError",e)
-							console.log(updateData.slice(tableIndex,tableIndex+200))
+							console.error((new Date()).toString()+"|"+prependToLog,'Could not update data from index =',tableIndex,"\nError",e)
+							console.debug((new Date()).toString()+"|"+prependToLog,updateData.slice(tableIndex,tableIndex+200))
+							if(breakAt==0)
+								tableIndex = tableIndex+50
+							else
+								breakAt--
 						}
-						tableIndex = tableIndex+200
+						
 					}
 					tableIndex = 0
+					breakAt = 10
+					console.info((new Date()).toString()+"|"+prependToLog,"Records to Insert "+insertData.length);
 					while((insertData.length>0)&&(tableIndex<insertData.length)){
 						try{
-							await table.insertRows(insertData.slice(tableIndex,tableIndex+200))
+							//const inserted = await table.insertRows(insertData.slice(tableIndex,tableIndex+50))
+							const inserted = await table.insertRow(insertData[tableIndex])
+							if(!Array.isArray(inserted))
+								console.info((new Date()).toString()+"|"+prependToLog,'Status of Insert records from index =',tableIndex," : ",inserted)
+							else
+								console.info((new Date()).toString()+"|"+prependToLog,'Inserted records from index =',tableIndex)
+							tableIndex++ // = tableIndex+50
 						}
 						catch(e){
-							console.log('Could not update data from index =',tableIndex,"\nError",e)
-							console.log(insertData.slice(tableIndex,tableIndex+200))
+							console.error((new Date()).toString()+"|"+prependToLog,'Could not insert data from index =',tableIndex,"\nError",e)
+							console.debug((new Date()).toString()+"|"+prependToLog,insertData.slice(tableIndex,tableIndex+200))
+							if(breakAt==0)
+								tableIndex++ // = tableIndex+50
+							else
+								breakAt--
 						}
-						tableIndex = tableIndex+200
+						
 					}
+					
+					console.info((new Date()).toString()+"|"+prependToLog,"End of Execution");
 				})
 				.catch((err) => {
-					console.log(err);
+					console.info((new Date()).toString()+"|"+prependToLog,"End of Execution");
+					console.error((new Date()).toString()+"|"+prependToLog,err);
 				});
 			})
 			.catch((err) => {
-				console.log(err);
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution");
+				console.error((new Date()).toString()+"|"+prependToLog,err);
 			});
 		})
 		.catch((err) => {
-			console.log(err);
+			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution");
+			console.error((new Date()).toString()+"|"+prependToLog,err);
 		});
 	})
 	.catch((err) => {
-		console.log(err);
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution");
+		console.error((new Date()).toString()+"|"+prependToLog,err);
 	});
 })
 .catch((err) => {
-	console.log(err);
+	console.info((new Date()).toString()+"|"+prependToLog,"End of Execution");
+	console.error((new Date()).toString()+"|"+prependToLog,err);
 });

@@ -14,9 +14,41 @@ const unique = (value, index, self) => {
   return self.indexOf(value) === index;
 };
 
+const getAllRows = (fields,query,zcql,prependToLog,dataLimit) => {
+	return new Promise(async (resolve) => {			
+		var jsonReport = []
+		const dataQuery = query.replace("{}",fields)
+		const lmt = dataLimit ? dataLimit : 300
+		var i = 1
+		while(true){
+			query = dataQuery+" LIMIT "+i+", "+lmt
+			console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+300-1)+
+						'\nQuery: '+query)
+			const queryResult = await zcql.executeZCQLQuery(query)
+			console.info((new Date()).toString()+"|"+prependToLog,queryResult.length)
+			if((queryResult.length == 0)||(!Array.isArray(queryResult))){
+				if(!Array.isArray(queryResult))
+					console.info((new Date()).toString()+"|"+prependToLog,"Error in query - ",queryResult)
+				break;
+			}
+			jsonReport = jsonReport.concat(queryResult)					
+			i=i+300
+		}
+		resolve(jsonReport)
+	})
+}
+
 app.post("/pendingpractices", (req, res) => {
   let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
   let startTimeStamp = new Date();
+
+  const executionID = Math.random().toString(36).slice(2)
+    
+  const params = ["getUserSessionCount","totalsessions",executionID,""]
+  const prependToLog = params.join(" | ")
+  
+  console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+
   const requestBody = req.body;
 
   var mobile = requestBody["Mobile"];
@@ -25,9 +57,10 @@ app.post("/pendingpractices", (req, res) => {
       OperationStatus: "REQ_ERR",
       StatusDescription: "Missing required parameter - Mobile",
     };
-    console.log("End of Execution : ", response);
+    console.info((new Date()).toString()+"|"+prependToLog,"End of Execution : ", response);
     res.status(200).json(response);
-  } else {
+  } 
+  else {
     var responseObject = {
       OperationStatus: "SUCCESS",
     };
@@ -44,109 +77,32 @@ app.post("/pendingpractices", (req, res) => {
           responseObject["OperationStatus"] = "USR_NT_FND";
           responseObject["StatusDescription"] =
             "User could not be found or is inactive";
-          console.log("End of Execution: ", responseObject);
+          console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ", responseObject);
           res.status(200).json(responseObject);
-        } else {
+        } 
+        else {
           const today = new Date();
-          zcql
-            .executeZCQLQuery(
-              "Select distinct CREATEDTIME, SessionID from Sessions where Mobile = '" +
-                mobile +
-                "'"
-            )
-            .then((sessions) => {
-              if (sessions == null) {
-                responseObject["StatusDescription"] =
-                  "User has not started any conversation";
-                responseObject["PendingPracticeCount"] = process.env.MinDays;
-                responseObject["PendingPracticeDays"] = process.env.Period;
-                console.log("End of Execution: ", responseObject);
-                res.status(200).json(responseObject);
-              } else if (sessions.length == 0) {
-                responseObject["StatusDescription"] =
-                  "User has not started any conversation";
-                responseObject["PendingPracticeCount"] = process.env.MinDays;
-                responseObject["PendingPracticeDays"] = process.env.Period;
-                console.log("End of Execution: ", responseObject);
-                res.status(200).json(responseObject);
-              } else {
-                const allDates = sessions.map((data) =>
-                  data.Sessions.CREATEDTIME.toString().slice(0, 10)
-                );
-                //console.log(allDates)
-                var uniqueDates = allDates.filter(unique);
-                uniqueDates = uniqueDates.sort();
-                //console.log(uniqueDates)
-                var resurrected = false;
-                var resurrectionDate = "";
-                for (var j = uniqueDates.length - 1; j > 0; j--) {
-                  const gap =
-                    (new Date(uniqueDates[j]) - new Date(uniqueDates[j - 1])) /
-                    1000 /
-                    60 /
-                    60 /
-                    24;
-                  if (gap > 3) {
-                    resurrected = true;
-                    resurrectionDate = uniqueDates[j];
-                    break;
-                  }
-                }
-                var deadline = null;
-                var daysSinceRegistration = null;
-                if (resurrected == true) {
-                  deadline = new Date(resurrectionDate);
-                  daysSinceRegistration = Math.floor(
-                    (new Date(
-                      today.getFullYear(),
-                      today.getMonth(),
-                      today.getDate()
-                    ) -
-                      new Date(resurrectionDate)) /
-                      1000 /
-                      60 /
-                      60 /
-                      24
-                  );
-                } else {
-                  deadline = new Date(users[0]["Users"]["RegisteredTime"]);
-                  deadline.setHours(deadline.getHours() + 5);
-                  deadline.setMinutes(deadline.getMinutes() + 30);
-                  daysSinceRegistration = Math.floor(
-                    (new Date(
-                      today.getFullYear(),
-                      today.getMonth(),
-                      today.getDate()
-                    ) -
-                      new Date(
-                        users[0]["Users"]["RegisteredTime"]
-                          .toString()
-                          .slice(0, 10)
-                      )) /
-                      1000 /
-                      60 /
-                      60 /
-                      24
-                  );
-                }
-                console.log(
-                  "Resurrected: ",
-                  resurrected,
-                  "Days since Registration/Resurrection = " +
-                    daysSinceRegistration
-                );
-                deadline.setDate(
-                  deadline.getDate() + parseInt(process.env.Period)
-                );
-                responseObject["DeadlineDate"] =
-                  deadline.getFullYear() +
-                  "-" +
-                  ("0" + (deadline.getMonth() + 1)).slice(-2) +
-                  "-" +
-                  ("0" + deadline.getDate()).slice(-2);
-                //basicIO.write(daysSinceRegistration);
-                //
-                const userSessions = sessions.filter(
+
+          let query = "Select {} from Sessions where Mobile = "+mobile+" group by Sessions.SessionID, Sessions.IsActive"
+          const sessionQuery = getAllRows("Sessions.SessionID, Sessions.IsActive, max(Sessions.CREATEDTIME)",query,zcql,prependToLog)
+          const learningQuery = "Select {} from UserAssessmentLogs left join Users on Users.ROWID = UserAssessmentLogs.UserROWID where UserAssessmentLogs.IsAssessmentComplete = true and Users.Mobile = "+mobile
+          const userAssessmentQuery = getAllRows("distinct ROWID, MODIFIEDTIME",learningQuery,zcql,prependToLog)
+          const axios = require("axios");
+          const gameQuery = axios.get(process.env.WordleReportURL+mobile)
+          const userReportQuery = getAllRows("LastActiveDate, DeadlineDate","select {} from UsersReport where Mobile = "+mobile,zcql,prependToLog)
+
+          Promise.all([sessionQuery,userAssessmentQuery,gameQuery,userReportQuery])
+          .then(([userSessions,userAssessmentLogs,wordleAttempts,userReport])=>{
+              if(!Array.isArray(userSessions))
+                throw new Error(userSessions)
+              else if(!Array.isArray(userAssessmentLogs))
+                throw new Error(userAssessmentLogs)
+              else if(!Array.isArray(userReport))
+                throw new Error(userReport)
+              else{
+                const wordleAttemptsReport = wordleAttempts.data
+                const openSessions = userSessions.filter(data=>data.Sessions.IsActive==true).map(data=>data.Sessions.SessionID)
+                const sessions = userSessions.filter(data=>openSessions.includes(data.Sessions.SessionID)==false).filter(
                   (data) =>
                     !(
                       data.Sessions.SessionID.endsWith("Hint") ||
@@ -158,47 +114,83 @@ app.post("/pendingpractices", (req, res) => {
                       data.Sessions.SessionID.endsWith("onboarding")
                     )
                 );
-                const sessionsAfterResurrection =
-                  resurrected == false
-                    ? userSessions
-                    : userSessions.filter(
-                        (data) => data.Sessions.CREATEDTIME > resurrectionDate
-                      );
-                const postResurrectionDates = sessionsAfterResurrection.map(
-                  (data) => data.Sessions.CREATEDTIME.toString().slice(0, 10)
-                );
-                uniqueDates = postResurrectionDates.filter(unique);
-                uniqueDates = uniqueDates.sort();
-                responseObject["CompletedPracticeCount"] = uniqueDates.length;
-                responseObject["CompletedPracticePeriod"] =
-                  daysSinceRegistration;
-                responseObject["PendingPracticeCount"] =
-                  process.env.MinDays - uniqueDates.length;
-                responseObject["PendingPracticeDays"] =
-                  process.env.Period - daysSinceRegistration;
-                
-                if (daysSinceRegistration >= process.env.Period) {
-                  responseObject["OperationStatus"] = "SSN_ABV_PERIOD";
-                  responseObject["StatusDescription"] =
-                    "User registered " + daysSinceRegistration + " days ago";
-                  console.log("End of Execution: ", responseObject);
+                let practiceDates = sessions.map(data=>data.Sessions.CREATEDTIME)
+                console.info((new Date()).toString()+"|"+prependToLog,"Fetched Conversation TimeStamps:",practiceDates)
+                practiceDates =  practiceDates.concat(userAssessmentLogs.map(data=>data.UserAssessmentLogs.MODIFIEDTIME))
+                console.info((new Date()).toString()+"|"+prependToLog,"Fetched Learning TimeStamps:",practiceDates)
+                practiceDates =  practiceDates.concat(wordleAttemptsReport.filter(data=>data.CompletedWordle=="Yes").map(data=>data.SessionEndTime))
+                console.info((new Date()).toString()+"|"+prependToLog,"Fetched Gamme TimeStamps:",practiceDates)
+
+                if(userReport.length > 0)
+                  responseObject["DeadlineDate"] = userReport[0]['UsersReport']['DeadlineDate'].toString().slice(0,10)
+                else{
+                  let regDate = new Date(users[0]['Users']['RegisteredTime'])
+                  regDate.setDate(regDate.getDate()+parseInt(process.env.Period))
+                  responseObject["DeadlineDate"] = regDate.getFullYear()+"-"+('0'+(regDate.getMonth()+1)).slice(-2)+"-"+('0'+regDate.getDate()).slice(-2)
+                }      
+                if (practiceDates == null) {
+                  responseObject["StatusDescription"] = "User has not started any conversation";
+                  responseObject["PendingPracticeCount"] = process.env.MinDays;
+                  responseObject["PendingPracticeDays"] = process.env.Period;
+                  console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ", responseObject);
                   res.status(200).json(responseObject);
-                } else {
+                } 
+                else if (practiceDates.length == 0) {
+                  responseObject["StatusDescription"] = "User has not started any conversation";
+                  responseObject["PendingPracticeCount"] = process.env.MinDays;
+                  responseObject["PendingPracticeDays"] = process.env.Period;
+                  console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ", responseObject);
+                  res.status(200).json(responseObject);
+                } 
+                else {
+                  let startingDate = new Date(responseObject["DeadlineDate"]+" 00:00:00")//new Date(userReport.length > 0?userReport[0]['UsersReport']['DeadlineDate'].toString().slice(0,10):users[0]['Users']['RegisteredTime'])
+                  startingDate.setDate(startingDate.getDate()-parseInt(process.env.Period))
+                  const daysSinceStart = Math.floor((today - startingDate)/1000/60/60/24)
                   
-                  if (uniqueDates.length >= process.env.MinDays) {
-                    responseObject["OperationStatus"] = "MIN_SSN_RCHD";
+                  //Get all practice dates on and after starting date
+                  var uniqueDates = practiceDates.filter(data=>(new Date(data))>=startingDate).map((data) =>data.toString().slice(0, 10)).filter(unique).sort();
+                  responseObject["CompletedPracticeCount"] = uniqueDates.length;
+                  responseObject["CompletedPracticePeriod"] = daysSinceStart;
+                  responseObject["PendingPracticeCount"] = Math.max(0,process.env.MinDays - uniqueDates.length);
+                  responseObject["PendingPracticeDays"] = Math.max(0,process.env.Period - daysSinceStart);
+                  
+                  if (daysSinceStart >= process.env.Period) {
+                    responseObject["OperationStatus"] = "SSN_ABV_PERIOD";
                     responseObject["StatusDescription"] =
-                      "User has completed the required days of practice";
-                    console.log(
-                      "End of Execution: ",
-                      responseObject,
-                      "\nTotal Days Practices = ",
-                      uniqueDates.length
-                    );
+                      "User registered " + daysSinceRegistration + " days ago";
+                    console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ", responseObject);
                     res.status(200).json(responseObject);
-                  } else {
-                    console.log("End of Execution: ", responseObject);
-                    res.status(200).json(responseObject);
+                  } 
+                  else {
+                    if (uniqueDates.length >= process.env.MinDays) {
+                      responseObject["OperationStatus"] = "MIN_SSN_RCHD";
+                      responseObject["StatusDescription"] =
+                        "User has completed the required days of practice";
+                      console.info((new Date()).toString()+"|"+prependToLog,
+                        "End of Execution: ",
+                        responseObject,
+                        "\nTotal Days Practices = ",
+                        uniqueDates.length
+                      );
+                      res.status(200).json(responseObject);
+                    } 
+                    else {
+                      console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ", responseObject);
+                      res.status(200).json(responseObject);
+                    }
+                    let endTimeStamp = new Date();
+                    let executionDuration = (endTimeStamp - startTimeStamp) / 1000;
+                    if (executionDuration > 3) {
+                      sendResponseToGlific({
+                        flowID: requestBody["FlowID"],
+                        contactID: requestBody["contact"]["id"],
+                        resultJSON: JSON.stringify({
+                          practices: responseObject,
+                        }),
+                      })
+                        .then((glificResponse) => {})
+                        .catch((err) => console.info((new Date()).toString()+"|"+prependToLog,"Error returned from Glific: ", err));
+                    }
                   }
                 }
               }
@@ -207,7 +199,7 @@ app.post("/pendingpractices", (req, res) => {
               responseObject["OperationStatus"] = "ZCQL_ERR";
               responseObject["StatusDescription"] =
                 "Error in executing Sessions query";
-              console.log(
+              console.info((new Date()).toString()+"|"+prependToLog,
                 "End of Execution: ",
                 responseObject,
                 "\nError:",
@@ -220,22 +212,9 @@ app.post("/pendingpractices", (req, res) => {
       .catch((err) => {
         responseObject["OperationStatus"] = "ZCQL_ERR";
         responseObject["StatusDescription"] = "Error in Users executing query";
-        console.log("End of Execution: ", responseObject, "\nError:", err);
+        console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ", responseObject, "\nError:", err);
         res.status(200).json(responseObject);
       });
-    let endTimeStamp = new Date();
-    let executionDuration = (endTimeStamp - startTimeStamp) / 1000;
-    if (executionDuration > 3) {
-      sendResponseToGlific({
-        flowID: requestBody["FlowID"],
-        contactID: requestBody["contact"]["id"],
-        resultJSON: JSON.stringify({
-          practices: responseObject,
-        }),
-      })
-        .then((glificResponse) => {})
-        .catch((err) => console.log("Error returned from Glific: ", err));
-    }
   }
 });
 

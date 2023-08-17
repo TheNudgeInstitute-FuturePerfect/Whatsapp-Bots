@@ -7,10 +7,6 @@ const probabilistic = require("./probabilistic/index.js");
 
 const app = express();
 
-const db = process.env.MONGO_CONNECTION_URL;
-// connect to db
-mongoose.connect(db);
-
 // Use the json and urlencoded middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

@@ -1,7 +1,5 @@
 const catalyst = require("zoho-catalyst-sdk");
 
-const catalyst = require("zoho-catalyst-sdk");
-
 /*let cronParams = cronDetails.getCronParam("name");
 if(typeof cronParams === 'undefined'){
     cronParams = 'DefaultName';
@@ -21,10 +19,11 @@ let zcql = catalystApp.zcql();
 
 //Get the current time
 let currentDate = new Date()
-//currentDate.setHours(currentDate.getHours()+5)
-//currentDate.setMinutes(currentDate.getMinutes()+30)
+currentDate.setHours(currentDate.getHours()+5)
+currentDate.setMinutes(currentDate.getMinutes()+30)
 console.info((new Date()).toString()+"|"+prependToLog,"Current TimeStamp = ",currentDate)
 const currentHour = ("0"+currentDate.getHours()).slice(-2) + ":00"
+const currentDt = currentDate.getFullYear()+"-"+("0"+(currentDate.getMonth()+1)).slice(-2)+"-"+("0"+currentDate.getDate()).slice(-2)
 
 const getAllRows = (fields) => {
     return new Promise(async (resolve) => {
@@ -53,9 +52,9 @@ const getAllRows = (fields) => {
         resolve(jsonReport);
     });
 };
-let query = "Select {} from Users"
-getAllRows("Mobile, GlificID")
-.then((users) =>{
+let query = "Select {} from Users left join WordleAttempts on WordleAttempts.UserROWID = Users.ROWID group by Mobile, GlificID, Tags"
+getAllRows("Users.Mobile, Users.GlificID, Users.Tags, max(WordleAttempts.CREATEDTIME)")
+.then(async (users) =>{
     //If there is no record,
     if(users == null){
         console.error((new Date()).toString()+"|"+prependToLog,'No user');
@@ -68,7 +67,38 @@ getAllRows("Mobile, GlificID")
     }
     else{
         console.info((new Date()).toString()+"|"+prependToLog,"Fetched User Records")    
-        const mobiles = users.map(data=>data.Users.Mobile)           
+        const mobiles = users.map(data=>data.Users.Mobile)
+
+        //Fetch all users from Glific BQ who sent a message to bot in last 4 days
+        const {BigQuery} = require('@google-cloud/bigquery');
+        const bigquery = new BigQuery({
+            keyFilename : process.env.GCPAuthFile,
+            projectId : process.env.GCPProjectID
+        });
+
+        query = "SELECT contact_phone as Mobile, max(format_datetime('%Y-%m-%d %H:%I:%S',inserted_at)) as CREATEDTIME "+
+                "FROM `"+process.env.GCPProjectID+".91"+process.env.GlificBotNumber+".messages` "+
+                "where flow = 'inbound' and inserted_at >=  (CURRENT_DATE('Asia/Kolkata')- 4) "+
+                "and contact_phone in ('91"+mobiles.join("','91")+"') "+
+                "group by 1"
+        console.info((new Date()).toString()+"|"+prependToLog,`BQ Query: `,query)
+        var bqUsers = null
+        try{  
+            // Run the query as a job
+            const [job] = await bigquery.createQueryJob({
+                query: query,
+                location: 'US',
+            });
+            console.info((new Date()).toString()+"|"+prependToLog,`BQ Job ${job.id} started.`);
+        
+            // Wait for the query to finish
+            [bqUsers] = await job.getQueryResults();
+            console.info((new Date()).toString()+"|"+prependToLog,`BQ Job ${job.id} finished.`);
+        }
+        catch(error){
+            console.info((new Date()).toString()+"|"+prependToLog,`BQ Job ${job.id} Failed. Error:`,error);
+        }
+
         query = "Select {} from Sessions where Mobile in ("+mobiles.join(",")+") group by Mobile"
         getAllRows("Mobile, max(CREATEDTIME)")
         .then(async (sessions) =>{
@@ -242,66 +272,92 @@ getAllRows("Mobile, GlificID")
                     Mobile:null
                 }
 
-                sessions.forEach(async(record,i)=>{
+                users.forEach(async(record,i)=>{
                     await timer(Math.max(300,(i*1000)/sessions.length))
-                    const sessionDate = new Date(record.Sessions.CREATEDTIME.toString().slice(0,10))
+                    var sessionData = sessions.filter(data=>data.Sessions.Mobile == record.Users.Mobile)
+                    if(sessionData.length==0)
+                        sessionData = [{
+                            Sessions:{
+                                Mobile:record.Users.Mobile,
+                                CREATEDTIME: null
+                            }
+                        }]
+                    
+                    var bqData = bqUsers.filter(data=>data.Mobile == "91"+record.Users.Mobile)
+                    if(bqData.length==0)
+                        bqData = [{
+                            
+                            Mobile:record.Users.Mobile,
+                            CREATEDTIME: null
+                            
+                        }]
+                    
+
+                    const latestSessionDt = Math.max(new Date(bqData[0]['CREATEDTIME']), new Date(sessionData[0]['Sessions']['CREATEDTIME']),new Date(record.WordleAttempts.CREATEDTIME))
+                    const sessionDate = new Date(latestSessionDt)
                     const minutesElapsed = Math.floor((currentDate - sessionDate)/1000/60)
                     const daysElapsed = Math.floor((currentDate - sessionDate)/1000/60/60/24)
+                    var sendTo24thCohort = false
+                    if(currentDt=='2023-07-26'){
+                        const tags = record.Users.Tags //(users.filter(data=>data.Users.Mobile == record.Users.Mobile))[0]['Users']['Tags']
+                        if(["Cohort-1, 2023-07-24","Cohort-1, 2023-07-25","Cohort-2, 2023-07-24"].includes(tags))
+                            sendTo24thCohort = true
+                    }                    
                     if(minutesElapsed < 10){
                         try{
                             eventData['Event'] = "Wordle Nudge Not Sent (User Active within 10 min)"
-                            eventData['Mobile'] = record.Sessions.Mobile
+                            eventData['Mobile'] = record.Users.Mobile
                             await table.insertRow(eventData)
                         }
                         catch(e){
-                            console.error((new Date()).toString()+"|"+prependToLog,i+": Could not update event table for "+ record.Sessions.Mobile)
+                            console.error((new Date()).toString()+"|"+prependToLog,i+": Could not update event table for "+ record.Users.Mobile)
                         }
                     }
-                    else if(daysElapsed > 4){
+                    else if((daysElapsed > 4)&&(sendTo24thCohort==false)){
                         try{
                             eventData['Event'] = "Wordle Nudge Not Sent (User Inactive for more than 4 days)"
-                            eventData['Mobile'] = record.Sessions.Mobile
+                            eventData['Mobile'] = record.Users.Mobile
                             await table.insertRow(eventData)
                         }
                         catch(e){
-                            console.error((new Date()).toString()+"|"+prependToLog,i+": Could not update event table for "+ record.Sessions.Mobile)
+                            console.error((new Date()).toString()+"|"+prependToLog,i+": Could not update event table for "+ record.Users.Mobile)
                         }
                     }
                     else{
                         await timer(Math.max(300,(i*1000)/sessions.length))
-                        console.info((new Date()).toString()+"|"+prependToLog,i+":Sending Nudge to "+ record.Sessions.Mobile);
-                        const glificID = (users.filter(data=>data.Users.Mobile == record.Sessions.Mobile))[0]['Users']['GlificID']
+                        console.info((new Date()).toString()+"|"+prependToLog,i+":Sending Nudge to "+ record.Users.Mobile);
+                        const glificID = record.Users.GlificID //(users.filter(data=>data.Users.Mobile == record.Users.Mobile))[0]['Users']['GlificID']
                         for(var index = 0 ; index < 100; index++){
                             try{
                                 const output = await invokeGlificAPI("Flow",process.env.WordleNudgeFlowID,glificID)
                                 if(output=='SUCCESS'){
-                                    console.info((new Date()).toString()+"|"+prependToLog,i+":Nudge sent to "+record.Sessions.Mobile)
+                                    console.info((new Date()).toString()+"|"+prependToLog,i+":Nudge sent to "+record.Users.Mobile)
                                     try{
                                         eventData['Event'] = "Wordle Nudge Sent"
-                                        eventData['Mobile'] = record.Sessions.Mobile
+                                        eventData['Mobile'] = record.Users.Mobile
                                         await table.insertRow(eventData)
                                     }
                                     catch(e){
-                                        console.error((new Date()).toString()+"|"+prependToLog,i+": Could not update event table for "+ record.Sessions.Mobile)
+                                        console.error((new Date()).toString()+"|"+prependToLog,i+": Could not update event table for "+ record.Users.Mobile)
                                     }
                                     break;
                                 }
                                 else{
-                                    console.info((new Date()).toString()+"|"+prependToLog,i+":Nudge not sent to "+record.Sessions.Mobile+" as OperationStatus = "+nudgeStatus['OperationStatus'])
+                                    console.info((new Date()).toString()+"|"+prependToLog,i+":Nudge not sent to "+record.Users.Mobile+" as OperationStatus = "+nudgeStatus['OperationStatus'])
                                     break;
                                 }
                             }
                             catch(err){
                                 if(err.toString().includes("TOO_MANY_REQUEST")){
                                     await timer(Math.max(500,(i*1000)/users.length))
-                                    console.info((new Date()).toString()+"|"+prependToLog,i+":Retrying Nudge for "+ record.Sessions.Mobile);
+                                    console.info((new Date()).toString()+"|"+prependToLog,i+":Retrying Nudge for "+ record.Users.Mobile);
                                 }
                                 else if(["GLFC_AUTH_API_ERR","GLFC_AUTH_ERR","GLFC_API_ERR"].includes(err)){
                                     await timer(Math.max(500,(i*1000)/users.length))
-                                    console.info((new Date()).toString()+"|"+prependToLog,i+":Retrying Nudge for "+ record.Sessions.Mobile);
+                                    console.info((new Date()).toString()+"|"+prependToLog,i+":Retrying Nudge for "+ record.Users.Mobile);
                                 }
                                 else{
-                                    console.error((new Date()).toString()+"|"+prependToLog,i+":Nudge not sent to "+record.Sessions.Mobile+" due to error: ",err)
+                                    console.error((new Date()).toString()+"|"+prependToLog,i+":Nudge not sent to "+record.Users.Mobile+" due to error: ",err)
                                     break;
                                 }
                             }

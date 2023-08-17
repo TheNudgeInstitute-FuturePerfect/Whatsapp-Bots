@@ -26,8 +26,11 @@ const getAllRows = (fields,query,zcql,dataLimit) => {
 						'\nQuery: '+query)
 			const queryResult = await zcql.executeZCQLQuery(query)
 			console.log(queryResult.length)
-			if(queryResult.length == 0)
+			if((queryResult.length == 0)||(!Array.isArray(queryResult))){
+				if(!Array.isArray(queryResult))
+					console.log("Error in query - ",queryResult)
 				break;
+			}
 			jsonReport = jsonReport.concat(queryResult)					
 			i=i+300
 		}
@@ -39,6 +42,15 @@ const getAllRows = (fields,query,zcql,dataLimit) => {
 app.get("/userreport", (req, res) => {
 
     let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+
+	const executionID = Math.random().toString(36).slice(2)
+    
+    //Prepare text to prepend with logs
+    const params = ["Reports",req.url,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+
 
 	let zcql = catalystApp.zcql()
 
@@ -55,44 +67,48 @@ app.get("/userreport", (req, res) => {
 	.then((reportData)=>{
 		const report = reportData.map(data=>{
 			return {
-				Name:data.UsersReport.Name == null ? "" : data.UsersReport.Name.toString(),
+				//Name:data.UsersReport.Name == null ? "" : data.UsersReport.Name.toString(),
 				Mobile:data.UsersReport.Mobile == null ? "" : data.UsersReport.Mobile.toString(),
-				Consent:data.UsersReport.Consent == null ? "" : data.UsersReport.Consent.toString(),
+				//Consent:data.UsersReport.Consent == null ? "" : data.UsersReport.Consent.toString(),
 				Excluded:data.UsersReport.Excluded == null ? "" : data.UsersReport.Excluded.toString(),
-				OnboardingDate:data.UsersReport.OnboardingDate == null ? "" : data.UsersReport.OnboardingDate.toString(),
-				OnboardingVersion:data.UsersReport.OnboardingVersion == null ? "" : data.UsersReport.OnboardingVersion.toString(),
-				Onboarded:data.UsersReport.Onboarded == null ? "" : data.UsersReport.Onboarded.toString(),
+				UserCreatedAt:data.UsersReport.UserCreatedAt == null ? "" : data.UsersReport.UserCreatedAt.toString(),
+				//OnboardingDate:data.UsersReport.OnboardingDate == null ? "" : data.UsersReport.OnboardingDate.toString(),
+				//OnboardingVersion:data.UsersReport.OnboardingVersion == null ? "" : data.UsersReport.OnboardingVersion.toString(),
+				//Onboarded:data.UsersReport.Onboarded == null ? "" : data.UsersReport.Onboarded.toString(),
+				OnboardingResurrectionDate : (data.UsersReport.ResurrectionDate != null) && (data.UsersReport.ResurrectionDate > data.UsersReport.OnboardingDate) ? data.UsersReport.ResurrectionDate.toString() : data.UsersReport.OnboardingDate.toString(),
+				OnboardingResurrectionVersion : (data.UsersReport.ResurrectionDate != null) && (data.UsersReport.ResurrectionDate > data.UsersReport.OnboardingDate) ? data.UsersReport.RessurectionVersion.toString() : data.UsersReport.OnboardingVersion.toString(),
 				DeadlineDate:data.UsersReport.DeadlineDate == null ? "" : data.UsersReport.DeadlineDate.toString(),
 				ReminderTime:data.UsersReport.ReminderTime == null ? "" : data.UsersReport.ReminderTime.toString(),
 				LastActiveDate:data.UsersReport.LastActiveDate == null ? "" : data.UsersReport.LastActiveDate.toString(),
 				Churned:data.UsersReport.Churned == null ? "" : data.UsersReport.Churned.toString(),
-				Resurrected:data.UsersReport.Resurrected == null ? "" : data.UsersReport.Resurrected.toString(),
-				ResurrectionDate:data.UsersReport.ResurrectionDate == null ? "" : data.UsersReport.ResurrectionDate.toString(),
-				RessurectionVersion:data.UsersReport.RessurectionVersion == null ? "" : data.UsersReport.RessurectionVersion.toString(),
-				CmpltnOnOBDRSDt:data.UsersReport.CmpltnOnOBDRSDt == null ? "" : data.UsersReport.CmpltnOnOBDRSDt.toString(),
-				CmpltnOnOBDDt:data.UsersReport.CmpltnOnOBDDt == null ? "" : data.UsersReport.CmpltnOnOBDDt.toString(),
-				AttmptOnOBDDt:data.UsersReport.AttmptOnOBDDt == null ? "" : data.UsersReport.AttmptOnOBDDt.toString(),
-				DaysAttmptStrtd:data.UsersReport.DaysAttmptStrtd == null ? "" : data.UsersReport.DaysAttmptStrtd.toString(),
-				DaysAttmptCmpltd:data.UsersReport.DaysAttmptCmpltd == null ? "" : data.UsersReport.DaysAttmptCmpltd.toString(),
-				TotalActiveDays:data.UsersReport.TotalActiveDays == null ? "" : data.UsersReport.TotalActiveDays.toString(),
-				TotalTopicsAttempted:data.UsersReport.TotalTopicsAttempted == null ? "" : data.UsersReport.TotalTopicsAttempted.toString(),
-				TotalTopicsCompleted:data.UsersReport.TotalTopicsCompleted == null ? "" : data.UsersReport.TotalTopicsCompleted.toString(),
-				DaysAttmptdPstOBDRS:data.UsersReport.DaysAttmptdPstOBDRS == null ? "" :data.UsersReport.DaysAttmptdPstOBDRS.toString(),
-				DaysAttmptStrtdPstRS:data.UsersReport.DaysAttmptStrtdPstRS == null ? "" :data.UsersReport.DaysAttmptStrtdPstRS.toString(),
-				DaysAttmptCmpltdPstRS:data.UsersReport.DaysAttmptCmpltdPstRS == null ? "" :data.UsersReport.DaysAttmptCmpltdPstRS.toString(),
-				DaysAttmptdPstRS:data.UsersReport.DaysAttmptdPstRS == null ? "" :data.UsersReport.DaysAttmptdPstRS.toString(),
-				DaysAttmptStrtdPstOBD:data.UsersReport.DaysAttmptStrtdPstOBD == null ? "" :data.UsersReport.DaysAttmptStrtdPstOBD.toString(),
-				DaysAttmptCmpltdPstOBD:data.UsersReport.DaysAttmptCmpltdPstOBD == null ? "" :data.UsersReport.DaysAttmptCmpltdPstOBD.toString(),
-				DaysAttmptdPstOBD:data.UsersReport.DaysAttmptdPstOBD == null ? "" :data.UsersReport.DaysAttmptdPstOBD.toString(),
-				EnglishProficiency:data.UsersReport.EnglishProficiency == null ? "" :data.UsersReport.EnglishProficiency.toString(),
-				SourcingChannel:data.UsersReport.SourcingChannel == null ? "" :data.UsersReport.SourcingChannel.toString(),
+				//Resurrected:data.UsersReport.Resurrected == null ? "" : data.UsersReport.Resurrected.toString(),
+				//ResurrectionDate:data.UsersReport.ResurrectionDate == null ? "" : data.UsersReport.ResurrectionDate.toString(),
+				//RessurectionVersion:data.UsersReport.RessurectionVersion == null ? "" : data.UsersReport.RessurectionVersion.toString(),
+				//CmpltnOnOBDRSDt:data.UsersReport.CmpltnOnOBDRSDt == null ? "" : data.UsersReport.CmpltnOnOBDRSDt.toString(),
+				//CmpltnOnOBDDt:data.UsersReport.CmpltnOnOBDDt == null ? "" : data.UsersReport.CmpltnOnOBDDt.toString(),
+				//AttmptOnOBDDt:data.UsersReport.AttmptOnOBDDt == null ? "" : data.UsersReport.AttmptOnOBDDt.toString(),
+				//DaysAttmptStrtd:data.UsersReport.DaysAttmptStrtd == null ? "" : data.UsersReport.DaysAttmptStrtd.toString(),
+				//DaysAttmptCmpltd:data.UsersReport.DaysAttmptCmpltd == null ? "" : data.UsersReport.DaysAttmptCmpltd.toString(),
+				//TotalActiveDays:data.UsersReport.TotalActiveDays == null ? "" : data.UsersReport.TotalActiveDays.toString(),
+				//TotalTopicsAttempted:data.UsersReport.TotalTopicsAttempted == null ? "" : data.UsersReport.TotalTopicsAttempted.toString(),
+				//TotalTopicsCompleted:data.UsersReport.TotalTopicsCompleted == null ? "" : data.UsersReport.TotalTopicsCompleted.toString(),
+				//DaysAttmptdPstOBDRS:data.UsersReport.DaysAttmptdPstOBDRS == null ? "" :data.UsersReport.DaysAttmptdPstOBDRS.toString(),
+				//DaysAttmptStrtdPstRS:data.UsersReport.DaysAttmptStrtdPstRS == null ? "" :data.UsersReport.DaysAttmptStrtdPstRS.toString(),
+				//DaysAttmptCmpltdPstRS:data.UsersReport.DaysAttmptCmpltdPstRS == null ? "" :data.UsersReport.DaysAttmptCmpltdPstRS.toString(),
+				//DaysAttmptdPstRS:data.UsersReport.DaysAttmptdPstRS == null ? "" :data.UsersReport.DaysAttmptdPstRS.toString(),
+				//DaysAttmptStrtdPstOBD:data.UsersReport.DaysAttmptStrtdPstOBD == null ? "" :data.UsersReport.DaysAttmptStrtdPstOBD.toString(),
+				//DaysAttmptCmpltdPstOBD:data.UsersReport.DaysAttmptCmpltdPstOBD == null ? "" :data.UsersReport.DaysAttmptCmpltdPstOBD.toString(),
+				//DaysAttmptdPstOBD:data.UsersReport.DaysAttmptdPstOBD == null ? "" :data.UsersReport.DaysAttmptdPstOBD.toString(),
+				//EnglishProficiency:data.UsersReport.EnglishProficiency == null ? "" :data.UsersReport.EnglishProficiency.toString(),
+				//SourcingChannel:data.UsersReport.SourcingChannel == null ? "" :data.UsersReport.SourcingChannel.toString(),
 			}
 		})
-		console.log('userreport | End of Execution. Total Length of Report=',report.length)
+		console.info((new Date()).toString()+"|"+prependToLog,'End of Execution. Total Length of Report=',report.length)
 		res.status(200).json(report)
 	})
 	.catch((err) => {
-		console.log(err);
+		console.info((new Date()).toString()+"|"+prependToLog,'End of Execution with error.')
+		console.error((new Date()).toString()+"|"+prependToLog,err);
 		res.status(500).send(err);
 	});
 
@@ -237,17 +253,17 @@ app.get("/userreport", (req, res) => {
 				res.status(200).json(report)
 			})
 			.catch((err) => {
-				console.log(err);
+				console.error((new Date()).toString()+"|"+prependToLog,err)
 				res.status(500).send(err);
 			});
 		})
 		.catch((err) => {
-			console.log(err);
+			console.error((new Date()).toString()+"|"+prependToLog,err)
 			res.status(500).send(err);
 		});
 	})
 	.catch((err) => {
-		console.log(err);
+		console.error((new Date()).toString()+"|"+prependToLog,err)
 		res.status(500).send(err);
 	});	*/
 });
@@ -255,6 +271,15 @@ app.get("/userreport", (req, res) => {
 app.get("/useronboardingreport", (req, res) => {
 
     let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+
+	const executionID = Math.random().toString(36).slice(2)
+    
+    //Prepare text to prepend with logs
+    const params = ["Reports",req.url,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+
 
 	const startDate = req.query.startDate ? req.query.startDate : (req.query.date ? req.query.date : '1970-01-01')
 	var today = new Date()
@@ -332,21 +357,24 @@ app.get("/useronboardingreport", (req, res) => {
 					}
 					report.push(userReport)
 				}		
-				console.log("End of Execution")
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Report Length = ",report.length)
 				res.status(200).json(report)
 			})
 			.catch((err) => {
-				console.log(err);
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+				console.error((new Date()).toString()+"|"+prependToLog,err)
 				res.status(500).send(err);
 			});
 		})
 		.catch((err) => {
-			console.log(err);
+			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+			console.error((new Date()).toString()+"|"+prependToLog,err)
 			res.status(500).send(err);
 		});
 	})
 	.catch((err) => {
-		console.log(err);
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+		console.error((new Date()).toString()+"|"+prependToLog,err)
 		res.status(500).send(err);
 	});
 });
@@ -356,6 +384,14 @@ app.get("/usertopicreport", (req, res) => {
 
     let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
+	const executionID = Math.random().toString(36).slice(2)
+    
+    //Prepare text to prepend with logs
+    const params = ["Reports",req.url,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+	
 	let zcql = catalystApp.zcql()
 
 	const startDate = req.query.startDate ? req.query.startDate : (req.query.date ? req.query.date : '1970-01-01')
@@ -446,10 +482,11 @@ app.get("/usertopicreport", (req, res) => {
 							}
 						}
 					}
+					console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Report Length = ",report.length)
 					res.status(200).json(report)
 				}
 				else{
-					console.log("No session found")
+					console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. No session found")
 					const report = users.map(user=>{
 						return {
 							Mobile:user.Users.Mobile,
@@ -466,12 +503,13 @@ app.get("/usertopicreport", (req, res) => {
 				}
 			})
 			.catch((err) => {
-				console.log(err);
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+				console.error((new Date()).toString()+"|"+prependToLog,err)
 				res.status(500).send(err);
 			});
 		}
 		else{
-			console.log("No user found")
+			console.info((new Date()).toString()+"|"+prependToLog,"No user found")
 			res.status(200).json([{
 				Mobile:"",
 				Excluded:"",
@@ -485,7 +523,8 @@ app.get("/usertopicreport", (req, res) => {
 		}
 	})
 	.catch((err) => {
-		console.log(err);
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+		console.error((new Date()).toString()+"|"+prependToLog,err)
 		res.status(500).send(err);
 	});
 });
@@ -493,6 +532,15 @@ app.get("/usertopicreport", (req, res) => {
 app.get("/usertopicattemptreport", (req, res) => {
 
     let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+
+	const executionID = Math.random().toString(36).slice(2)
+    
+    //Prepare text to prepend with logs
+    const params = ["Reports",req.url,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+
 
 	let zcql = catalystApp.zcql()
 
@@ -505,45 +553,47 @@ app.get("/usertopicattemptreport", (req, res) => {
 
 	let query = "select {} from UserSessionAttemptReport "+
 				"where UserSessionAttemptReport.SessionStartTime >='"+startDate+" 00:00:00' and UserSessionAttemptReport.SessionStartTime <= '"+endDate+" 23:59:59' "
-	getAllRows("Mobile, SessionID, Topic, Persona, Attempt, SessionStartTime, SessionEndTime, TotalWords, EndOfSession, OptedForPerformanceReport,PerformanceReportURL, SessionComplete, OptedForGPTFeedback, GPTRating, GPTFeedback, GPTFeedbackURL, FlowRating, Feedback, FeedbackURL, AttemptVersion, SessionDuration, CompletionTokens, PromptTokens, SLFCompletionTokens, SLFPromptTokens, ProgressBarMsgSent",query,zcql,dataLimit)
+	getAllRows("*",query,zcql,dataLimit)
 	.then((reportData)=>{
 		const report = reportData.map(data=>{
 			return {
 				Mobile:data.UserSessionAttemptReport.Mobile == null ? "" : data.UserSessionAttemptReport.Mobile.toString(),
+				Module:data.UserSessionAttemptReport.Module == null ? "" : data.UserSessionAttemptReport.Module.toString(),
 				Topic:data.UserSessionAttemptReport.Topic == null ? "" : data.UserSessionAttemptReport.Topic.toString(),
 				Persona:data.UserSessionAttemptReport.Persona == null ? "" : data.UserSessionAttemptReport.Persona.toString(),
 				Attempt:data.UserSessionAttemptReport.Attempt == null ? "" : data.UserSessionAttemptReport.Attempt.toString(),
-				Completed:data.UserSessionAttemptReport.Completed == null ? "" : data.UserSessionAttemptReport.Completed.toString(),
+				//Completed:data.UserSessionAttemptReport.Completed == null ? "" : data.UserSessionAttemptReport.Completed.toString(),
 				SessionID:data.UserSessionAttemptReport.SessionID == null ? "" : data.UserSessionAttemptReport.SessionID.toString(),
 				SessionStartTime:data.UserSessionAttemptReport.SessionStartTime == null ? "" : data.UserSessionAttemptReport.SessionStartTime.toString(),
 				AttemptVersion:data.UserSessionAttemptReport.AttemptVersion == null ? "" : data.UserSessionAttemptReport.AttemptVersion.toString(),
 				SessionEndTime:data.UserSessionAttemptReport.SessionEndTime == null ? "" : data.UserSessionAttemptReport.SessionEndTime.toString(),
-				SessionDuration:data.UserSessionAttemptReport.SessionDuration == null ? "" : data.UserSessionAttemptReport.SessionDuration.toString(),
-				OptedForPerformanceReport:data.UserSessionAttemptReport.OptedForPerformanceReport == null ? "" : data.UserSessionAttemptReport.OptedForPerformanceReport.toString(),
+				//SessionDuration:data.UserSessionAttemptReport.SessionDuration == null ? "" : data.UserSessionAttemptReport.SessionDuration.toString(),
+				//OptedForPerformanceReport:data.UserSessionAttemptReport.OptedForPerformanceReport == null ? "" : data.UserSessionAttemptReport.OptedForPerformanceReport.toString(),
 				//PerformanceReportURL:data.UserSessionAttemptReport.PerformanceReportURL == null ? "" : data.UserSessionAttemptReport.PerformanceReportURL.toString(),
-				SessionComplete:data.UserSessionAttemptReport.SessionComplete == null ? "" : data.UserSessionAttemptReport.SessionComplete.toString(),
-				EndOfSession:data.UserSessionAttemptReport.EndOfSession == null ? "" : data.UserSessionAttemptReport.EndOfSession.toString(),
+				//SessionComplete:data.UserSessionAttemptReport.SessionComplete == null ? "" : data.UserSessionAttemptReport.SessionComplete.toString(),
+				//EndOfSession:data.UserSessionAttemptReport.EndOfSession == null ? "" : data.UserSessionAttemptReport.EndOfSession.toString(),
 				//OptedForGPTFeedback:data.UserSessionAttemptReport.OptedForGPTFeedback == null ? "" : data.UserSessionAttemptReport.OptedForGPTFeedback.toString(),
 				//GPTRating:data.UserSessionAttemptReport.GPTRating == null ? "" : data.UserSessionAttemptReport.GPTRating.toString(),
 				//GPTFeedback:data.UserSessionAttemptReport.GPTFeedback == null ? "" : data.UserSessionAttemptReport.GPTFeedback.toString(),
 				//GPTFeedbackURL:data.UserSessionAttemptReport.GPTFeedbackURL == null ? "" : data.UserSessionAttemptReport.GPTFeedbackURL.toString(),
-				FlowRating:data.UserSessionAttemptReport.FlowRating == null ? "" : data.UserSessionAttemptReport.FlowRating.toString(),
-				Feedback:data.UserSessionAttemptReport.Feedback == null ? "" : data.UserSessionAttemptReport.Feedback.toString(),
+				FlowRating:(data.UserSessionAttemptReport.FlowRating == null) || (data.UserSessionAttemptReport.FlowRating.length == 0) ? ((data.UserSessionAttemptReport.GPTRating == null) || (data.UserSessionAttemptReport.GPTRating.length == 0) ? "" : data.UserSessionAttemptReport.GPTRating.toString()) : data.UserSessionAttemptReport.FlowRating.toString(),
+				Feedback:(data.UserSessionAttemptReport.Feedback == null) || (data.UserSessionAttemptReport.Feedback.length == 0) ? ((data.UserSessionAttemptReport.GPTFeedback == null) || (data.UserSessionAttemptReport.GPTFeedback.length == 0) ? "" : data.UserSessionAttemptReport.GPTFeedback.toString()) : data.UserSessionAttemptReport.Feedback.toString(),
 				//FeedbackURL:data.UserSessionAttemptReport.FeedbackURL == null ? "" : data.UserSessionAttemptReport.FeedbackURL.toString(),
-				TotalWords:data.UserSessionAttemptReport.TotalWords == null ? "" : data.UserSessionAttemptReport.TotalWords.toString(),
+				//TotalWords:data.UserSessionAttemptReport.TotalWords == null ? "" : data.UserSessionAttemptReport.TotalWords.toString(),
 				CompletionTokens:data.UserSessionAttemptReport.CompletionTokens == null ? "" : data.UserSessionAttemptReport.CompletionTokens.toString(),
 				PromptTokens:data.UserSessionAttemptReport.PromptTokens == null ? "" : data.UserSessionAttemptReport.PromptTokens.toString(),
 				SLFCompletionTokens:data.UserSessionAttemptReport.SLFCompletionTokens == null ? "" : data.UserSessionAttemptReport.SLFCompletionTokens.toString(),
 				SLFPromptTokens:data.UserSessionAttemptReport.SLFPromptTokens == null ? "" : data.UserSessionAttemptReport.SLFPromptTokens.toString(),
-				ProgressBarMsgSent:data.UserSessionAttemptReport.ProgressBarMsgSent == null ? "" : data.UserSessionAttemptReport.ProgressBarMsgSent.toString(),
-				ActiveDays:data.UserSessionAttemptReport.ActiveDays == null ? "" : data.UserSessionAttemptReport.ActiveDays.toString(),
+				//ProgressBarMsgSent:data.UserSessionAttemptReport.ProgressBarMsgSent == null ? "" : data.UserSessionAttemptReport.ProgressBarMsgSent.toString(),
+				//ActiveDays:data.UserSessionAttemptReport.ActiveDays == null ? "" : data.UserSessionAttemptReport.ActiveDays.toString(),
 			}
 		})
-		console.log('usertopicattemptreport | End of Execution. Total Length of Report=',report.length)
+		console.info((new Date()).toString()+"|"+prependToLog,'End of Execution. Total Length of Report=',report.length)
 		res.status(200).json(report)
 	})
 	.catch((err) => {
-		console.log(err);
+		console.info((new Date()).toString()+"|"+prependToLog,'End of Execution with error.')
+		console.err((new Date()).toString()+"|"+prependToLog,err);
 		res.status(500).send(err);
 	});
 
@@ -725,12 +775,12 @@ app.get("/usertopicattemptreport", (req, res) => {
 							res.status(200).json(report)
 						})
 						.catch((err) => {
-							console.log(err);
+							console.error((new Date()).toString()+"|"+prependToLog,err)
 							res.status(500).send(err);
 						});	
 					})
 					.catch((err) => {
-						console.log(err);
+						console.error((new Date()).toString()+"|"+prependToLog,err)
 						res.status(500).send(err);
 					});
 				}
@@ -765,7 +815,7 @@ app.get("/usertopicattemptreport", (req, res) => {
 				}
 			})
 			.catch((err) => {
-				console.log(err);
+				console.error((new Date()).toString()+"|"+prependToLog,err)
 				res.status(500).send(err);
 			});
 		}
@@ -797,7 +847,7 @@ app.get("/usertopicattemptreport", (req, res) => {
 		}
 	})
 	.catch((err) => {
-		console.log(err);
+		console.error((new Date()).toString()+"|"+prependToLog,err)
 		res.status(500).send(err);
 	});*/
 });
@@ -805,6 +855,14 @@ app.get("/usertopicattemptreport", (req, res) => {
 app.get("/userobdtopicattemptreport", (req, res) => {
 
     let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+
+	const executionID = Math.random().toString(36).slice(2)
+    
+    //Prepare text to prepend with logs
+    const params = ["Reports",req.url,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
 
 	let zcql = catalystApp.zcql()
 
@@ -826,7 +884,7 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 					"where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59' "+
 					"and SystemPrompts.Name = 'Self Introduction' and Mobile in ("+mobiles.join(",")+") "+
 					"order by Sessions.CREATEDTIME desc"
-			console.log(query)
+			console.debug((new Date()).toString()+"|"+prependToLog,query)
 			getAllRows("Sessions.PerformanceReportURL, Sessions.EndOfSession, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name, SystemPrompts.Persona, Sessions.Message, Sessions.MessageType, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens",query,zcql)
 			.then((allSessions)=>{
 				const sessions = allSessions.filter(data=>!(data.Sessions.SessionID.endsWith(' - Translation')||data.Sessions.SessionID.endsWith(' - Hints')||data.Sessions.SessionID.endsWith(' - ObjectiveFeedback')))
@@ -877,34 +935,34 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 									const uniqueTopics = userSessionsTopics.filter(unique)
 									if(uniqueTopics.length==0){
 										var userReport = {}
-										userReport['Name'] = users[i]['Users']['Name']
+										//userReport['Name'] = users[i]['Users']['Name']
 										userReport['Mobile'] = users[i]['Users']['Mobile']
-										userReport['EnglishProficiency'] = users[i]['Users']['EnglishProficiency']
-										userReport['Topic'] = ""
-										userReport['Persona'] = ""
-										userReport['Attempt'] = ""
+										//userReport['EnglishProficiency'] = users[i]['Users']['EnglishProficiency']
+										//userReport['Topic'] = ""
+										//userReport['Persona'] = ""
+										//userReport['Attempt'] = ""
 										userReport['SessionID'] = ""
 										userReport['SessionStartTime'] = ""
-										userReport['AttemptVersion'] = ""
+										//userReport['AttemptVersion'] = ""
 										userReport['SessionEndTime'] = ""
-										userReport['SessionDuration'] = ""
-										userReport['OptedForPerformanceReport'] = ""
-										userReport['PerformanceReportURL'] = ""
-										userReport['SessionComplete'] = ""
-										userReport['EndOfSession'] = ""
-										userReport['OptedForGPTFeedback'] =	""
-										userReport['GPTRating'] = ""
-										userReport['GPTFeedback'] = ""
-										userReport['GPTFeedbackURL'] = ""
+										//userReport['SessionDuration'] = ""
+										//userReport['OptedForPerformanceReport'] = ""
+										//userReport['PerformanceReportURL'] = ""
+										//userReport['SessionComplete'] = ""
+										//userReport['EndOfSession'] = ""
+										//userReport['OptedForGPTFeedback'] =	""
+										//userReport['GPTRating'] = ""
+										//userReport['GPTFeedback'] = ""
+										//userReport['GPTFeedbackURL'] = ""
 										userReport['FlowRating'] = ""
 										userReport['Feedback'] = ""
-										userReport['FeedbackURL'] = ""
+										//userReport['FeedbackURL'] = ""
 										userReport['TotalWords'] = ""
 										userReport['CompletionTokens'] = ""
 										userReport['PromptTokens'] = ""
 										userReport['SLFCompletionTokens'] = ""
 										userReport['SLFPromptTokens'] = ""
-										userReport['ProgressBarMsgSent'] = ""	
+										//userReport['ProgressBarMsgSent'] = ""	
 										report.push(userReport)
 									}
 									else{
@@ -918,13 +976,13 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 											for(var k=0; k<uniqueTopicSessions.length; k++)
 											{
 												var userReport = {}
-												userReport['Name'] = users[i]["Users"]["Name"]
+												//userReport['Name'] = users[i]["Users"]["Name"]
 												userReport['Mobile'] = users[i]["Users"]["Mobile"]
-												userReport['EnglishProficiency'] = users[i]["Users"]["EnglishProficiency"]
-												userReport['Topic'] = uniqueTopics[j] == null ? "":uniqueTopics[j]
-												userReport['Persona'] = topicSessionsData[0].SystemPrompts.Persona == null ? "":topicSessionsData[0].SystemPrompts.Persona
+												//userReport['EnglishProficiency'] = users[i]["Users"]["EnglishProficiency"]
+												//userReport['Topic'] = uniqueTopics[j] == null ? "":uniqueTopics[j]
+												//userReport['Persona'] = topicSessionsData[0].SystemPrompts.Persona == null ? "":topicSessionsData[0].SystemPrompts.Persona
 												userReport['SessionID'] = uniqueTopicSessions[k]
-												userReport['Attempt'] = attempt.toString()
+												//userReport['Attempt'] = attempt.toString()
 												attempt--
 												const sessionRecord = userSessionsWC.filter(record=>record.Sessions.SessionID == userReport['SessionID'])
 												const sessionWCs = sessionRecord.map(record=>record.Sessions.TotalWords)
@@ -940,7 +998,7 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 												
 												var sessionTimeStamps = sessionRecord.map(record=>record.Sessions.CREATEDTIME)
 												sessionTimeStamps = sessionTimeStamps.sort()
-												userReport['SessionStartTime'] = sessionTimeStamps[0]
+												userReport['SessionStartTime'] = sessionTimeStamps[0].toString().slice(0,19)
 												const sessionTimeStampVersion = versions.filter(data=>{
 													/*console.log(new Date(data.Versions.StartDate), "|",
 														new Date(sessionTimeStamps[0]), "|",
@@ -949,45 +1007,45 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 													)*/
 													return (((new Date(data.Versions.StartDate)) <= (new Date(sessionTimeStamps[0]))) && ((new Date(data.Versions.EndDate)) > (new Date(sessionTimeStamps[0]))))
 												})
-												userReport['AttemptVersion'] = sessionTimeStampVersion.length == 0 ? '' : sessionTimeStampVersion[0]['Versions']['Version'].toString()
-												userReport['SessionEndTime'] = sessionTimeStamps[sessionTimeStamps.length-1]
-												userReport['SessionDuration'] = 0
-												for(var l = 1; l<sessionTimeStamps.length; l++){
+												//userReport['AttemptVersion'] = sessionTimeStampVersion.length == 0 ? '' : sessionTimeStampVersion[0]['Versions']['Version'].toString()
+												userReport['SessionEndTime'] = sessionTimeStamps[sessionTimeStamps.length-1].toString().slice(0,19)
+												//userReport['SessionDuration'] = 0
+												/*for(var l = 1; l<sessionTimeStamps.length; l++){
 													const currentTimeStamp = new Date(sessionTimeStamps[l])
 													const lastTimeStamp = new Date(sessionTimeStamps[l-1])
 													var duration = (currentTimeStamp - lastTimeStamp)/1000/60
 													if(duration > 10) 
 														duration = 10
 													userReport['SessionDuration'] += duration
-												}
-												userReport['SessionDuration'] = userReport['SessionDuration'].toString()
-												userReport['EndOfSession'] = sessionRecord.some(record=>record.Sessions.EndOfSession == true) ? "Yes":"No"
+												}*/
+												//userReport['SessionDuration'] = userReport['SessionDuration'].toString()
+												//userReport['EndOfSession'] = sessionRecord.some(record=>record.Sessions.EndOfSession == true) ? "Yes":"No"
 												const perfReport = sessionRecord.filter(record=>record.Sessions.PerformanceReportURL != null)
-												userReport['OptedForPerformanceReport'] = ""//(typeof perfReport === 'undefined') ? "No" : perfReport==null ? "No" : perfReport.length==0 ? "No" : "Yes"
-												userReport['PerformanceReportURL'] = userReport['OptedForPerformanceReport']=="Yes" ? perfReport[0].Sessions.PerformanceReportURL: ""
+												//userReport['OptedForPerformanceReport'] = ""//(typeof perfReport === 'undefined') ? "No" : perfReport==null ? "No" : perfReport.length==0 ? "No" : "Yes"
+												//userReport['PerformanceReportURL'] = userReport['OptedForPerformanceReport']=="Yes" ? perfReport[0].Sessions.PerformanceReportURL: ""
 												const feedback = feedbacks.filter(record=>record.SessionFeedback.SessionID == userReport['SessionID'])													
 												if((typeof feedback!=='undefined') && (feedback != null) && (feedback.length>0)){
-													userReport['SessionComplete'] = "Yes"
-													userReport['OptedForGPTFeedback'] =	feedback[0]['SessionFeedback']['GPTRating'] == -99 ? "No":"Yes"
-													userReport['GPTRating'] = feedback[0]['SessionFeedback']['GPTRating'] == -99 ? "" : feedback[0]['SessionFeedback']['GPTRating'] == -1 ? "Skipped" : feedback[0]['SessionFeedback']['GPTRating']==null ? "":feedback[0]['SessionFeedback']['GPTRating']
-													userReport['GPTFeedback'] = feedback[0]['SessionFeedback']['GPTRating'] == -99 ? "" : feedback[0]['SessionFeedback']['GPTRating'] == -1 ? "" : feedback[0]['SessionFeedback']['GPTFeedback'] == null ?"": feedback[0]['SessionFeedback']['GPTFeedback']
-													userReport['GPTFeedbackURL'] = feedback[0]['SessionFeedback']['GPTRating'] == -99 ? "" : feedback[0]['SessionFeedback']['GPTRating'] == -1 ? "" : feedback[0]['SessionFeedback']['GPTFeedbackURL'] == null ? "" : feedback[0]['SessionFeedback']['GPTFeedbackURL']
-													userReport['FlowRating'] = feedback[0]['SessionFeedback']['Rating'] == -99 ? "" : feedback[0]['SessionFeedback']['Rating'] == -1 ? "Skipped" : feedback[0]['SessionFeedback']['Rating'] == null ? "" : feedback[0]['SessionFeedback']['Rating']
-													userReport['Feedback'] = feedback[0]['SessionFeedback']['Rating'] == -99 ? "" : feedback[0]['SessionFeedback']['Rating'] == -1 ? "" : feedback[0]['SessionFeedback']['Feedback'] == null ? "" : feedback[0]['SessionFeedback']['Feedback']
-													userReport['FeedbackURL'] = feedback[0]['SessionFeedback']['Rating'] == -99 ? "" : feedback[0]['SessionFeedback']['Rating'] == -1 ? "" : feedback[0]['SessionFeedback']['FeedbackURL'] == null ? "" : feedback[0]['SessionFeedback']['FeedbackURL']
+												//	userReport['SessionComplete'] = "Yes"
+												//	userReport['OptedForGPTFeedback'] =	feedback[0]['SessionFeedback']['GPTRating'] == -99 ? "No":"Yes"
+												//	userReport['GPTRating'] = feedback[0]['SessionFeedback']['GPTRating'] == -99 ? "" : feedback[0]['SessionFeedback']['GPTRating'] == -1 ? "Skipped" : feedback[0]['SessionFeedback']['GPTRating']==null ? "":feedback[0]['SessionFeedback']['GPTRating']
+												//	userReport['GPTFeedback'] = feedback[0]['SessionFeedback']['GPTRating'] == -99 ? "" : feedback[0]['SessionFeedback']['GPTRating'] == -1 ? "" : feedback[0]['SessionFeedback']['GPTFeedback'] == null ?"": feedback[0]['SessionFeedback']['GPTFeedback']
+												//	userReport['GPTFeedbackURL'] = feedback[0]['SessionFeedback']['GPTRating'] == -99 ? "" : feedback[0]['SessionFeedback']['GPTRating'] == -1 ? "" : feedback[0]['SessionFeedback']['GPTFeedbackURL'] == null ? "" : feedback[0]['SessionFeedback']['GPTFeedbackURL']
+													userReport['FlowRating'] = feedback[0]['SessionFeedback']['Rating'] == -99 ? (feedback[0]['SessionFeedback']['GPTRating'] == -99 ? "" : feedback[0]['SessionFeedback']['GPTRating'] == -1 ? "Skipped" : feedback[0]['SessionFeedback']['GPTRating']==null ? "":feedback[0]['SessionFeedback']['GPTRating']) : feedback[0]['SessionFeedback']['Rating'] == -1 ? "Skipped" : feedback[0]['SessionFeedback']['Rating'] == null ? (feedback[0]['SessionFeedback']['GPTRating'] == -99 ? "" : feedback[0]['SessionFeedback']['GPTRating'] == -1 ? "Skipped" : feedback[0]['SessionFeedback']['GPTRating']==null ? "":feedback[0]['SessionFeedback']['GPTRating']) : feedback[0]['SessionFeedback']['Rating']
+													userReport['Feedback'] = feedback[0]['SessionFeedback']['Rating'] == -99 ? (feedback[0]['SessionFeedback']['GPTRating'] == -99 ? "" : feedback[0]['SessionFeedback']['GPTRating'] == -1 ? "" : feedback[0]['SessionFeedback']['GPTFeedback'] == null ?"": feedback[0]['SessionFeedback']['GPTFeedback']) : feedback[0]['SessionFeedback']['Rating'] == -1 ? "" : feedback[0]['SessionFeedback']['Feedback'] == null ? (feedback[0]['SessionFeedback']['GPTRating'] == -99 ? "" : feedback[0]['SessionFeedback']['GPTRating'] == -1 ? "" : feedback[0]['SessionFeedback']['GPTFeedback'] == null ?"": feedback[0]['SessionFeedback']['GPTFeedback']) : feedback[0]['SessionFeedback']['Feedback']
+												//	userReport['FeedbackURL'] = feedback[0]['SessionFeedback']['Rating'] == -99 ? "" : feedback[0]['SessionFeedback']['Rating'] == -1 ? "" : feedback[0]['SessionFeedback']['FeedbackURL'] == null ? "" : feedback[0]['SessionFeedback']['FeedbackURL']
 												}
 												else{
-													userReport['SessionComplete'] = "No"
-													userReport['OptedForGPTFeedback'] =	""
-													userReport['GPTRating'] = ""
-													userReport['GPTFeedback'] = ""
-													userReport['GPTFeedbackURL'] = ""
+												//	userReport['SessionComplete'] = "No"
+												//	userReport['OptedForGPTFeedback'] =	""
+												//	userReport['GPTRating'] = ""
+												//	userReport['GPTFeedback'] = ""
+												//	userReport['GPTFeedbackURL'] = ""
 													userReport['FlowRating'] = ""
 													userReport['Feedback'] = ""
-													userReport['FeedbackURL'] = ""
+												//	userReport['FeedbackURL'] = ""
 
 												}
-												userReport['ProgressBarMsgSent'] = userReport['AttemptVersion'] < 5 ? "" :events.some(data=>data.SessionEvents.SessionID == userReport['SessionID']) ? "Yes" : "No"
+												//userReport['ProgressBarMsgSent'] = userReport['AttemptVersion'] < 5 ? "" :events.some(data=>data.SessionEvents.SessionID == userReport['SessionID']) ? "Yes" : "No"
 												report.push(userReport)
 											}
 										}
@@ -1013,90 +1071,95 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 									// a must be equal to b
 									return 0;
 								})
+								console.info((new Date()).toString()+"|"+prependToLog,'End of Execution. Report Length = ',report.length)
 								res.status(200).json(report)
 							})
 							.catch((err) => {
-								console.log(err);
+								console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+								console.error((new Date()).toString()+"|"+prependToLog,err);
 								res.status(500).send(err);
 							});	
 						})
 						.catch((err) => {
-							console.log(err);
+							console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+							console.error((new Date()).toString()+"|"+prependToLog,err);
 							res.status(500).send(err);
 						});	
 					})
 					.catch((err) => {
-						console.log(err);
+						console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+						console.error((new Date()).toString()+"|"+prependToLog,err);
 						res.status(500).send(err);
 					});
 				}
 				else{
-					console.log("No session found")
+					console.info((new Date()).toString()+"|"+prependToLog,"No session found")
 					const report = users.map(user=>{
 						return {
-							Name:user.Users.Name,
+							//Name:user.Users.Name,
 							Mobile:user.Users.Mobile,
-							EnglishProficiency:user.Users.EnglishProficiency,
-							Topic:"",
-							Persona:"",
-							Attempt:"",
+							//EnglishProficiency:user.Users.EnglishProficiency,
+							//Topic:"",
+							//Persona:"",
+							//Attempt:"",
 							SessionID:"",
 							SessionStartTime:"",
-							AttemptVersion:"",
+							//AttemptVersion:"",
 							SessionEndTime:"",
 							SessionDuration:"",
-							OptedForPerformanceReport:"",
-							PerformanceReportURL:"",
-							SessionComplete:"",
-							EndOfSession:"",
-							OptedForGPTFeedback:"",
-							GPTRating:"",
-							GPTFeedback:"",
-							GPTFeedbackURL:"",
+							//OptedForPerformanceReport:"",
+							//PerformanceReportURL:"",
+							//SessionComplete:"",
+							//EndOfSession:"",
+							//OptedForGPTFeedback:"",
+							//GPTRating:"",
+							//GPTFeedback:"",
+							//GPTFeedbackURL:"",
 							FlowRating:"",
 							Feedback:"",
-							FeedbackURL:"",
+							//FeedbackURL:"",
 							TotalWords:"",
 							CompletionTokens:"",
 							PromptTokens:"",
 							SLFCompletionTokens:"",
 							SLFPromptTokens:"",
-							ProgressBarMsgSent:""
+							//ProgressBarMsgSent:""
 						}
 					})				
 					res.status(200).json(report)
 				}
 			})
 			.catch((err) => {
-				console.log(err);
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+				console.error((new Date()).toString()+"|"+prependToLog,err);
 				res.status(500).send(err);
 			});
 		}
 		else{
-			console.log("No user found")
+			console.info((new Date()).toString()+"|"+prependToLog,"No user found")
 			res.status(200).json([{
-				Name:'',
+				//Name:'',
 				Mobile:'',
-				EnglishProficiency:'',
-				Topic:"",
-				Persona:"",
-				Attempt:"",
+				//EnglishProficiency:'',
+				//Topic:"",
+				//Persona:"",
+				//Attempt:"",
 				SessionID:"",
 				SessionStartTime:"",
-				AttemptVersion:"",
+				//AttemptVersion:"",
 				SessionEndTime:"",
-				SessionDuration:"",
-				OptedForPerformanceReport:"",
-				PerformanceReportURL:"",
-				SessionComplete:"",
-				EndOfSession:"",
-				OptedForGPTFeedback:"",
-				GPTRating:"",
-				GPTFeedback:"",
-				GPTFeedbackURL:"",
+				//SessionDuration:"",
+				//OptedForPerformanceReport:"",
+				//PerformanceReportURL:"",
+				//SessionComplete:"",
+				//EndOfSession:"",
+				//OptedForGPTFeedback:"",
+				//GPTRating:"",
+				//GPTFeedback:"",
+				//GPTFeedbackURL:"",
 				FlowRating:"",
 				Feedback:"",
-				FeedbackURL:"",
+				//FeedbackURL:"",
 				TotalWords:"",
 				CompletionTokens:"",
 				PromptTokens:"",
@@ -1107,7 +1170,8 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 		}
 	})
 	.catch((err) => {
-		console.log(err);
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+		console.error((new Date()).toString()+"|"+prependToLog,err);		
 		res.status(500).send(err);
 	});
 });
@@ -1115,6 +1179,14 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 app.get("/usertopicmsgs", (req, res) => {
 
     let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+
+	const executionID = Math.random().toString(36).slice(2)
+    
+    //Prepare text to prepend with logs
+    const params = ["Reports",req.url,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
 
 	let zcql = catalystApp.zcql()
 
@@ -1196,12 +1268,11 @@ app.get("/usertopicmsgs", (req, res) => {
 					else
 						seq=1
 			}
-			console.log("End of Execution.")
+			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Report Length = ",report.length)
 			res.status(200).json(report)
 		}
 		else{
-			console.log("No Session found")
-			console.log("End of Execution.")
+			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. No Session found")
 			res.status(200).json([
 				{
 					Sequence : "",
@@ -1231,7 +1302,8 @@ app.get("/usertopicmsgs", (req, res) => {
 		}
 	})
 	.catch((err) => {
-		console.log(err);
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+		console.error((new Date()).toString()+"|"+prependToLog,err);
 		res.status(500).send(err);
 	});
 });
@@ -1240,6 +1312,14 @@ app.get("/sessionevents", (req, res) => {
 
     let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
+	const executionID = Math.random().toString(36).slice(2)
+    
+    //Prepare text to prepend with logs
+    const params = ["Reports",req.url,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+
 	let zcql = catalystApp.zcql()
 	const startDate = req.query.startDate ? req.query.startDate : (req.query.date ? req.query.date : '1970-01-01')
 	var today = new Date()
@@ -1247,12 +1327,12 @@ app.get("/sessionevents", (req, res) => {
 	today.setMinutes(today.getMinutes()+30)
 	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
 	const dataLimit = req.query.limit ? req.query.limit : null
-	const event = req.query.event ? req.query.event : null
+	const event = req.query.event ? req.query.event.split(",") : null
 
 	let query = "Select {} from SessionEvents left join SystemPrompts on SystemPrompts.ROWID=SessionEvents.SystemPromptROWID where SessionEvents.CREATEDTIME >='"+startDate+" 00:00:00' and SessionEvents.CREATEDTIME <= '"+endDate+" 23:59:59' order by CREATEDTIME ASC"
 	getAllRows("Mobile, SessionID, Event, SystemPrompts.Name, SystemPrompts.Persona, SessionEvents.CREATEDTIME", query,zcql,dataLimit)
 			.then((sessions)=>{
-				var eventData = sessions.filter(data=> event == null ? true : (data.SessionEvents.Event==event))
+				var eventData = sessions.filter(data=> event == null ? true : event.includes(data.SessionEvents.Event))
 				var report = eventData.map(data=>{
 					return {
 						Mobile : data.SessionEvents.Mobile,
@@ -1260,14 +1340,15 @@ app.get("/sessionevents", (req, res) => {
 						Persona : decodeURIComponent(data.SystemPrompts.Persona),
 						SessionID : data.SessionEvents.SessionID,
 						Event : data.SessionEvents.Event,
-						EventTimestamp : data.SessionEvents.CREATEDTIME.toString()
+						EventTimestamp : data.SessionEvents.CREATEDTIME.toString().slice(0,19)
 					}
 				})
-				console.log("End of Execution.")
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Report Length = ",report.length)
 				res.status(200).json(report)
 			})
 			.catch((err) => {
-				console.log(err);
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+				console.error((new Date()).toString()+"|"+prependToLog,err);
 				res.status(500).send(err);
 			});
 });
@@ -1275,6 +1356,13 @@ app.get("/sessionevents", (req, res) => {
 app.get("/sessionhints", (req, res) => {
 
     let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+	const executionID = Math.random().toString(36).slice(2)
+    
+    //Prepare text to prepend with logs
+    const params = ["Reports",req.url,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
 
 	let zcql = catalystApp.zcql()
 
@@ -1289,7 +1377,7 @@ app.get("/sessionhints", (req, res) => {
 	zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"),dataLimit)
 	.then((maxRowsResult) => {
 		let maxRows = parseInt(maxRowsResult[0].Sessions.ROWID)
-		console.log('Total Rows: '+maxRows)
+		console.info((new Date()).toString()+"|"+prependToLog,'Total Rows: '+maxRows)
 		if(maxRows>0)
 		{
 			const recordsToFetch = 300
@@ -1300,7 +1388,7 @@ app.get("/sessionhints", (req, res) => {
 					const dataQuery = query.replace("{}",fields)
 					for(var i = startingRow; i <= maxRows ; i=i+recordsToFetch){
 						query = dataQuery+" LIMIT "+i+", "+recordsToFetch
-						console.log('Fetching records from '+i+" to "+(i+recordsToFetch-1)+
+						console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+recordsToFetch-1)+
 									'\nQuery: '+query)
 						const queryResult = await zcql.executeZCQLQuery(query)
 							jsonReport = jsonReport.concat(queryResult)
@@ -1368,17 +1456,17 @@ app.get("/sessionhints", (req, res) => {
 						}
 					]
 				}
-				console.log("End of Execution.")
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Report Length = ",report.length)
 				res.status(200).json(report)
 			})
 			.catch((err) => {
-				console.log(err);
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+				console.error((new Date()).toString()+"|"+prependToLog,err);
 				res.status(500).send(err);
 			});
 		}
 		else{
-			console.log("No Session Data found")
-			console.log("End of Execution.")
+			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. No Session Data found")
 			res.status(200).json([
 				{
 					SessionID:"",
@@ -1399,7 +1487,8 @@ app.get("/sessionhints", (req, res) => {
 		}
 	})
 	.catch((err) => {
-		console.log(err);
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+		console.error((new Date()).toString()+"|"+prependToLog,err);
 		res.status(500).send(err);
 	});
 });
@@ -1407,6 +1496,14 @@ app.get("/sessionhints", (req, res) => {
 app.get("/sessiontranslations", (req, res) => {
 
     let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+
+	const executionID = Math.random().toString(36).slice(2)
+    
+    //Prepare text to prepend with logs
+    const params = ["Reports",req.url,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
 
 	let zcql = catalystApp.zcql()
 
@@ -1421,7 +1518,7 @@ app.get("/sessiontranslations", (req, res) => {
 	zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"),dataLimit)
 	.then((maxRowsResult) => {
 		let maxRows = parseInt(maxRowsResult[0].Sessions.ROWID)
-		console.log('Total Rows: '+maxRows)
+		console.info((new Date()).toString()+"|"+prependToLog,'Total Rows: '+maxRows)
 		if(maxRows>0)
 		{
 			const recordsToFetch = 300
@@ -1432,7 +1529,7 @@ app.get("/sessiontranslations", (req, res) => {
 					const dataQuery = query.replace("{}",fields)
 					for(var i = startingRow; i <= maxRows ; i=i+recordsToFetch){
 						query = dataQuery+" LIMIT "+i+", "+recordsToFetch
-						console.log('Fetching records from '+i+" to "+(i+recordsToFetch-1)+
+						console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+recordsToFetch-1)+
 									'\nQuery: '+query)
 						const queryResult = await zcql.executeZCQLQuery(query)
 							jsonReport = jsonReport.concat(queryResult)
@@ -1488,17 +1585,17 @@ app.get("/sessiontranslations", (req, res) => {
 						}
 					]
 				}
-				console.log("End of Execution.")
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Report Length = ",report.length)
 				res.status(200).json(report)
 			})
 			.catch((err) => {
-				console.log(err);
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+				console.error((new Date()).toString()+"|"+prependToLog,err);
 				res.status(500).send(err);
 			});
 		}
 		else{
-			console.log("No Session Data found")
-			console.log("End of Execution.")
+			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. No Session Data found")
 			res.status(200).json([
 				{
 					SessionID:"",
@@ -1513,7 +1610,8 @@ app.get("/sessiontranslations", (req, res) => {
 		}
 	})
 	.catch((err) => {
-		console.log(err);
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+		console.error((new Date()).toString()+"|"+prependToLog,err);
 		res.status(500).send(err);
 	});
 });
@@ -1522,6 +1620,14 @@ app.get("/sessiontecherrors", (req, res) => {
 
     let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
+	const executionID = Math.random().toString(36).slice(2)
+    
+    //Prepare text to prepend with logs
+    const params = ["Reports",req.url,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+	
 	let zcql = catalystApp.zcql()
 
 	const dataLimit = req.query.limit ? req.query.limit : null
@@ -1531,7 +1637,7 @@ app.get("/sessiontecherrors", (req, res) => {
 	zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"),dataLimit)
 	.then((maxRowsResult) => {
 		let maxRows = parseInt(maxRowsResult[0].Sessions.ROWID)
-		console.log('Total Rows: '+maxRows)
+		console.info((new Date()).toString()+"|"+prependToLog,'Total Rows: '+maxRows)
 		if(maxRows>0)
 		{
 			const recordsToFetch = 300
@@ -1542,7 +1648,7 @@ app.get("/sessiontecherrors", (req, res) => {
 					const dataQuery = query.replace("{}",fields)
 					for(var i = startingRow; i <= maxRows ; i=i+recordsToFetch){
 						query = dataQuery+" LIMIT "+i+", "+recordsToFetch
-						console.log('Fetching records from '+i+" to "+(i+recordsToFetch-1)+
+						console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+recordsToFetch-1)+
 									'\nQuery: '+query)
 						const queryResult = await zcql.executeZCQLQuery(query)
 							jsonReport = jsonReport.concat(queryResult)
@@ -1594,17 +1700,17 @@ app.get("/sessiontecherrors", (req, res) => {
 						}
 					]
 				}
-				console.log("End of Execution.")
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Report Length = ", report.length)
 				res.status(200).json(report)
 			})
 			.catch((err) => {
-				console.log(err);
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+				console.error((new Date()).toString()+"|"+prependToLog,err);
 				res.status(500).send(err);
 			});
 		}
 		else{
-			console.log("No Session Data found")
-			console.log("End of Execution.")
+			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. No Session Data found")
 			res.status(200).json([
 				{
 					SessionID:"",
@@ -1618,7 +1724,8 @@ app.get("/sessiontecherrors", (req, res) => {
 		}
 	})
 	.catch((err) => {
-		console.log(err);
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+		console.error((new Date()).toString()+"|"+prependToLog,err);
 		res.status(500).send(err);
 	});
 });
@@ -1627,6 +1734,14 @@ app.get("/sessionabandoned", (req, res) => {
 
     let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
+	const executionID = Math.random().toString(36).slice(2)
+    
+    //Prepare text to prepend with logs
+    const params = ["Reports",req.url,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+
 	let zcql = catalystApp.zcql()
 	const dataLimit = req.query.limit ? req.query.limit : null
 
@@ -1634,7 +1749,7 @@ app.get("/sessionabandoned", (req, res) => {
 	zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"),dataLimit)
 	.then((maxRowsResult) => {
 		let maxRows = parseInt(maxRowsResult[0].Sessions.ROWID)
-		console.log('Total Rows: '+maxRows)
+		console.info((new Date()).toString()+"|"+prependToLog,'Total Rows: '+maxRows)
 		if(maxRows>0)
 		{
 			const recordsToFetch = 300
@@ -1645,7 +1760,7 @@ app.get("/sessionabandoned", (req, res) => {
 					const dataQuery = query.replace("{}",fields)
 					for(var i = startingRow; i <= maxRows ; i=i+recordsToFetch){
 						query = dataQuery+" LIMIT "+i+", "+recordsToFetch
-						console.log('Fetching records from '+i+" to "+(i+recordsToFetch-1)+
+						console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+recordsToFetch-1)+
 									'\nQuery: '+query)
 						const queryResult = await zcql.executeZCQLQuery(query)
 							jsonReport = jsonReport.concat(queryResult)
@@ -1710,17 +1825,17 @@ app.get("/sessionabandoned", (req, res) => {
 						}
 					]
 				}
-				console.log("End of Execution.")
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Report Length = ",report.length)
 				res.status(200).json(report)
 			})
 			.catch((err) => {
-				console.log(err);
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+				console.error((new Date()).toString()+"|"+prependToLog,err);
 				res.status(500).send(err);
 			});
 		}
 		else{
-			console.log("No Session Data found")
-			console.log("End of Execution.")
+			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. No Session Data found")
 			res.status(200).json([
 				{
 					SessionID:"",
@@ -1734,11 +1849,344 @@ app.get("/sessionabandoned", (req, res) => {
 		}
 	})
 	.catch((err) => {
-		console.log(err);
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+		console.error((new Date()).toString()+"|"+prependToLog,err);
 		res.status(500).send(err);
 	});
 });
 
+app.get("/wordleattempts", (req, res) => {
+
+    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+
+	const executionID = Math.random().toString(36).slice(2)
+    
+    //Prepare text to prepend with logs
+    const params = ["Reports",req.url,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+
+	let zcql = catalystApp.zcql()
+
+	const mobile = req.query.mobile ? req.query.mobile.slice(-10) : null
+	const startDate = req.query.startDate ? req.query.startDate : '1970-01-01'
+	var today = new Date()
+	today.setHours(today.getHours()+5)
+	today.setMinutes(today.getMinutes()+30)
+	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
+	const dataLimit = req.query.limit ? req.query.limit : null
+
+	let query = "Select {} "+
+					"from WordleAttempts "+
+					"left join Users on WordleAttempts.UserROWID = Users.ROWID "+
+					"left join WordleConfiguration on WordleAttempts.WordleROWID = WordleConfiguration.ROWID "+
+					"where WordleAttempts.CREATEDTIME >='"+startDate+" 00:00:00' and WordleAttempts.CREATEDTIME <= '"+endDate+" 23:59:59' "+
+					(mobile !=null ? (" and Users.Mobile="+mobile+" "):"")+
+					"order by WordleAttempts.UserROWID, WordleAttempts.CREATEDTIME asc"
+	getAllRows("WordleConfiguration.ROWID, WordleConfiguration.MaxAttempts, WordleConfiguration.Word, WordleConfiguration.RecommendedTopic, Users.Mobile, WordleAttempts.ROWID, WordleAttempts.CREATEDTIME, WordleAttempts.IsCorrect, WordleAttempts.Answer, WordleAttempts.Source",query,zcql,dataLimit)
+	.then((cfuAttempts)=>{
+		if(cfuAttempts.length>0){
+			const mobiles = cfuAttempts.map(data=>data.Users.Mobile).filter(unique)
+			query = "Select {} from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID where Sessions.Mobile in ("+mobiles.join(",")+")"
+			getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, SystemPrompts.Name, SystemPrompts.Persona",query,zcql,dataLimit)
+			.then((sessions)=>{
+				const wordleROWIDs = cfuAttempts.map(data=>data.WordleConfiguration.ROWID).filter(unique)
+				query = "Select {} from SessionEvents where SessionID in ('"+wordleROWIDs.join("','")+"') and Mobile in ("+mobiles.join(",")+")"
+				getAllRows("Mobile, SessionID, CREATEDTIME, Event",query,zcql,dataLimit)
+				.then((events)=>{
+					var report = []
+					//For each mobile which played Wordle
+					for(var i = 0; i<mobiles.length; i++){
+						const mobile = mobiles[i]
+						//Get the list of wordles played
+						const wordlesPlayed = cfuAttempts.filter(data=>data.Users.Mobile == mobile).map(data=>data.WordleConfiguration.ROWID).filter(unique)
+						//For each wordle played
+						for(var j=0; j<wordlesPlayed.length; j++){
+							var userReport = {
+								Mobile: mobile
+							}	
+							const wordlePlayed = wordlesPlayed[j]
+							//Get the wordle attempt data
+							const wordleAttemptData = cfuAttempts.filter(data=>(data.WordleConfiguration.ROWID==wordlePlayed)&&(data.Users.Mobile == userReport['Mobile']))
+							//Get the wordle attempt timestamps
+							const wordleAttemptTimeStamps = wordleAttemptData.map(data=>data.WordleAttempts.CREATEDTIME).filter(unique).sort()
+							userReport['SessionStartedTime'] = wordleAttemptTimeStamps[0].slice(0,19)
+							userReport['SessionEndTime'] = wordleAttemptTimeStamps[wordleAttemptTimeStamps.length-1].slice(0,19)
+							//Get the total attempts
+							userReport['NumberOfGuesses'] = wordleAttemptData.length
+							//If wordle has been answered correctly or max attempts has been reached
+							userReport['CompletedWordle'] = (wordleAttemptData.some(data=>data.WordleAttempts.IsCorrect == true)) || (parseInt(userReport['NumberOfGuesses'])==parseInt(wordleAttemptData[0]['WordleConfiguration']['MaxAttempts'])) ? "Yes" : "No"
+							userReport['GuessedCorrect'] = wordleAttemptData.some(data=>data.WordleAttempts.IsCorrect == true) ? "Yes" : "No"
+							userReport['Guessedwords'] = wordleAttemptData.map(data=>data.WordleAttempts.Answer).join(",")
+							userReport['WordOfDay'] = wordleAttemptData[0]['WordleConfiguration']['Word']
+							userReport['RecommendedTopic'] = wordleAttemptData[0]['WordleConfiguration']['RecommendedTopic']
+							const wordleSource = wordleAttemptData.map(data=>data.WordleAttempts.Source).filter(unique).filter(data=>data!=null)
+							userReport['WordleSource'] = wordleSource.length > 0 ? wordleSource.join(","):null
+							
+							var sessionStartedTimeStamp = new Date(userReport['SessionStartedTime'])
+							const sessionStartedTime = ('0'+sessionStartedTimeStamp.getHours()).slice(-2)+":"+('0'+sessionStartedTimeStamp.getMinutes()).slice(-2)
+							if(sessionStartedTime>=process.env.WordleStartTime){
+								sessionStartedTimeStamp.setDate(sessionStartedTimeStamp.getDate()+1)
+							}
+							var endTimeStamp = new Date(sessionStartedTimeStamp.getFullYear(),sessionStartedTimeStamp.getMonth(),sessionStartedTimeStamp.getDate(),20,45)
+							const sessionData = sessions.filter(session=>(session.Sessions.Mobile==userReport['Mobile'])
+															&&(session.Sessions.CREATEDTIME >= userReport['SessionStartedTime'])
+															&&((new Date(session.Sessions.CREATEDTIME)) < endTimeStamp))
+												.map(session=>session.SystemPrompts.Name +"-"+session.SystemPrompts.Persona +"-"+ session.Sessions.SessionID)
+												.filter(unique)
+							userReport['NextTopicAttemptedBeforeReminder'] = sessionData.length > 0 ? sessionData.join(",") :  null
+
+							const wordleAttemptEvents = events.filter(data=>(data.SessionEvents.Mobile == userReport['Mobile'])&&
+																			(data.SessionEvents.SessionID == wordleAttemptData[0]['WordleConfiguration']['ROWID']) &&
+																			((data.SessionEvents.Event == 'How to Play')||(data.SessionEvents.Event.startsWith('Start Wordle')))
+																	).map(data=>data.SessionEvents.Event).filter(unique).filter(data=>data!=null)
+							
+							userReport['ButtonClick'] = wordleAttemptEvents.length > 0 ? wordleAttemptEvents.join(",") : null
+							userReport['WordleID'] = wordleAttemptData[0]['WordleAttempts']['ROWID']
+
+							report.push(userReport)
+						}
+					}
+					report = report.sort((a, b)=>{
+						if((a['Mobile'] == b['Mobile']) && (a.SessionStartTime < b.SessionStartTime)) {
+							return -1;
+						}
+						if((a['Mobile'] == b['Mobile']) && (a.SessionStartTime > b.SessionStartTime)) {
+							return 1;
+						}
+						if((a['Mobile'] == b['Mobile'])) {
+							return 0;
+						}
+						if((a['Mobile'] < b['Mobile'])) {
+							return -1;
+						}
+						if((a['Mobile'] > b['Mobile'])) {
+							return 1;
+						}
+						// a must be equal to b
+						return 0;
+					})
+					var attempted = 0
+					for(var m = 0; m < report.length; m++){
+						if((m>0)&&(report[m-1]['Mobile']!=report[m]['Mobile'])){
+							attempted = 0
+						}
+						report[m]['Attempt'] = ++attempted
+					}
+					console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Report Length = ",report.length)
+					res.status(200).json(report)
+				})
+				.catch((err) => {
+					console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+					console.error((new Date()).toString()+"|"+prependToLog,err);
+					res.status(500).send(err);
+				});
+			})
+			.catch((err) => {
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+				console.error((new Date()).toString()+"|"+prependToLog,err);
+				res.status(500).send(err);
+			});
+		}
+		else{
+			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. No Wordle Attempt found")
+			res.status(200).json([])
+		}
+	})
+	.catch((err) => {
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+		console.error((new Date()).toString()+"|"+prependToLog,err);
+		res.status(500).send(err);
+	});
+});
+
+app.get("/cfuattempts", (req, res) => {
+
+    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+
+	const executionID = Math.random().toString(36).slice(2)
+    
+    //Prepare text to prepend with logs
+    const params = ["Reports",req.url,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+
+	let zcql = catalystApp.zcql()
+
+	const startDate = req.query.startDate ? req.query.startDate : '1970-01-01'
+	var today = new Date()
+	today.setHours(today.getHours()+5)
+	today.setMinutes(today.getMinutes()+30)
+	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
+	const dataLimit = req.query.limit ? req.query.limit : null
+
+	let query = "select {} "+
+				"from Users "+	
+				"left join UserAssessmentLogs on Users.ROWID = UserAssessmentLogs.UserROWID "+
+				"left join UserAssessment on UserAssessment.UserAssessmentLogROWID = UserAssessmentLogs.ROWID "+
+				"left join QuestionBank on UserAssessment.QuestionROWID = QuestionBank.ROWID "+
+				"left join SystemPrompts on QuestionBank.SystemPromptROWID = SystemPrompts.ROWID "+
+				"where ((UserAssessment.ErrorInResponse = '') or (UserAssessment.ErrorInResponse is null)) and "+
+				"UserAssessmentLogs.CREATEDTIME >='"+startDate+" 00:00:00' and "+
+				"UserAssessmentLogs.CREATEDTIME <= '"+endDate+" 23:59:59' "+
+				"order by Users.Mobile, UserAssessmentLogs.ROWID, UserAssessmentLogs.CREATEDTIME, QuestionBank.AskingOrder ASC "
+
+	getAllRows("Name, Mobile,UserAssessmentLogs.SessionID, "+
+			"UserAssessmentLogs.ROWID, UserAssessmentLogs.IsAssessmentComplete, "+
+			"UserAssessmentLogs.AssessmentCompletionReason, UserAssessmentLogs.CREATEDTIME, "+
+			"UserAssessmentLogs.MODIFIEDTIME, QuestionBank.AskingOrder, QuestionBank.Question, QuestionBank.Answers, "+
+			"UserAssessment.ResponseText, UserAssessment.ResponseAVURL, UserAssessment.IsCorrectResponse, "+
+			"SystemPrompts.Name, SystemPrompts.Persona "
+	,query,zcql,dataLimit)
+	.then((cfuAttempts)=>{
+		if(!Array.isArray(cfuAttempts))
+			throw new Error(cfuAttempts)
+		else if(cfuAttempts.length>0){
+			var report = cfuAttempts.map(record=>{
+				return {
+					Mobile:record.Users.Mobile,
+					Name: record.Users.Name,
+					Topic: decodeURI(record.SystemPrompts.Name),
+					Persona: record.SystemPrompts.Persona,
+					SessionID: record.UserAssessmentLogs.SessionID,
+					AssessmentID: record.UserAssessmentLogs.ROWID,
+					AssessmentStartTime: record.UserAssessmentLogs.CREATEDTIME.toString().slice(0,19),
+					AssessmentEndTime: record.UserAssessmentLogs.MODIFIEDTIME.toString().slice(0,19),
+					IsAssessmentComplete: record.UserAssessmentLogs.IsAssessmentComplete,
+					AssessmentCompletionReason: record.UserAssessmentLogs.AssessmentCompletionReason,
+					DisplaySequence: record.QuestionBank.AskingOrder,
+					Question: decodeURI(record.QuestionBank.Question),
+					Answer: record.UserAssessment.ResponseText,
+					AnswerAVURL: record.UserAssessment.ResponseAVURL,
+					IsCorrectResponse: record.UserAssessment.IsCorrectResponse,
+					CorrectAnswer: decodeURI(record.QuestionBank.Answers),
+				}
+			})
+			report = report.sort((a, b)=>{
+				if((a['Mobile'] == b['Mobile']) && (a.AssessmentStartTime < b.AssessmentStartTime)) {
+					return -1;
+				}
+				if((a['Mobile'] == b['Mobile']) && (a.AssessmentStartTime > b.AssessmentStartTime)) {
+					return 1;
+				}
+				if((a['Mobile'] == b['Mobile'])) {
+					return 0;
+				}
+				if((a['Mobile'] < b['Mobile'])) {
+					return -1;
+				}
+				if((a['Mobile'] > b['Mobile'])) {
+					return 1;
+				}
+				// a must be equal to b
+				return 0;
+			})
+			var attempted = 1
+			for(var m = 0; m < report.length; m++){
+				if(m>0)
+					if(report[m-1]['Mobile']!=report[m]['Mobile'])
+						attempted = 0
+					else if(report[m-1]['AssessmentID']!=report[m]['AssessmentID'])
+						attempted++
+				report[m]['Attempt'] = attempted
+			}
+			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Report Length = ",report.length)
+			res.status(200).json(report)
+		}
+		else{
+			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. No Wordle Attempt found")
+			res.status(200).json([])
+		}
+	})
+	.catch((err) => {
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+		console.error((new Date()).toString()+"|"+prependToLog,err);
+		res.status(500).send(err);
+	});
+});
+
+
+app.get("/allattempts", (req, res) => {
+
+    const executionID = Math.random().toString(36).slice(2)
+    
+    //Prepare text to prepend with logs
+    const params = ["Reports",req.url,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+
+	const axios = require("axios");
+    const gameQuery = axios.get(process.env.WordleReportURL)
+	const conversationQuery = axios.get(process.env.UserSessionAttemptReportURL)
+	const quizQuery = axios.get(process.env.CFUAttemptReportURL)
+	const obdQuery = axios.get(process.env.OnboardingReportURL)
+
+	Promise.all([gameQuery,conversationQuery,quizQuery,obdQuery])
+	.then(([gameQueryResult,conversationQueryResult,quizQueryResult,obdQueryResult])=>{
+		console.info((new Date()).toString()+"|"+prependToLog,"Fetched Games Report of length:",gameQueryResult.data.length)
+		console.info((new Date()).toString()+"|"+prependToLog,"Fetched Quiz Attempt Report of length:",quizQueryResult.data.length)
+		console.info((new Date()).toString()+"|"+prependToLog,"Fetched Conversation Attempt Report of length:",conversationQueryResult.data.length)
+		console.info((new Date()).toString()+"|"+prependToLog,"Fetched Onboarding Report of length:",obdQueryResult.data.length)
+
+		const quizQueryIDs = quizQueryResult.data.map(data=>data.AssessmentID).filter(unique)
+		var report = quizQueryIDs.map(id=>{
+			const data = quizQueryResult.data.filter(report=>report.AssessmentID==id)
+			return {
+				Mobile: data[0].Mobile,
+				Type: "Learn",
+				SessionID: data[0].AssessmentID,
+				SessionStartTime: data[0].AssessmentStartTime,
+				SessionEndTime: data[0].AssessmentEndTime,
+				SessionComplete: data[0].IsAssessmentComplete == true ? "Yes":"No"
+			}
+		})
+		console.info((new Date()).toString()+"|"+prependToLog,"Appended Quiz Report Data")
+		report = report.concat(gameQueryResult.data.map(data=>{
+			return {
+				Mobile: data.Mobile,
+				Type: "Game",
+				SessionID: data.WordleID,
+				SessionStartTime: data.SessionStartedTime,
+				SessionEndTime: data.SessionEndTime,
+				SessionComplete: data.CompletedWordle
+			}
+		}))
+		console.info((new Date()).toString()+"|"+prependToLog,"Appended Game Report Data")
+		report = report.concat(conversationQueryResult.data.map(data=>{
+			return {
+				Mobile: data.Mobile,
+				Type: "Conversation",
+				SessionID: data.SessionID,
+				SessionStartTime: data.SessionStartTime,
+				SessionEndTime: data.SessionEndTime,
+				SessionComplete: data.IsActive == false ? "Yes":"No"
+			}
+		}))
+		console.info((new Date()).toString()+"|"+prependToLog,"Appended Conversation Report Data")
+		report = report.concat(obdQueryResult.data.map(data=>{
+			return {
+				Mobile: data.Mobile,
+				Type: "Onboarding",
+				SessionID: data.SessionID,
+				SessionStartTime: data.SessionStartTime,
+				SessionEndTime: data.SessionEndTime,
+				SessionComplete: data.IsActive == false ? "Yes":"No"
+			}
+		}))
+		console.info((new Date()).toString()+"|"+prependToLog,"Appended Onboarding Report Data")
+		
+		res.status(200).json(report)
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution")
+	})
+	.catch((err) => {
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+		console.error((new Date()).toString()+"|"+prependToLog,err);
+		res.status(500).send(err);
+	});
+});         
 
 app.all("/", (req,res) => {
 
