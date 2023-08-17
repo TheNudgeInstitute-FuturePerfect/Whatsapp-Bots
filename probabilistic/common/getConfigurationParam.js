@@ -1,6 +1,8 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
+const Configurations = require(".././models/Configurations");
+
 module.exports = async (basicIO) => {
   /*
 	Request:
@@ -44,12 +46,9 @@ module.exports = async (basicIO) => {
       );
     }
     //basicIO.write(JSON.stringify({x:listOfParams}));
-    var searchQuery =
-      "select Name, Value from Configurations where SystemPromptROWID = " +
-      systemPromptROWID;
-    let zcql = catalystApp.zcql();
+    
     try {
-      const searchQueryResult = await zcql.executeZCQLQuery(searchQuery);
+      const searchQueryResult = await Configurations.find({ SystemPromptROWID:systemPromptROWID});
       result["OperationStatus"] = "SUCCESS";
       if (searchQueryResult.length > 0) {
         var filteredValues = searchQueryResult;
