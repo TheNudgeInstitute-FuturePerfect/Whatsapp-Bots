@@ -4,29 +4,37 @@ const catalyst = require("zoho-catalyst-sdk");
 module.exports = async (basicIO) => {
   const env = process.env.CATALYST_USER_ENVIRONMENT;
   const catalystApp = catalyst.initialize();
+  const executionID = (typeof basicIO['executionID'] === 'undefined') ? Math.random().toString(36).slice(2) : basicIO['executionID']
+
+	//Prepare text to prepend with logs
+	const params = ["Send Reponse to Glific",executionID,""]
+	const prependToLog = params.join(" | ")
+		
+	console.info((new Date()).toString()+"|"+prependToLog,"Execution Started")
+
   let flowID = basicIO["flowID"];
   let contactID = basicIO["contactID"];
   let resultJSON = basicIO["resultJSON"];
-  console.log("Request: ", flowID, " | ", contactID, " | ", resultJSON);
+  console.info((new Date()).toString()+"|"+prependToLog,"Request: ", flowID, " | ", contactID, " | ", resultJSON);
   var responseJSON = {
     OperationStatus: "REQ_ERR",
     ErrorDescription: null,
   };
   if (typeof flowID === "undefined") {
     responseJSON["ErrorDescription"] = "flowID missing";
-    console.log("Returned: ", responseJSON);
+    console.info((new Date()).toString()+"|"+prependToLog,"Returned: ", responseJSON);
     return responseJSON;
   } else if (typeof contactID === "undefined") {
     responseJSON["ErrorDescription"] = "contactID missing";
-    console.log("Returned: ", responseJSON);
+    console.info((new Date()).toString()+"|"+prependToLog,"Returned: ", responseJSON);
     return responseJSON;
   } else if (typeof resultJSON === "undefined") {
     responseJSON["ErrorDescription"] = "resultJSON missing";
-    console.log("Returned: ", responseJSON);
+    console.info((new Date()).toString()+"|"+prependToLog,"Returned: ", responseJSON);
     return responseJSON;
   } else {
     responseJSON["OperationStatus"] = "SUCCESS";
-    console.info("Sending request to Glific to resume flow");
+    console.info((new Date()).toString()+"|"+prependToLog,"Sending request to Glific to resume flow");
     const allConfig = require("./sendResponseToGlific-config.json");
     const glificAPIConfig = allConfig[env];
     const request = require("request");
@@ -47,25 +55,25 @@ module.exports = async (basicIO) => {
     };
     request(options, function (error, response) {
       if (error) {
-        console.log("Error in Glific Authentication API Call: " + error);
-        console.log("Request Parameters: " + JSON.stringify(options));
+        console.info((new Date()).toString()+"|"+prependToLog,"Error in Glific Authentication API Call: " + error);
+        console.info((new Date()).toString()+"|"+prependToLog,"Request Parameters: " + JSON.stringify(options));
         responseJSON["OperationStatus"] = "GLFC_AUTH_ERR";
         responseJSON["ErrorDescription"] = error;
         return JSON.stringify(responseJSON);
       } else if (response.body == "Something went wrong") {
-        console.log(
+        console.info((new Date()).toString()+"|"+prependToLog,
           "Error returned by Glific Authentication API: " + response.body
         );
-        console.log("Request Parameters: " + JSON.stringify(options));
+        console.info((new Date()).toString()+"|"+prependToLog,"Request Parameters: " + JSON.stringify(options));
         responseJSON["OperationStatus"] = "GLFC_AUTH_ERR";
         responseJSON["ErrorDescription"] = response.body;
         return JSON.stringify(responseJSON);
       } else {
-        console.info("Successfully Authenticated with Glific");
+        console.info((new Date()).toString()+"|"+prependToLog,"Successfully Authenticated with Glific");
         let responseBody = JSON.parse(response.body);
         const authToken = responseBody.data.access_token;
-        console.info("Extracted access token from response");
-        console.log(
+        console.info((new Date()).toString()+"|"+prependToLog,"Extracted access token from response");
+        console.info((new Date()).toString()+"|"+prependToLog,
           "Resuming flow " +
             flowID +
             " for ContactID " +
@@ -99,22 +107,22 @@ module.exports = async (basicIO) => {
         request(options, function (error, response) {
           //If any error in API call throw error
           if (error) {
-            console.log("Error in resuming flow in Glific: " + error);
-            console.log("Request Parameters: " + JSON.stringify(options));
+            console.info((new Date()).toString()+"|"+prependToLog,"Error in resuming flow in Glific: " + error);
+            console.info((new Date()).toString()+"|"+prependToLog,"Request Parameters: " + JSON.stringify(options));
             responseJSON["OperationStatus"] = "GLFC_API_ERR";
             responseJSON["ErrorDescription"] = error;
             return JSON.stringify(responseJSON);
           } else {
-            console.log("Glific Response: " + response.body);
-            console.log("Request Parameters: " + JSON.stringify(options));
+            console.info((new Date()).toString()+"|"+prependToLog,"Glific Response: " + response.body);
+            console.info((new Date()).toString()+"|"+prependToLog,"Request Parameters: " + JSON.stringify(options));
             const resumeFlowResponse = JSON.parse(response.body);
             //If any error retruned by Glific API throw error
             if (resumeFlowResponse.errors != null) {
-              console.log(
+              console.info((new Date()).toString()+"|"+prependToLog,
                 "Error returned by Glific API: " +
                   JSON.stringify(resumeFlowResponse)
               );
-              console.log("Request Parameters: " + JSON.stringify(options));
+              console.info((new Date()).toString()+"|"+prependToLog,"Request Parameters: " + JSON.stringify(options));
               responseJSON["OperationStatus"] = "GLFC_API_ERR";
               responseJSON["ErrorDescription"] = resumeFlowResponse.errors;
               return JSON.stringify(responseJSON);
@@ -123,7 +131,7 @@ module.exports = async (basicIO) => {
               const elementResumeFlow = elementData.resumeContactFlow;
               const elementErrors = elementResumeFlow.errors;
               if (elementErrors != null) {
-                console.log(
+                console.info((new Date()).toString()+"|"+prependToLog,
                   "Error returned by Glific API " +
                     JSON.stringify(resumeFlowResponse)
                 );
@@ -131,7 +139,7 @@ module.exports = async (basicIO) => {
                 responseJSON["ErrorDescription"] = elementErrors;
                 return JSON.stringify(responseJSON);
               } else {
-                console.info("Successfully resumed flow in Glific");
+                console.info((new Date()).toString()+"|"+prependToLog,"Successfully resumed flow in Glific");
                 responseJSON["OperationStatus"] = "SUCCESS";
                 return JSON.stringify(responseJSON);
               }

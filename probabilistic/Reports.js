@@ -100,7 +100,7 @@ app.get("/userreport", (req, res) => {
 				//DaysAttmptCmpltdPstOBD:data.UsersReport.DaysAttmptCmpltdPstOBD == null ? "" :data.UsersReport.DaysAttmptCmpltdPstOBD.toString(),
 				//DaysAttmptdPstOBD:data.UsersReport.DaysAttmptdPstOBD == null ? "" :data.UsersReport.DaysAttmptdPstOBD.toString(),
 				//EnglishProficiency:data.UsersReport.EnglishProficiency == null ? "" :data.UsersReport.EnglishProficiency.toString(),
-				//SourcingChannel:data.UsersReport.SourcingChannel == null ? "" :data.UsersReport.SourcingChannel.toString(),
+				SourcingChannel:data.UsersReport.SourcingChannel == null ? "" :data.UsersReport.SourcingChannel.toString(),
 			}
 		})
 		console.info((new Date()).toString()+"|"+prependToLog,'End of Execution. Total Length of Report=',report.length)
