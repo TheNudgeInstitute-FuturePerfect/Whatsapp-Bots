@@ -339,6 +339,8 @@ app.post("/getoverallperformancereport", (req, res) => {
 app.post("/goalachievementcalendar", (req, res) => {
   let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
+  const startTimeStamp = new Date();
+
   const executionID = Math.random().toString(36).slice(2)
     
   //Prepare text to prepend with logs
@@ -436,10 +438,11 @@ app.post("/goalachievementcalendar", (req, res) => {
               //For each day in current month
               //const dayMapper = [ '🅼',  '🆃',  '🆆',  '🆃',  '🅵',  '🆂',  '🆂']
               let report = [] //[dayMapper.join("  ")]
-              let dateOfMonth = new Date(practiceDates[0].toString().slice(0,10))
               let reportRecord = ['🔲','🔲','🔲','🔲','🔲','🔲','🔲']
               const toDay = currentTimeStamp.getFullYear()+"-"+('0'+(currentTimeStamp.getMonth()+1)).slice(-2)+"-"+('0'+currentTimeStamp.getDate()).slice(-2)
               const dateToday = new Date(toDay+" 00:00:00")
+              if(practiceDates.length==0){practiceDates=[toDay]}
+              let dateOfMonth = new Date(practiceDates[0].toString().slice(0,10))
               let calendarEndDate = new Date()
               calendarEndDate.setDate(calendarEndDate.getDate()+((7-calendarEndDate.getDay())%7))
               while(true){
@@ -493,6 +496,21 @@ app.post("/goalachievementcalendar", (req, res) => {
               responseObject['Report']=report.join("\n")
               console.info((new Date()).toString()+"|"+prependToLog,"End of Execution:",responseObject)
               res.status(200).json(responseObject);
+              //Send Reponse to Glific
+              let endTimeStamp = new Date();
+              let executionDuration = (endTimeStamp - startTimeStamp) / 1000;
+              if (executionDuration > 5) {
+                  sendResponseToGlific({
+                      executionID: executionID,
+                      flowID: requestBody["FlowID"],
+                      contactID: requestBody["contact"]["id"],
+                      resultJSON: JSON.stringify({
+                        goalachievement: responseObject,
+                      }),
+                  })
+                  .then((glificResponse) => {})
+                  .catch((error) => console.info((new Date()).toString()+"|"+prependToLog,"Error returned from Glific: ", error));
+              }
             }
           })
           .catch((err) => {
@@ -513,6 +531,8 @@ app.post("/goalachievementcalendar", (req, res) => {
 
 app.post("/dailygoalprogress", (req, res) => {
   let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+
+  const startTimeStamp = new Date();
 
   const executionID = Math.random().toString(36).slice(2)
     
@@ -674,6 +694,21 @@ app.post("/dailygoalprogress", (req, res) => {
               responseObject['CompletedDuration'] = totalDuration
               console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ", responseObject);
               res.status(200).json(responseObject);
+              //Send Reponse to Glific
+              let endTimeStamp = new Date();
+              let executionDuration = (endTimeStamp - startTimeStamp) / 1000;
+              if (executionDuration > 5) {
+                  sendResponseToGlific({
+                      executionID: executionID,
+                      flowID: requestBody["FlowID"],
+                      contactID: requestBody["contact"]["id"],
+                      resultJSON: JSON.stringify({
+                        dailygoalprogress: responseObject,
+                      }),
+                  })
+                  .then((glificResponse) => {})
+                  .catch((error) => console.info((new Date()).toString()+"|"+prependToLog,"Error returned from Glific: ", error));
+              }
             }
           })
           .catch((err) => {
