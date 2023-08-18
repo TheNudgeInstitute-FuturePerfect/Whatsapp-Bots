@@ -4,7 +4,18 @@ const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 const emojiRegex = require('emoji-regex');
-
+const SessionEvents = require("./models/SessionEvents.js");
+const SessionFeedback = require("./models/SessionFeedback.js")
+const Session = require("./models/Sessions.js")
+const systemprompts = require("./models/SystemPrompts.js");
+const UserData = require("./models/UserData.js");
+const User = require("./models/Users.js");
+const WordleAttempt = require("./models/WordleAttempts.js");
+const WordleConfiguration = require("./models/WordleConfiguration.js");
+const QuestionBank = require("./models/questionBank.js");
+const UserAssessmentLogs = require("./models/UserAssessmentLogs.js");
+const UserAssessment = require("./models/UserAssessment.js");
+const UsersReport = require("./models/UsersReport.js");
 // const app = express();
 // app.use(express.json());
 const app = express.Router();
@@ -61,9 +72,15 @@ app.get("/userreport", (req, res) => {
 	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
 	const dataLimit = req.query.limit ? req.query.limit : null
 
-	let query = "select {} from UsersReport "+
-				"where UsersReport.OnboardingDate >='"+startDate+" 00:00:00' and UsersReport.OnboardingDate <= '"+endDate+" 23:59:59' "
-	getAllRows("*",query,zcql,dataLimit)
+	// let query = "select {} from UsersReport "+
+	// 			"where UsersReport.OnboardingDate >='"+startDate+" 00:00:00' and UsersReport.OnboardingDate <= '"+endDate+" 23:59:59' "
+	// getAllRows("*",query,zcql,dataLimit)
+	UsersReport.find({
+		OnboardingDate: {
+			$gte: new Date(startDate + 'T00:00:00Z'),
+			$lte: new Date(endDate + 'T23:59:59Z')
+		}
+	  })
 	.then((reportData)=>{
 		const report = reportData.map(data=>{
 			return {
@@ -290,28 +307,85 @@ app.get("/useronboardingreport", (req, res) => {
 
 	let zcql = catalystApp.zcql()
 		
-	let query = "Select {} from UserData"
+	// let query = "Select {} from UserData"
 	
-	getAllRows("distinct Segment, Question",query,zcql,dataLimit)
+	// getAllRows("distinct Segment, Question",query,zcql,dataLimit)
+	UserData.distinct('Segment')
+	.select('Question')
 	.then((segmentQuestions)=>{
 		let questions = segmentQuestions.map(data=>data.UserData.Segment+" "+data.UserData.Question)
 		questions = questions.filter(unique)
 		questions = questions.filter(data=>data.toString()!="null-null")	
-		query = "Select {} "+
-					"from Users "+
-					"left join UserData on UserData.UserROWID = Users.ROWID "+
-					"where UserData.CREATEDTIME  >='"+startDate+" 00:00:00' and UserData.CREATEDTIME <= '"+endDate+" 23:59:59' "+
-					"order by Users.Mobile asc, UserData.CREATEDTIME desc"
-		getAllRows("Users.Name, Users.Excluded, Users.Mobile, Users.RegisteredTime, Users.NudgeTime, Users.EnglishProficiency, UserData.CREATEDTIME, UserData.Segment, UserData.Question, UserData.Answer",query,zcql)
+		// query = "Select {} "+
+		// 			"from Users "+
+		// 			"left join UserData on UserData.UserROWID = Users.ROWID "+
+		// 			"where UserData.CREATEDTIME  >='"+startDate+" 00:00:00' and UserData.CREATEDTIME <= '"+endDate+" 23:59:59' "+
+		// 			"order by Users.Mobile asc, UserData.CREATEDTIME desc"
+		// getAllRows("Users.Name, Users.Excluded, Users.Mobile, Users.RegisteredTime, Users.NudgeTime, Users.EnglishProficiency, UserData.CREATEDTIME, UserData.Segment, UserData.Question, UserData.Answer",query,zcql)
+		User.aggregate([
+			{
+			  $lookup: {
+				from: UserData, // Name of the collection to join with
+				localField: 'ROWID',
+				foreignField: 'UserROWID',
+				as: 'userData'
+			  }
+			},
+			{
+			  $unwind: {
+				path: '$userData',
+				preserveNullAndEmptyArrays: true
+			  }
+			},
+			{
+			  $match: {
+				'userData.CREATEDTIME': {
+				  $gte: new Date(startDate + ' 00:00:00'),
+				  $lte: new Date(endDate + ' 23:59:59')
+				}
+			  }
+			},
+			{
+			  $sort: { 'userData.CREATEDTIME': -1 }
+			},
+			{
+			  $project: {
+				Name: 1,
+				Excluded: 1,
+				Mobile: 1,
+				RegisteredTime: 1,
+				NudgeTime: 1,
+				EnglishProficiency: 1,
+				'userData.CREATEDTIME': 1,
+				'userData.Segment': 1,
+				'userData.Question': 1,
+				'userData.Answer': 1
+			  }
+			}
+		  ])
 		.then((users)=>{
 			var report = []
 			let mobiles = users.map(data=>data.Users.Mobile)
 			mobiles = mobiles.filter(unique)
 			//Get Session Data
-			query = "Select {} "+
-			"from Sessions "+
-			"where SessionID != 'Onboarding' and Sessions.Mobile in ("+mobiles.join(",")+") group by Mobile, SessionID"
-			getAllRows("Mobile, SessionID, max(CREATEDTIME)",query,zcql)
+			// query = "Select {} "+
+			// "from Sessions "+
+			// "where SessionID != 'Onboarding' and Sessions.Mobile in ("+mobiles.join(",")+") group by Mobile, SessionID"
+			// getAllRows("Mobile, SessionID, max(CREATEDTIME)",query,zcql)
+			Session.aggregate([
+				{
+				  $match: {
+					SessionID: { $ne: 'Onboarding' },
+					Mobile: { $in: mobiles }
+				  }
+				},
+				{
+				  $group: {
+					_id: { Mobile: '$Mobile', SessionID: '$SessionID' },
+					maxCreatedTime: { $max: '$CREATEDTIME' }
+				  }
+				}
+			  ])
 			.then((sessions)=>{
 				for(var i=0; i<mobiles.length;i++){
 					var userReport = {
@@ -406,13 +480,61 @@ app.get("/usertopicreport", (req, res) => {
 	.then((users)=>{
 		if(users.length>0){
 			const mobiles = users.map(user=>user.Users.Mobile)
-			query = "Select {} "+
-					"from Sessions "+
-					"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
-					"where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59'"
-					"and ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) and Mobile in ("+mobiles.join(",")+") "+
-					"order by Sessions.CREATEDTIME desc"
-			getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name, SystemPrompts.Persona, Sessions.Message, Sessions.MessageType",query,zcql)
+			// query = "Select {} "+
+			// 		"from Sessions "+
+			// 		"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
+			// 		"where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59'"
+			// 		"and ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) and Mobile in ("+mobiles.join(",")+") "+
+			// 		"order by Sessions.CREATEDTIME desc"
+			// getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name, SystemPrompts.Persona, Sessions.Message, Sessions.MessageType",query,zcql)
+			Session.aggregate([
+				{
+				  $match: {
+					CREATEDTIME: {
+					  $gte: new Date(startDate + 'T00:00:00Z'),
+					  $lte: new Date(endDate + 'T23:59:59Z')
+					},
+					Mobile: { $in: mobiles }
+				  }
+				},
+				{
+				  $lookup: {
+					from: systemprompts, // Name of the collection to join with
+					localField: 'SystemPromptsROWID',
+					foreignField: 'ROWID',
+					as: 'systemPromptData'
+				  }
+				},
+				{
+				  $unwind: {
+					path: '$systemPromptData',
+					preserveNullAndEmptyArrays: true
+				  }
+				},
+				{
+				  $match: {
+					$or: [
+					  { 'systemPromptData.Type': 'Topic Prompt' },
+					  { SystemPromptsROWID: null }
+					]
+				  }
+				},
+				{
+				  $sort: { CREATEDTIME: -1 } // Sort by CREATEDTIME in descending order
+				},
+				{
+				  $project: {
+					Mobile: 1,
+					SessionID: 1,
+					CREATEDTIME: 1,
+					SystemPromptsROWID: 1,
+					'systemPromptData.Name': 1,
+					'systemPromptData.Persona': 1,
+					Message: 1,
+					MessageType: 1
+				  }
+				}
+			  ])
 			.then((allSessions)=>{
 				const sessions = allSessions.filter(data=>!(data.Sessions.SessionID.endsWith(' - Translation')||data.Sessions.SessionID.endsWith(' - Hints')||data.Sessions.SessionID.endsWith(' - ObjectiveFeedback')))
 				if(sessions.length>0){
@@ -873,28 +995,82 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
 	const dataLimit = req.query.limit ? req.query.limit : null
 
-	let query = "select {} from Users where RegisteredTime >= '2023-06-15 19:00:00'"
-	getAllRows("Name, Mobile, EnglishProficiency",query,zcql,dataLimit)
+	// let query = "select {} from Users where RegisteredTime >= '2023-06-15 19:00:00'"
+	// getAllRows("Name, Mobile, EnglishProficiency",query,zcql,dataLimit)
+
+	User.find({ RegisteredTime: { $gte: new Date('2023-06-15 19:00:00') } }, 'Name Mobile EnglishProficiency')
 	.then((users)=>{
 		if(users.length>0){
 			const mobiles = users.map(user=>user.Users.Mobile)
-			query = "Select {} "+
-					"from Sessions "+
-					"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
-					"where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59' "+
-					"and SystemPrompts.Name = 'Self Introduction' and Mobile in ("+mobiles.join(",")+") "+
-					"order by Sessions.CREATEDTIME desc"
-			console.debug((new Date()).toString()+"|"+prependToLog,query)
-			getAllRows("Sessions.PerformanceReportURL, Sessions.EndOfSession, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name, SystemPrompts.Persona, Sessions.Message, Sessions.MessageType, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens",query,zcql)
+			// query = "Select {} "+
+			// 		"from Sessions "+
+			// 		"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
+			// 		"where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59' "+
+			// 		"and SystemPrompts.Name = 'Self Introduction' and Mobile in ("+mobiles.join(",")+") "+
+			// 		"order by Sessions.CREATEDTIME desc"
+			// console.debug((new Date()).toString()+"|"+prependToLog,query)
+			// getAllRows("Sessions.PerformanceReportURL, Sessions.EndOfSession, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name, SystemPrompts.Persona, Sessions.Message, Sessions.MessageType, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens",query,zcql)
+			Session.aggregate([
+				{
+				  $match: {
+					CREATEDTIME: {
+					  $gte: new Date(startDate + 'T00:00:00Z'),
+					  $lte: new Date(endDate + 'T23:59:59Z')
+					},
+					Mobile: { $in: mobiles }
+				  }
+				},
+				{
+				  $lookup: {
+					from: systemprompts, // Name of the collection to join with
+					localField: 'SystemPromptsROWID',
+					foreignField: 'ROWID',
+					as: 'systemPromptData'
+				  }
+				},
+				{
+				  $unwind: {
+					path: '$systemPromptData',
+					preserveNullAndEmptyArrays: true
+				  }
+				},
+				{
+				  $match: {
+					'systemPromptData.Name': 'Self Introduction'
+				  }
+				},
+				{
+				  $sort: { CREATEDTIME: -1 } // Sort by CREATEDTIME in descending order
+				},
+				{
+				  $project: {
+					PerformanceReportURL: 1,
+					EndOfSession: 1,
+					Mobile: 1,
+					SessionID: 1,
+					CREATEDTIME: 1,
+					SystemPromptsROWID: 1,
+					'systemPromptData.Name': 1,
+					'systemPromptData.Persona': 1,
+					Message: 1,
+					MessageType: 1,
+					CompletionTokens: 1,
+					PromptTokens: 1,
+					SLFCompletionTokens: 1,
+					SLFPromptTokens: 1
+				  }
+				}
+			  ])
 			.then((allSessions)=>{
 				const sessions = allSessions.filter(data=>!(data.Sessions.SessionID.endsWith(' - Translation')||data.Sessions.SessionID.endsWith(' - Hints')||data.Sessions.SessionID.endsWith(' - ObjectiveFeedback')))
 				if(sessions.length>0){
 					const sessionIDs = sessions.map(session=>session.Sessions.SessionID)
-					query = "Select {} "+
-							"from SessionFeedback "+
-							"where SessionID in ('"+sessionIDs.join("','")+"') "+
-							"order by SessionFeedback.CREATEDTIME desc"
-					getAllRows("SessionID, Rating, Feedback, FeedbackType, FeedbackURL, GPTRating, GPTFeedback, GPTFeedbackType, GPTFeedbackURL",query,zcql)
+					// query = "Select {} "+
+					// 		"from SessionFeedback "+
+					// 		"where SessionID in ('"+sessionIDs.join("','")+"') "+
+					// 		"order by SessionFeedback.CREATEDTIME desc"
+					// getAllRows("SessionID, Rating, Feedback, FeedbackType, FeedbackURL, GPTRating, GPTFeedback, GPTFeedbackType, GPTFeedbackURL",query,zcql)
+					SessionFeedback.find({SessionID : {$in : sessionIDs}}) 
 					.then((feedbacks)=>{
 						zcql.executeZCQLQuery("Select Version,StartDate from Versions order by StartDate")
 						.then((versionRecords)=>{
@@ -912,8 +1088,9 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 										d['Versions']['EndDate'] = versionRecords[index+1]['Versions']['StartDate']
 									return d
 								})
-							query = "Select {} from SessionEvents where SessionID in ('"+sessionIDs.join("','")+"') and Event in ('Progress Message - 1','Progress Message - 2','Progress Message - 3','Progress Message - 4','Progress Message - 5','Progress Message - 6','Progress Message - 7','Progress Message - 8')"
-							getAllRows("distinct SessionID",query,zcql)
+							// query = "Select {} from SessionEvents where SessionID in ('"+sessionIDs.join("','")+"') and Event in ('Progress Message - 1','Progress Message - 2','Progress Message - 3','Progress Message - 4','Progress Message - 5','Progress Message - 6','Progress Message - 7','Progress Message - 8')"
+							// getAllRows("distinct SessionID",query,zcql)
+							SessionEvents.find({SessionID : { $in : sessionIDs},Event: { $in : ['Progress Message - 1','Progress Message - 2','Progress Message - 3','Progress Message - 4','Progress Message - 5','Progress Message - 6','Progress Message - 7','Progress Message - 8']}})
 							.then(async (events)=>{	
 								var report = []
 								const emojiRegEx = emojiRegex()
@@ -1197,13 +1374,82 @@ app.get("/usertopicmsgs", (req, res) => {
 	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
 	const dataLimit = req.query.limit ? req.query.limit : null
 
-	let query = "Select {} "+
-					"from Sessions "+
-					"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
-					"where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59' "+
-					"and (((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) or ((SystemPrompts.Type = 'Backend Prompt') and (SystemPrompts.Name = 'Self Introduction')))"+
-					"order by Sessions.SessionID, Sessions.CREATEDTIME asc"
-	getAllRows("IsActive, MessageType, Classification, Improvement, UserFeedback, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name, Sessions.Message, MessageAudioURL, Sessions.Reply, ReplyAudioURL, Sessions.PerformanceReportURL, Sessions.SentenceLevelFeedback, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens	",query,zcql,dataLimit)
+	// let query = "Select {} "+
+	// 				"from Sessions "+
+	// 				"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
+	// 				"where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59' "+
+	// 				"and (((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) or ((SystemPrompts.Type = 'Backend Prompt') and (SystemPrompts.Name = 'Self Introduction')))"+
+	// 				"order by Sessions.SessionID, Sessions.CREATEDTIME asc"
+	// getAllRows("IsActive, MessageType, Classification, Improvement, UserFeedback, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name, Sessions.Message, MessageAudioURL, Sessions.Reply, ReplyAudioURL, Sessions.PerformanceReportURL, Sessions.SentenceLevelFeedback, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens	",query,zcql,dataLimit)
+	Session.aggregate([
+		{
+		  $match: {
+			CREATEDTIME: {
+			  $gte: new Date(startDate + 'T00:00:00Z'),
+			  $lte: new Date(endDate + 'T23:59:59Z')
+			}
+		  }
+		},
+		{
+			$lookup: {
+			  from: systemprompts, // Name of the collection to join with
+			  localField: 'SystemPromptsROWID',
+			  foreignField: 'ROWID',
+			  as: 'systemPromptData'
+			}
+		  },
+		  {
+			$unwind: {
+			  path: '$systemPromptData',
+			  preserveNullAndEmptyArrays: true
+			}
+		  },
+		  {
+			$match: {
+			  $or: [
+				{
+				  $or: [
+					{ 'systemPromptData.Type': 'Topic Prompt' },
+					{ SystemPromptsROWID: null }
+				  ]
+				},
+				{
+				  $and: [
+					{ 'systemPromptData.Type': 'Backend Prompt' },
+					{ 'systemPromptData.Name': 'Self Introduction' }
+				  ]
+				}
+			  ]
+			}
+		  },
+		  {
+			$sort: { SessionID: 1, CREATEDTIME: 1 } // Sort by SessionID and CREATEDTIME in ascending order
+		  },
+		  {
+			$project: {
+			  IsActive: 1,
+			  MessageType: 1,
+			  Classification: 1,
+			  Improvement: 1,
+			  UserFeedback: 1,
+			  Mobile: 1,
+			  SessionID: 1,
+			  CREATEDTIME: 1,
+			  SystemPromptsROWID: 1,
+			  'systemPromptData.Name': 1,
+			  Message: 1,
+			  MessageAudioURL: 1,
+			  Reply: 1,
+			  ReplyAudioURL: 1,
+			  PerformanceReportURL: 1,
+			  SentenceLevelFeedback: 1,
+			  CompletionTokens: 1,
+			  PromptTokens: 1,
+			  SLFCompletionTokens: 1,
+			  SLFPromptTokens: 1
+			}
+		  }
+		])
 	.then((allSessions)=>{
 		const sessions = allSessions.filter(data=>!(data.Sessions.SessionID.endsWith(' - Translation')||data.Sessions.SessionID.endsWith(' - Hints')||data.Sessions.SessionID.endsWith(' - ObjectiveFeedback')))
 		if(sessions.length>0){
@@ -1329,9 +1575,46 @@ app.get("/sessionevents", (req, res) => {
 	const dataLimit = req.query.limit ? req.query.limit : null
 	const event = req.query.event ? req.query.event.split(",") : null
 
-	let query = "Select {} from SessionEvents left join SystemPrompts on SystemPrompts.ROWID=SessionEvents.SystemPromptROWID where SessionEvents.CREATEDTIME >='"+startDate+" 00:00:00' and SessionEvents.CREATEDTIME <= '"+endDate+" 23:59:59' order by CREATEDTIME ASC"
-	getAllRows("Mobile, SessionID, Event, SystemPrompts.Name, SystemPrompts.Persona, SessionEvents.CREATEDTIME", query,zcql,dataLimit)
-			.then((sessions)=>{
+	// let query = "Select {} from SessionEvents left join SystemPrompts on SystemPrompts.ROWID=SessionEvents.SystemPromptROWID where SessionEvents.CREATEDTIME >='"+startDate+" 00:00:00' and SessionEvents.CREATEDTIME <= '"+endDate+" 23:59:59' order by CREATEDTIME ASC"
+	// getAllRows("Mobile, SessionID, Event, SystemPrompts.Name, SystemPrompts.Persona, SessionEvents.CREATEDTIME", query,zcql,dataLimit)
+	SessionEvents.aggregate([
+		{
+		  $match: {
+			CREATEDTIME: {
+			  $gte: new Date(startDate + 'T00:00:00Z'),
+			  $lte: new Date(endDate + 'T23:59:59Z')
+			}
+		  }
+		},
+		{
+		  $lookup: {
+			from: systemprompts, // Name of the collection to join with
+			localField: 'SystemPromptROWID',
+			foreignField: 'ROWID',
+			as: 'systemPromptData'
+		  }
+		},
+		{
+		  $unwind: {
+			path: '$systemPromptData',
+			preserveNullAndEmptyArrays: true
+		  }
+		},
+		{
+		  $sort: { CREATEDTIME: 1 } // Sort by CREATEDTIME in ascending order
+		},
+		{
+		  $project: {
+			Mobile: 1,
+			SessionID: 1,
+			Event: 1,
+			'systemPromptData.Name': 1,
+			'systemPromptData.Persona': 1,
+			CREATEDTIME: 1
+		  }
+		}
+	  ])
+	.then((sessions)=>{
 				var eventData = sessions.filter(data=> event == null ? true : event.includes(data.SessionEvents.Event))
 				var report = eventData.map(data=>{
 					return {
@@ -1373,8 +1656,14 @@ app.get("/sessionhints", (req, res) => {
 	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
 	const dataLimit = req.query.limit ? req.query.limit : null
 
-	let query = "Select {} from Sessions where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59' order by Mobile, CREATEDTIME ASC"
-	zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"),dataLimit)
+	// let query = "Select {} from Sessions where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59' order by Mobile, CREATEDTIME ASC"
+	// zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"),dataLimit)
+	Session.countDocuments({
+		CREATEDTIME: {
+		  $gte: new Date(startDate + 'T00:00:00Z'),
+		  $lte: new Date(endDate + 'T23:59:59Z')
+		}
+	  })
 	.then((maxRowsResult) => {
 		let maxRows = parseInt(maxRowsResult[0].Sessions.ROWID)
 		console.info((new Date()).toString()+"|"+prependToLog,'Total Rows: '+maxRows)
@@ -1514,8 +1803,14 @@ app.get("/sessiontranslations", (req, res) => {
 	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
 	const dataLimit = req.query.limit ? req.query.limit : null
 
-	let query = "Select {} from Sessions where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59' order by Mobile,SessionID, CREATEDTIME ASC"
-	zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"),dataLimit)
+	// let query = "Select {} from Sessions where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59' order by Mobile,SessionID, CREATEDTIME ASC"
+	// zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"),dataLimit)
+	Session.countDocuments({
+		CREATEDTIME: {
+		  $gte: new Date(startDate + 'T00:00:00Z'),
+		  $lte: new Date(endDate + 'T23:59:59Z')
+		}
+	  })
 	.then((maxRowsResult) => {
 		let maxRows = parseInt(maxRowsResult[0].Sessions.ROWID)
 		console.info((new Date()).toString()+"|"+prependToLog,'Total Rows: '+maxRows)
@@ -1633,8 +1928,36 @@ app.get("/sessiontecherrors", (req, res) => {
 	const dataLimit = req.query.limit ? req.query.limit : null
 
 
-	let query = "Select {} from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID where (SystemPrompts.Type = 'Topic Prompt') or (SystemPrompts.Type is null) order by Mobile, SessionID, Sessions.CREATEDTIME ASC"
-	zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"),dataLimit)
+	// let query = "Select {} from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID where (SystemPrompts.Type = 'Topic Prompt') or (SystemPrompts.Type is null) order by Mobile, SessionID, Sessions.CREATEDTIME ASC"
+	// zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"),dataLimit)
+	
+Session.aggregate([
+	{
+	  $lookup: {
+		from: systemprompts, // Name of the collection to join with
+		localField: 'SystemPromptsROWID',
+		foreignField: 'ROWID',
+		as: 'systemPromptData'
+	  }
+	},
+	{
+	  $unwind: {
+		path: '$systemPromptData',
+		preserveNullAndEmptyArrays: true
+	  }
+	},
+	{
+	  $match: {
+		$or: [
+		  { 'systemPromptData.Type': 'Topic Prompt' },
+		  { 'systemPromptData.Type': null }
+		]
+	  }
+	},
+	{
+	  $count: 'rowCount'
+	}
+  ])
 	.then((maxRowsResult) => {
 		let maxRows = parseInt(maxRowsResult[0].Sessions.ROWID)
 		console.info((new Date()).toString()+"|"+prependToLog,'Total Rows: '+maxRows)
@@ -1745,8 +2068,9 @@ app.get("/sessionabandoned", (req, res) => {
 	let zcql = catalystApp.zcql()
 	const dataLimit = req.query.limit ? req.query.limit : null
 
-	let query = "Select {} from Sessions order by Mobile, SessionID, Sessions.CREATEDTIME ASC"
-	zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"),dataLimit)
+	// let query = "Select {} from Sessions order by Mobile, SessionID, Sessions.CREATEDTIME ASC"
+	// zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"),dataLimit)
+	Session.countDocuments({})
 	.then((maxRowsResult) => {
 		let maxRows = parseInt(maxRowsResult[0].Sessions.ROWID)
 		console.info((new Date()).toString()+"|"+prependToLog,'Total Rows: '+maxRows)
@@ -1877,23 +2201,106 @@ app.get("/wordleattempts", (req, res) => {
 	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
 	const dataLimit = req.query.limit ? req.query.limit : null
 
-	let query = "Select {} "+
-					"from WordleAttempts "+
-					"left join Users on WordleAttempts.UserROWID = Users.ROWID "+
-					"left join WordleConfiguration on WordleAttempts.WordleROWID = WordleConfiguration.ROWID "+
-					"where WordleAttempts.CREATEDTIME >='"+startDate+" 00:00:00' and WordleAttempts.CREATEDTIME <= '"+endDate+" 23:59:59' "+
-					(mobile !=null ? (" and Users.Mobile="+mobile+" "):"")+
-					"order by WordleAttempts.UserROWID, WordleAttempts.CREATEDTIME asc"
-	getAllRows("WordleConfiguration.ROWID, WordleConfiguration.MaxAttempts, WordleConfiguration.Word, WordleConfiguration.RecommendedTopic, Users.Mobile, WordleAttempts.ROWID, WordleAttempts.CREATEDTIME, WordleAttempts.IsCorrect, WordleAttempts.Answer, WordleAttempts.Source",query,zcql,dataLimit)
+	// let query = "Select {} "+
+	// 				"from WordleAttempts "+
+	// 				"left join Users on WordleAttempts.UserROWID = Users.ROWID "+
+	// 				"left join WordleConfiguration on WordleAttempts.WordleROWID = WordleConfiguration.ROWID "+
+	// 				"where WordleAttempts.CREATEDTIME >='"+startDate+" 00:00:00' and WordleAttempts.CREATEDTIME <= '"+endDate+" 23:59:59' "+
+	// 				(mobile !=null ? (" and Users.Mobile="+mobile+" "):"")+
+	// 				"order by WordleAttempts.UserROWID, WordleAttempts.CREATEDTIME asc"
+	// getAllRows("WordleConfiguration.ROWID, WordleConfiguration.MaxAttempts, WordleConfiguration.Word, WordleConfiguration.RecommendedTopic, Users.Mobile, WordleAttempts.ROWID, WordleAttempts.CREATEDTIME, WordleAttempts.IsCorrect, WordleAttempts.Answer, WordleAttempts.Source",query,zcql,dataLimit)
+		const aggregatePipeline = [
+		{
+			$match: {
+			CREATEDTIME: {
+				$gte: new Date(startDate + 'T00:00:00Z'),
+				$lte: new Date(endDate + 'T23:59:59Z')
+			}
+			}
+		},
+		{
+			$lookup: {
+			from: User, // Name of the collection to join with
+			localField: 'UserROWID',
+			foreignField: 'ROWID',
+			as: 'user'
+			}
+		},
+		{
+			$unwind: '$user'
+		},
+		{
+			$lookup: {
+			from: WordleConfiguration, // Name of the collection to join with
+			localField: 'WordleROWID',
+			foreignField: 'ROWID',
+			as: 'wordleConfiguration'
+			}
+		},
+		{
+			$project: {
+			_id: 0,
+			'WordleAttempts.ROWID': 1,
+			'WordleAttempts.UserROWID': 1,
+			'WordleAttempts.CREATEDTIME': 1,
+			'WordleAttempts.IsCorrect': 1,
+			'WordleAttempts.Answer': 1,
+			'WordleAttempts.Source': 1,
+			'user.Mobile': 1,
+			'wordleConfiguration.ROWID': 1,
+			'wordleConfiguration.MaxAttempts': 1,
+			'wordleConfiguration.Word': 1,
+			'wordleConfiguration.RecommendedTopic': 1
+			}
+		},
+		{
+			$sort: {
+			'WordleAttempts.UserROWID': 1,
+			'WordleAttempts.CREATEDTIME': 1
+			}
+		}
+		];
+
+		if (mobile) {
+		aggregatePipeline[2].$match['user.Mobile'] = mobile;
+		}
+
+		WordleAttempt.aggregate(aggregatePipeline)
 	.then((cfuAttempts)=>{
 		if(cfuAttempts.length>0){
 			const mobiles = cfuAttempts.map(data=>data.Users.Mobile).filter(unique)
-			query = "Select {} from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID where Sessions.Mobile in ("+mobiles.join(",")+")"
-			getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, SystemPrompts.Name, SystemPrompts.Persona",query,zcql,dataLimit)
+			// query = "Select {} from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID where Sessions.Mobile in ("+mobiles.join(",")+")"
+			// getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, SystemPrompts.Name, SystemPrompts.Persona",query,zcql,dataLimit)
+			
+			Session.aggregate([
+				{
+				$match: {
+					Mobile: { $in: mobiles }
+				}
+				},
+				{
+				$lookup: {
+					from: systemprompts, // Name of the collection to join with
+					localField: 'SystemPromptsROWID',
+					foreignField: 'ROWID',
+					as: 'systemPromptData'
+				}
+				},
+				{
+				$project: {
+					Mobile: 1,
+					SessionID: 1,
+					CREATEDTIME: 1,
+					'systemPromptData.Name': 1,
+					'systemPromptData.Persona': 1
+				}
+				}
+			])
 			.then((sessions)=>{
 				const wordleROWIDs = cfuAttempts.map(data=>data.WordleConfiguration.ROWID).filter(unique)
-				query = "Select {} from SessionEvents where SessionID in ('"+wordleROWIDs.join("','")+"') and Mobile in ("+mobiles.join(",")+")"
-				getAllRows("Mobile, SessionID, CREATEDTIME, Event",query,zcql,dataLimit)
+				// query = "Select {} from SessionEvents where SessionID in ('"+wordleROWIDs.join("','")+"') and Mobile in ("+mobiles.join(",")+")"
+				// getAllRows("Mobile, SessionID, CREATEDTIME, Event",query,zcql,dataLimit)
+				SessionEvents.find({SessionID : { $in : wordleROWIDs},Mobile: {$in : mobiles}})
 				.then((events)=>{
 					var report = []
 					//For each mobile which played Wordle
@@ -2022,24 +2429,102 @@ app.get("/cfuattempts", (req, res) => {
 	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
 	const dataLimit = req.query.limit ? req.query.limit : null
 
-	let query = "select {} "+
-				"from Users "+	
-				"left join UserAssessmentLogs on Users.ROWID = UserAssessmentLogs.UserROWID "+
-				"left join UserAssessment on UserAssessment.UserAssessmentLogROWID = UserAssessmentLogs.ROWID "+
-				"left join QuestionBank on UserAssessment.QuestionROWID = QuestionBank.ROWID "+
-				"left join SystemPrompts on QuestionBank.SystemPromptROWID = SystemPrompts.ROWID "+
-				"where ((UserAssessment.ErrorInResponse = '') or (UserAssessment.ErrorInResponse is null)) and "+
-				"UserAssessmentLogs.CREATEDTIME >='"+startDate+" 00:00:00' and "+
-				"UserAssessmentLogs.CREATEDTIME <= '"+endDate+" 23:59:59' "+
-				"order by Users.Mobile, UserAssessmentLogs.ROWID, UserAssessmentLogs.CREATEDTIME, QuestionBank.AskingOrder ASC "
+	// let query = "select {} "+
+	// 			"from Users "+	
+	// 			"left join UserAssessmentLogs on Users.ROWID = UserAssessmentLogs.UserROWID "+
+	// 			"left join UserAssessment on UserAssessment.UserAssessmentLogROWID = UserAssessmentLogs.ROWID "+
+	// 			"left join QuestionBank on UserAssessment.QuestionROWID = QuestionBank.ROWID "+
+	// 			"left join SystemPrompts on QuestionBank.SystemPromptROWID = SystemPrompts.ROWID "+
+	// 			"where ((UserAssessment.ErrorInResponse = '') or (UserAssessment.ErrorInResponse is null)) and "+
+	// 			"UserAssessmentLogs.CREATEDTIME >='"+startDate+" 00:00:00' and "+
+	// 			"UserAssessmentLogs.CREATEDTIME <= '"+endDate+" 23:59:59' "+
+	// 			"order by Users.Mobile, UserAssessmentLogs.ROWID, UserAssessmentLogs.CREATEDTIME, QuestionBank.AskingOrder ASC "
 
-	getAllRows("Name, Mobile,UserAssessmentLogs.SessionID, "+
-			"UserAssessmentLogs.ROWID, UserAssessmentLogs.IsAssessmentComplete, "+
-			"UserAssessmentLogs.AssessmentCompletionReason, UserAssessmentLogs.CREATEDTIME, "+
-			"UserAssessmentLogs.MODIFIEDTIME, QuestionBank.AskingOrder, QuestionBank.Question, QuestionBank.Answers, "+
-			"UserAssessment.ResponseText, UserAssessment.ResponseAVURL, UserAssessment.IsCorrectResponse, "+
-			"SystemPrompts.Name, SystemPrompts.Persona "
-	,query,zcql,dataLimit)
+	// getAllRows("Name, Mobile,UserAssessmentLogs.SessionID, "+
+	// 		"UserAssessmentLogs.ROWID, UserAssessmentLogs.IsAssessmentComplete, "+
+	// 		"UserAssessmentLogs.AssessmentCompletionReason, UserAssessmentLogs.CREATEDTIME, "+
+	// 		"UserAssessmentLogs.MODIFIEDTIME, QuestionBank.AskingOrder, QuestionBank.Question, QuestionBank.Answers, "+
+	// 		"UserAssessment.ResponseText, UserAssessment.ResponseAVURL, UserAssessment.IsCorrectResponse, "+
+	// 		"SystemPrompts.Name, SystemPrompts.Persona "
+	// ,query,zcql,dataLimit)
+
+	
+const aggregatePipeline = [
+	{
+	  $match: {
+		CREATEDTIME: {
+			$gte: new Date(startDate + 'T00:00:00Z'),
+			$lte: new Date(endDate + 'T23:59:59Z')
+		}
+	  }
+	},
+	{
+	  $lookup: {
+		from: UserAssessmentLogs, // Name of the collection to join with
+		localField: 'UserROWID',
+		foreignField: 'UserROWID',
+		as: 'userAssessmentLogs'
+	  }
+	},
+	{
+	  $unwind: '$userAssessmentLogs'
+	},
+	{
+	  $lookup: {
+		from: UserAssessment, // Name of the collection to join with
+		localField: 'userAssessmentLogs.ROWID',
+		foreignField: 'UserAssessmentLogROWID',
+		as: 'userAssessment'
+	  }
+	},
+	{
+	  $lookup: {
+		from: QuestionBank, // Name of the collection to join with
+		localField: 'userAssessment.QuestionROWID',
+		foreignField: 'ROWID',
+		as: 'questionBank'
+	  }
+	},
+	{
+	  $lookup: {
+		from: systemprompts, // Name of the collection to join with
+		localField: 'questionBank.SystemPromptROWID',
+		foreignField: 'ROWID',
+		as: 'systemPrompt'
+	  }
+	},
+	{
+	  $project: {
+		_id: 0,
+		'Users.Name': 1,
+		'Users.Mobile': 1,
+		'UserAssessmentLogs.SessionID': 1,
+		'UserAssessmentLogs.ROWID': 1,
+		'UserAssessmentLogs.IsAssessmentComplete': 1,
+		'UserAssessmentLogs.AssessmentCompletionReason': 1,
+		'UserAssessmentLogs.CREATEDTIME': 1,
+		'UserAssessmentLogs.MODIFIEDTIME': 1,
+		'QuestionBank.AskingOrder': 1,
+		'QuestionBank.Question': 1,
+		'QuestionBank.Answers': 1,
+		'UserAssessment.ResponseText': 1,
+		'UserAssessment.ResponseAVURL': 1,
+		'UserAssessment.IsCorrectResponse': 1,
+		'SystemPrompts.Name': 1,
+		'SystemPrompts.Persona': 1
+	  }
+	},
+	{
+	  $sort: {
+		'Users.Mobile': 1,
+		'UserAssessmentLogs.ROWID': 1,
+		'UserAssessmentLogs.CREATEDTIME': 1,
+		'QuestionBank.AskingOrder': 1
+	  }
+	}
+  ];
+  
+  User.aggregate(aggregatePipeline)
 	.then((cfuAttempts)=>{
 		if(!Array.isArray(cfuAttempts))
 			throw new Error(cfuAttempts)

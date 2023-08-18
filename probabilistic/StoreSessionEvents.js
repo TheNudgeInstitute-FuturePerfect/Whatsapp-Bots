@@ -3,6 +3,7 @@
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
+const SessionEvents = require("./models/SessionEvents.js");
 
 // const app = express();
 // app.use(express.json());
@@ -30,17 +31,22 @@ app.post("/sessionevents", async (req, res) => {
 	}
 
 	//Get table meta object without details.
-	let table = catalystApp.datastore().table('SessionEvents');
+	// let table = catalystApp.datastore().table('SessionEvents');
 
 	//Use Table Meta Object to insert the row which returns a promise
-	let insertPromise = table.insertRow({
-		SessionID: requestBody.SessionID,
-		SystemPromptROWID: topicID,
-		Event: requestBody.Event,
-		Mobile: requestBody.Mobile.toString().slice(-10)
-	});
+	// let insertPromise = table.insertRow({
+	// 	SessionID: requestBody.SessionID,
+	// 	SystemPromptROWID: topicID,
+	// 	Event: requestBody.Event,
+	// 	Mobile: requestBody.Mobile.toString().slice(-10)
+	// });
 
-	insertPromise
+	SessionEvents.create({
+			SessionID: requestBody.SessionID,
+			SystemPromptROWID: topicID,
+			Event: requestBody.Event,
+			Mobile: requestBody.Mobile.toString().slice(-10)
+		})
 		.then((row) => {
 			console.log("\nInserted Row : " + JSON.stringify(row));
 			res.status(200).json({OperationStatus:"SUCCESS",SessionEventROWID:row['ROWID']});

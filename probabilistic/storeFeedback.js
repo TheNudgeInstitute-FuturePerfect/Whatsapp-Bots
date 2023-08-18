@@ -6,6 +6,7 @@ const catalyst = require("zoho-catalyst-sdk");
 const storeAudioFileinGCS = require("./common/storeAudioFileinGCS.js");
 const convertSpeechToText = require("./common/convertSpeechToText.js");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
+const SessionFeedback = require("./models/SessionFeedback.js")
 
 // const app = express();
 // app.use(express.json());
@@ -144,11 +145,12 @@ app.post("/feedback/store", async (req, res) => {
     }
 
     //Get table meta object without details.
-    let table = catalystApp.datastore().table("SessionFeedback");
+    // let table = catalystApp.datastore().table("SessionFeedback");
 
     //Use Table Meta Object to insert the row which returns a promise
-    let insertPromise = table.insertRow(feedbackRecord);
-    insertPromise
+    // let insertPromise = table.insertRow(feedbackRecord);
+    // insertPromise
+    SessionFeedback.create(feedbackRecord)
       .then((row) => {
         console.log("\nInserted Row : " + JSON.stringify(row));
         res.status(200).json(responseJSON);

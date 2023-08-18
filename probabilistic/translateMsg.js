@@ -3,7 +3,7 @@
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
-
+const Session = require("./models/Sessions.js");
 // const app = express();
 // app.use(express.json());
 const app = express.Router();
@@ -69,13 +69,16 @@ app.post("/translate", async (req, res) => {
 
             var translationSystemPrompt = null;
             try {
-              const systemPrompt = await catalystApp
-                .zcql()
-                .executeZCQLQuery(
-                  "Select SystemPromptsROWID from Sessions where SessionID = '" +
-                    sessionID +
-                    "'"
-                );
+              // const systemPrompt = await catalystApp
+              //   .zcql()
+              //   .executeZCQLQuery(
+              //     "Select SystemPromptsROWID from Sessions where SessionID = '" +
+              //       sessionID +
+              //       "'"
+              //   );
+              const systemPrompt = await Session.findOne({ SessionID: sessionID })
+              .select('SystemPromptsROWID');
+
               translationSystemPrompt =
                 systemPrompt[0]["Sessions"]["SystemPromptsROWID"];
             } catch (e) {
@@ -371,13 +374,17 @@ app.post("/translateattempts", async (req, res) => {
     console.log("End of Execution: ", responseObject);
     res.status(200).json(responseObject);
   } else {
-    let zcql = catalystApp.zcql();
-    zcql
-      .executeZCQLQuery(
-        "Select count(ROWID) from Sessions where Reply is not null and SessionID = '" +
-          sessionID +
-          " - Translation'"
-      )
+    // let zcql = catalystApp.zcql();
+    // zcql
+    //   .executeZCQLQuery(
+    //     "Select count(ROWID) from Sessions where Reply is not null and SessionID = '" +
+    //       sessionID +
+    //       " - Translation'"
+    //   )
+    Session.countDocuments({
+      Reply: { $ne: null },
+      SessionID: sessionID + ' - Translation'
+    })
       .then((translated) => {
         if (
           typeof translated !== "undefined" &&

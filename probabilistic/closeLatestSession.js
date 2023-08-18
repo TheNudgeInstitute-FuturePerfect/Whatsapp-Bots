@@ -3,6 +3,7 @@
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
+const Sessions = require("./models/Sessions.js")
 
 // const app = express();
 // app.use(express.json());
@@ -28,12 +29,21 @@ app.post("/latestsession", (req, res) => {
 		//Get the mobile in 10 digit format
 		const mobile = requestBody['Mobile'].toString().slice(-10)
 		//Initialize ZCQL
-		let zcql = catalystApp.zcql()
+		// let zcql = catalystApp.zcql()
 		//Build query
-		const query = "Update Sessions set Sessions.IsActive = false where Sessions.IsActive = true and Sessions.Mobile = '"+mobile+"'"
-		console.log(query)
-		//Execute Query
-		zcql.executeZCQLQuery(query)
+		// const query = "Update Sessions set Sessions.IsActive = false where Sessions.IsActive = true and Sessions.Mobile = '"+mobile+"'"
+		// console.log(query)
+		// //Execute Query
+		// zcql.executeZCQLQuery(query)
+		const filter = {
+			IsActive: true,
+			Mobile : mobile
+		}
+
+		const setData = {
+			IsActive: false
+		}
+		Sessions.updateMany(filter,setData)
 		.then((queryResult)=>{//On successful execution
 			if(queryResult==null){//If no data returned
 				responseBody['OperationStatus']='NO_DATA' //Send a non success status
@@ -83,12 +93,20 @@ app.post("/endsession", (req, res) => {
 	}
 	else{//If Present
 		//Initialize ZCQL
-		let zcql = catalystApp.zcql()
-		//Build query
-		const query = "Update Sessions set EndOfSession = true where Sessions.SessionID = '"+requestBody['SessionID']+"'"
-		console.log(query)
-		//Execute Query
-		zcql.executeZCQLQuery(query)
+		// let zcql = catalystApp.zcql()
+		// //Build query
+		// const query = "Update Sessions set EndOfSession = true where Sessions.SessionID = '"+requestBody['SessionID']+"'"
+		// console.log(query)
+		// //Execute Query
+		// zcql.executeZCQLQuery(query)
+		const filter = {
+			SessionID : requestBody['SessionID']
+		}
+
+		const setData = {
+			EndOfSession: true
+		}
+		Sessions.updateMany(filter,setData)
 		.then((queryResult)=>{//On successful execution
 			if(queryResult==null){//If no data returned
 				responseBody['OperationStatus']='NO_DATA' //Send a non success status

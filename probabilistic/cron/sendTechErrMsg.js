@@ -1,4 +1,8 @@
 const catalyst = require("zoho-catalyst-sdk");
+const SessionEvents = require(".././models/SessionEvents.js");
+const Session = require(".././models/Sessions.js")
+const User = require(".././models/Users.js");
+const SystemPrompts = require(".././models/SystemPrompts.js");
 
 module.exports = (cronDetails) => {
 
@@ -9,14 +13,24 @@ module.exports = (cronDetails) => {
 
     const catalystApp = catalyst.initialize();
 	
-	let zcql = catalystApp.zcql()
+	// let zcql = catalystApp.zcql()
 
-	zcql.executeZCQLQuery("Select distinct Mobile from Sessions where CREATEDTIME >= '2023-06-24 23:53:00' and CREATEDTIME < '2023-06-26 12:19:00'")
+	// zcql.executeZCQLQuery("Select distinct Mobile from Sessions where CREATEDTIME >= '2023-06-24 23:53:00' and CREATEDTIME < '2023-06-26 12:19:00'")
+	const startDate = new Date('2023-06-24T23:53:00Z');
+	const endDate = new Date('2023-06-26T12:19:00Z');
+
+	Session.distinct('Mobile', {
+	CREATEDTIME: {
+		$gte: startDate,
+		$lt: endDate
+	}
+	})
 	.then((sessions)=>{
 		const mobiles = sessions.map(data=>data.Sessions.Mobile)
 		console.log("Total Users=",mobiles.length)
 		if(mobiles.length>0){
-			zcql.executeZCQLQuery("Select distinct Mobile, GlificID from Users where Mobile in ("+mobiles.join(",")+")")
+			//zcql.executeZCQLQuery("Select distinct Mobile, GlificID from Users where Mobile in ("+mobiles.join(",")+")")
+			User.find({ Mobile: { $in: mobiles } }, 'Mobile GlificID')
 			.then(async (users)=>{
 				const timer = (sleepTime) => {
 					return new Promise( async (resolve,reject) => {
@@ -36,8 +50,9 @@ module.exports = (cronDetails) => {
 					}
 				}
 
-				let table = catalystApp.datastore().table("SessionEvents")
-				const systemPrompt = await zcql.executeZCQLQuery("Select ROWID from SystemPrompts where Name = 'Dummy' and IsActive = true")
+				// let table = catalystApp.datastore().table("SessionEvents")
+				//const systemPrompt = await zcql.executeZCQLQuery("Select ROWID from SystemPrompts where Name = 'Dummy' and IsActive = true")
+				const systemPrompt = await SystemPrompts.findOne({ Name: promptName, IsActive: true }, 'ROWID');
 				const topicID = systemPrompt[0]['SystemPrompts']['ROWID']
 
 				users.forEach(async (record,i)=>{
@@ -63,7 +78,7 @@ module.exports = (cronDetails) => {
 										SystemPromptROWID: topicID,
 										Mobile:record.Users.Mobile
 									}
-									await table.insertRow(eventData)
+									await SessionEvents.create(eventData)
 								}
 								catch(e){
 									console.log(i+": Could not update event table for "+ record.Users.Mobile)

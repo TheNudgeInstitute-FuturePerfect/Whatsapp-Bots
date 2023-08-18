@@ -4,6 +4,8 @@ const express = require("express");
 const englishWordChecker = require("word-exists")
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
+const Sessions = require("./models/Sessions.js");
+
 
 // const app = express();
 // app.use(express.json());
@@ -149,8 +151,13 @@ app.post("/getproficiency", (req, res) => {
 		res.status(200).json(result)
 	}
 	else{
-		let zcql = catalystApp.zcql()
-		zcql.executeZCQLQuery("Select Message from Sessions where Reply is not null and MessageType = 'UserMessage' and SessionID = '"+sessionID+"'")
+		// let zcql = catalystApp.zcql()
+		// zcql.executeZCQLQuery("Select Message from Sessions where Reply is not null and MessageType = 'UserMessage' and SessionID = '"+sessionID+"'")
+		Sessions.find({
+			Reply: { $ne: null },
+			MessageType: 'UserMessage',
+			SessionID: sessionID
+		})
 		.then((sessiondata)=>{
 			if(typeof sessiondata === 'undefined'){
 				result['OperationStatus'] = "NO_DATA"

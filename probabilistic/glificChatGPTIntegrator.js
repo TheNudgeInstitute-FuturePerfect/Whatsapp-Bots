@@ -3,7 +3,8 @@
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
-
+const Session = require("./models/Sessions.js");
+const SystemPrompt = require("./models/SystemPrompts.js");
 // const app = express();
 // app.use(express.json());
 const app = express.Router();
@@ -209,11 +210,11 @@ app.post("/chatgpt", async (request, response) => {
 
   // ##############################################
   // Initialize the sessions table. Insert the new user message
-  const sessionsTable = app.datastore().table("Sessions");
+  // const sessionsTable = app.datastore().table("Sessions");
   let storedSessionRecord = {};
   if (sessionType !== "SentenceFeedback") {
     // Store User's Message in Session Table
-    storedSessionRecord = await sessionsTable.insertRow({
+    storedSessionRecord = await Session.create({
       Mobile: mobile,
       Message: encodeURIComponent(message),
       SessionID: requestBody.sessionId,
@@ -260,32 +261,70 @@ app.post("/chatgpt", async (request, response) => {
   //for (let i = startIndex; i < maxRows; i += 300) {
   query = "";
   if (sessionType === "SentenceFeedback") {
-    query =
-      "select ROWID, Message, MessageType, Reply, CREATEDTIME, SystemPrompts.Content " +
-      "from Sessions " +
-      "left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID " +
-      "where Sessions.ROWID='" +
-      storedSessionRecord["ROWID"] +
-      "'";
+    // query =
+    //   "select ROWID, Message, MessageType, Reply, CREATEDTIME, SystemPrompts.Content " +
+    //   "from Sessions " +
+    //   "left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID " +
+    //   "where Sessions.ROWID='" +
+    //   storedSessionRecord["ROWID"] +
+    //   "'";
+    const queryOutput = await Session.findOne({ ROWID: storedSessionRecord["ROWID"] })
+                                  .populate({
+                                    path: 'SystemPromptsROWID',
+                                    model: SystemPrompt,
+                                    select: 'Content'
+                                  });
   } else {
-    query =
-      "select ROWID, Message, MessageType, Reply, CREATEDTIME, SystemPrompts.Content " +
-      "from Sessions " +
-      "left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID " +
-      "where Mobile = " +
-      mobile +
-      " and SessionID = '" +
-      sessionId +
-      "'" +
-      " order by CREATEDTIME ASC" /*+
+    // query =
+    //   "select ROWID, Message, MessageType, Reply, CREATEDTIME, SystemPrompts.Content " +
+    //   "from Sessions " +
+    //   "left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID " +
+    //   "where Mobile = " +
+    //   mobile +
+    //   " and SessionID = '" +
+    //   sessionId +
+    //   "'" +
+    //   " order by CREATEDTIME ASC"
+      
+      /*+
       " limit " +
       i +
       ", 300"*/;
     //" and SystemPromptsROWID =" + systemPromptROWID +
+
+    const queryOutput = await Session.aggregate([
+      {
+        $match: {
+          Mobile: mobile,
+          SessionID: sessionId
+        }
+      },
+      {
+        $lookup: {
+          from: SystemPrompt, // Name of the collection to join with
+          localField: 'SystemPromptsROWID',
+          foreignField: 'ROWID',
+          as: 'systemPromptData'
+        }
+      },
+      {
+        $sort: { CREATEDTIME: 1 } // Sort by CREATEDTIME in ascending order
+      },
+      {
+        $project: {
+          ROWID: 1,
+          Message: 1,
+          MessageType: 1,
+          Reply: 1,
+          CREATEDTIME: 1,
+          'systemPromptData.Content': 1
+        }
+      }
+    ]);
   }
 
-  console.debug((new Date()).toString()+"|"+prependToLog,"Query: " + query);
-  const queryOutput = await zcql.executeZCQLQuery(query);
+  // console.debug((new Date()).toString()+"|"+prependToLog,"Query: " + query);
+  // const queryOutput = await zcql.executeZCQLQuery(query);
 
   const delimeterStartToken = process.env.DelimiterStartToken;
   const delimeterEndToken = process.env.DelimiterEndToken;
@@ -484,8 +523,8 @@ app.post("/chatgpt", async (request, response) => {
   // Update the latest session record with the reply
   let updatedSessionRecord;
   if (sessionType === "SentenceFeedback") {
-    updatedSessionRecord = await sessionsTable.updateRow({
-      ROWID: storedSessionRecord.ROWID,
+    updatedSessionRecord = await Session.updateMany({
+      ROWID: storedSessionRecord.ROWID},{
       Classification: sentenceFeedbackClassification,
       Improvement: sentenceFeedbackImprovement,
       SentenceLevelFeedback: encodeURIComponent(reply),
@@ -496,8 +535,8 @@ app.post("/chatgpt", async (request, response) => {
     if (sessionId === "Onboarding") {
       isActive = false;
     }
-    updatedSessionRecord = await sessionsTable.updateRow({
-      ROWID: storedSessionRecord.ROWID,
+    updatedSessionRecord = await Session.updateMany({
+      ROWID: storedSessionRecord.ROWID},{
       Reply: encodeURIComponent(reply),
       IsActive: sessionType !== "ObjectiveFeedback" ? isActive : false,
       ReplyAudioURL: publicURL,
@@ -511,15 +550,23 @@ app.post("/chatgpt", async (request, response) => {
   console.info((new Date()).toString()+"|"+prependToLog,"Updated the Session Record");
 
   if (operationStatus === "END_OF_CNVRSSN") {
-    const query =
-      "Update Sessions set IsActive = false where Mobile = " +
-      mobile +
-      " and ROWID !=" +
-      storedSessionRecord.ROWID +
-      " and SessionID = '" +
-      sessionId +
-      "'";
-    await zcql.executeZCQLQuery(query);
+    // const query =
+    //   "Update Sessions set IsActive = false where Mobile = " +
+    //   mobile +
+    //   " and ROWID !=" +
+    //   storedSessionRecord.ROWID +
+    //   " and SessionID = '" +
+    //   sessionId +
+    //   "'";
+    // await zcql.executeZCQLQuery(query);
+    await Session.updateMany(
+      {
+        Mobile: mobile,
+        ROWID: { $ne: storedSessionRecord.ROWID },
+        SessionID: sessionId
+      },
+      { $set: { IsActive: false } });
+      
     console.info((new Date()).toString()+"|"+prependToLog,"Marked the session inactive");
   }
 
@@ -580,8 +627,8 @@ app.post("/chatgpt", async (request, response) => {
       (fileName = storedSessionRecord.ROWID)
     );
     if (messageAudioPublicURL !== null) {
-      sessionsTable.update_row({
-        ROWID: storedSessionRecord.ROWID,
+      Session.updateMany({
+        ROWID: storedSessionRecord.ROWID},{
         MessageAudioURL: messageAudioPublicURL,
       });
     } else {

@@ -1,5 +1,6 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
+const UserData = require(".././models/UserData.js")
 
 module.exports = async (basicIO) => {
 
@@ -20,9 +21,9 @@ module.exports = async (basicIO) => {
 		Answer		:	basicIO["Answer"]
 	}
 	
-	let table = catalystApp.datastore().table("UserData")
+	// let table = catalystApp.datastore().table("UserData")
 	try{
-       const row = await table.insertRow(insertData);
+       const row = await UserData.create(insertData);
 	   responseJSON["UserDataROWID"] = row['ROWID']
 	   console.log("End of Execution:", responseJSON)
 	   return JSON.stringify(responseJSON);

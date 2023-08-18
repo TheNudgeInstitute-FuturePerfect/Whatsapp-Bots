@@ -4,6 +4,9 @@ const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
+const WordleAttempts = require("./models/WordleAttempts.js");
+const User = require("./models/Users.js");
+const WordleConfiguration = require("./models/WordleConfiguration.js");
 // const app = express();
 // app.use(express.json());
 const app = express.Router();
@@ -78,12 +81,50 @@ app.post("/userstatus", (req, res) => {
         wordleDate = currentDate.getFullYear()+"-"+('0'+(currentDate.getMonth()+1)).slice(-2)+"-"+('0'+currentDate.getDate()).slice(-2)
 
         console.info((new Date()).toString()+"|"+prependToLog,"Wordle Date="+wordleDate)
-        let zcql = catalystApp.zcql()
-        let query = "select Users.ROWID, Users.WordleLevel, WordleAttempts.ROWID, WordleAttempts.WordleROWID, WordleAttempts.Answer, WordleAttempts.IsCorrect "+
-        "from Users left join WordleAttempts on Users.ROWID = WordleAttempts.UserROWID"+
-        " where Mobile = "+requestBody['Mobile'].slice(-10)+
-        " order by WordleAttempts.CREATEDTIME ASC"
-        zcql.executeZCQLQuery(query)
+        // let zcql = catalystApp.zcql()
+        // let query = "select Users.ROWID, Users.WordleLevel, WordleAttempts.ROWID, WordleAttempts.WordleROWID, WordleAttempts.Answer, WordleAttempts.IsCorrect "+
+        // "from Users left join WordleAttempts on Users.ROWID = WordleAttempts.UserROWID"+
+        // " where Mobile = "+requestBody['Mobile'].slice(-10)+
+        // " order by WordleAttempts.CREATEDTIME ASC"
+        // zcql.executeZCQLQuery(query)
+        const aggregatePipeline = [
+            {
+              $match: {
+                Mobile: requestBody['Mobile'].slice(-10)
+              }
+            },
+            {
+              $lookup: {
+                from: WordleAttempts, // Name of the collection to join with
+                localField: 'ROWID',
+                foreignField: 'UserROWID',
+                as: 'wordleAttempts'
+              }
+            },
+            {
+              $unwind: {
+                path: '$wordleAttempts',
+                preserveNullAndEmptyArrays: true
+              }
+            },
+            {
+              $sort: {
+                'wordleAttempts.CREATEDTIME': 1
+              }
+            },
+            {
+              $project: {
+                'Users.ROWID': 1,
+                'Users.WordleLevel': 1,
+                'wordleAttempts.ROWID': 1,
+                'wordleAttempts.WordleROWID': 1,
+                'wordleAttempts.Answer': 1,
+                'wordleAttempts.IsCorrect': 1
+              }
+            }
+          ];
+          
+          User.aggregate(aggregatePipeline)
         .then(async (allWordleAttempts)=>{
             console.debug((new Date()).toString()+"|"+prependToLog,"Query=",query)
             if(allWordleAttempts.length==0){
@@ -136,8 +177,10 @@ app.post("/userstatus", (req, res) => {
                     }
                 }      
                 console.debug((new Date()).toString()+"|"+prependToLog,"User's Wordle Level="+userWordleLevel)
-                query = "Select * from WordleConfiguration where WordleDate = '"+wordleDate+"' and EnglishLevel = '"+userWordleLevel+"'"
-                zcql.executeZCQLQuery(query)
+                // query = "Select * from WordleConfiguration where WordleDate = '"+wordleDate+"' and EnglishLevel = '"+userWordleLevel+"'"
+                // zcql.executeZCQLQuery(query)
+                WordleConfiguration.find(
+                    { WordleDate: wordleDate, EnglishLevel: userWordleLevel })
                 .then((wordleofday)=>{
                     console.debug((new Date()).toString()+"|"+prependToLog,"WordleOfDay=",wordleofday)
                     if(wordleofday.includes("ZCQL QUERY ERR")){
@@ -265,14 +308,20 @@ app.post("/storeuserresponse", (req, res) => {
     else {
         //Getting ROWID of Student
         let zcql = catalystApp.zcql()
-        let query = "Select ROWID, WordleLevel from Users where Mobile = "+requestBody['Mobile'].slice(-10)
-        zcql.executeZCQLQuery(query)
+        // let query = "Select ROWID, WordleLevel from Users where Mobile = "+requestBody['Mobile'].slice(-10)
+        // zcql.executeZCQLQuery(query)
+        User.findOne(
+            { Mobile: mobile }, // Condition to match
+            'ROWID WordleLevel')
         .then((user)=>{
             console.debug((new Date()).toString()+"|"+prependToLog,"Query=",query)
             if(user.length>0){
                 console.info((new Date()).toString()+"|"+prependToLog,"Got Student Record")
-                query = "Select Word from WordleConfiguration where ROWID = "+requestBody['WordleROWID']
-                zcql.executeZCQLQuery(query)
+                // query = "Select Word from WordleConfiguration where ROWID = "+requestBody['WordleROWID']
+                // zcql.executeZCQLQuery(query)
+                WordleConfiguration.findOne(
+                    { ROWID: requestBody['WordleROWID'] }, // Condition to match
+                    'Word')
                 .then((wordleofday)=>{
                     console.debug((new Date()).toString()+"|"+prependToLog,"Query=",query)
                     if(wordleofday.length>0){

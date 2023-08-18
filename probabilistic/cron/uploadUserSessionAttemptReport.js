@@ -1,5 +1,11 @@
 const catalyst = require("zoho-catalyst-sdk");
 const emojiRegex = require("emoji-regex");
+const SessionEvents = require("./models/SessionEvents.js");
+const SessionFeedback = require("./models/SessionFeedback.js")
+const Session = require(".././models/Sessions.js");
+const SystemPrompts = require(".././models/SystemPrompts.js");
+const UsersReport = require(".././models/UsersReport.js");
+const UserSessionAttemptReport = require(".././models/UserSessionAttemptReport.js");
 
 const catalystApp = catalyst.initialize();
 
@@ -68,8 +74,9 @@ const getAllRows = (fields, query, zcql, dataLimit) => {
 
 let zcql = catalystApp.zcql();
 
-let query = "select {} from UserSessionAttemptReport"; // where IsActive = true or IsActive is null"
-getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
+//let query = "select {} from UserSessionAttemptReport"; // where IsActive = true or IsActive is null"
+//getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
+UserSessionAttemptReport.find({}, 'ROWID SessionID IsActive EndOfSession')
   .then((usersAttemptReport) => {
     console.info(
       new Date().toString() + "|" + prependToLog,
@@ -101,22 +108,36 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
       new Date().toString() + "|" + prependToLog,
       "Total Closed Sessions = " + closedSessions.length
     );
-    query = "select {} from UsersReport";
-    getAllRows("Name, Mobile, OnboardingDate", query, zcql)
+   // query = "select {} from UsersReport";
+    //getAllRows("Name, Mobile, OnboardingDate", query, zcql)
+    UsersReport.find({},'Name Mobile OnboardingDate')
       .then((users) => {
         if (users.length > 0) {
           const mobiles = users.map((user) => user.UsersReport.Mobile);
-          query =
-            "Select {} " +
-            "from Sessions " +
-            "left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID " +
-            "where ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) " + //and SessionID not in ('"+closedSessions.join("','")+"') "+
-            "order by Sessions.CREATEDTIME ASC";
-          getAllRows(
-            "Sessions.IsActive, Sessions.PerformanceReportURL, Sessions.EndOfSession, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.ROWID, SystemPrompts.Name, SystemPrompts.Persona, SystemPrompts.Module, Sessions.Message, Sessions.MessageType, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens",
-            query,
-            zcql
-          )
+          // query =
+          //   "Select {} " +
+          //   "from Sessions " +
+          //   "left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID " +
+          //   "where ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) " + //and SessionID not in ('"+closedSessions.join("','")+"') "+
+          //   "order by Sessions.CREATEDTIME ASC";
+          // getAllRows(
+          //   "Sessions.IsActive, Sessions.PerformanceReportURL, Sessions.EndOfSession, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.ROWID, SystemPrompts.Name, SystemPrompts.Persona, SystemPrompts.Module, Sessions.Message, Sessions.MessageType, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens",
+          //   query,
+          //   zcql
+          // )
+          Session.find()
+            .populate({
+              path: 'SystemPromptsROWID',
+              model: SystemPrompts,
+              match: {
+                $or: [
+                  { Type: 'Topic Prompt' },
+                  { SystemPromptsROWID: null }
+                ]
+              },
+              select: 'ROWID Name Persona Module Type'
+            })
+            .sort({ CREATEDTIME: 1 })
             .then(async (allSessions) => {
               const sessions = allSessions.filter(
                 (data) =>
@@ -131,14 +152,15 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                   .map((session) => session.Sessions.SessionID)
                   .filter(unique);
                 await timer(2000)
-                query = "Select {} from SessionFeedback";
-                //"where SessionID in ('"+sessionIDs.join("','")+"') "+
-                //"order by SessionFeedback.CREATEDTIME ASC"
-                getAllRows(
-                  "SessionID, Rating, Feedback, FeedbackType, FeedbackURL, GPTRating, GPTFeedback, GPTFeedbackType, GPTFeedbackURL",
-                  query,
-                  zcql
-                )
+                // query = "Select {} from SessionFeedback";
+                // //"where SessionID in ('"+sessionIDs.join("','")+"') "+
+                // //"order by SessionFeedback.CREATEDTIME ASC"
+                // getAllRows(
+                //   "SessionID, Rating, Feedback, FeedbackType, FeedbackURL, GPTRating, GPTFeedback, GPTFeedbackType, GPTFeedbackURL",
+                //   query,
+                //   zcql
+                // )
+                SessionFeedback.find()
                   .then((allfeedbacks) => {
                     const feedbacks = allfeedbacks.filter((data) =>
                       sessionIDs.includes(data.SessionFeedback.SessionID)
@@ -168,9 +190,10 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                 ];
                             return d;
                           });
-                        query =
-                          "Select {} from SessionEvents where Event in ('Progress Message - 1','Progress Message - 2','Progress Message - 3','Progress Message - 4','Progress Message - 5','Progress Message - 6','Progress Message - 7','Progress Message - 8')";
-                        getAllRows("distinct SessionID", query, zcql)
+                        // query =
+                        //   "Select {} from SessionEvents where Event in ('Progress Message - 1','Progress Message - 2','Progress Message - 3','Progress Message - 4','Progress Message - 5','Progress Message - 6','Progress Message - 7','Progress Message - 8')";
+                        // getAllRows("distinct SessionID", query, zcql)
+                        await SessionEvents.find({Event : { $in : ['Progress Message - 1','Progress Message - 2','Progress Message - 3','Progress Message - 4','Progress Message - 5','Progress Message - 6','Progress Message - 7','Progress Message - 8']}})
                           .then(async (allevents) => {
                             const events = allevents.filter((data) =>
                               sessionIDs.includes(data.SessionEvents.SessionID)

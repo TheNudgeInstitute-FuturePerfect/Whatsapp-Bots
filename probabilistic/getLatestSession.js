@@ -3,6 +3,9 @@
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
+const Sessions = require("./models/Sessions.js");
+const SystemPrompt = require("./models/SystemPrompts.js");
+const User = require("./models/Users.js");
 
 // const app = express();
 // app.use(express.json());
@@ -29,13 +32,21 @@ app.post("/latestsession", (req, res) => {
 		const mobile = requestBody['Mobile'].toString().slice(-10)
 		const module = (typeof requestBody['Module'] === 'undefined') ? null : (requestBody['Module'].startsWith("@contact") || requestBody['Module'].startsWith("@result")) ? null : requestBody['Module']
 		//Initialize ZCQL
-		let zcql = catalystApp.zcql()
-		//Build query
-		let query = "select Sessions.IsActive, Sessions.Reply, Sessions.ReplyAudioURL, Sessions.SessionID, Sessions.SystemPromptsROWID, SystemPrompts.Name from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID  where Sessions.Mobile = '"+mobile+"' "+
-					(module != null ? " and SystemPrompts.Module = '"+module+"' ":"")+
-					"order by Sessions.CREATEDTIME DESC"
-		//Execute Query
-		zcql.executeZCQLQuery(query)
+		// let zcql = catalystApp.zcql()
+		// //Build query
+		// let query = "select Sessions.IsActive, Sessions.Reply, Sessions.ReplyAudioURL, Sessions.SessionID, Sessions.SystemPromptsROWID, SystemPrompts.Name from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID  where Sessions.Mobile = '"+mobile+"' "+
+		// 			(module != null ? " and SystemPrompts.Module = '"+module+"' ":"")+
+		// 			"order by Sessions.CREATEDTIME DESC"
+		// //Execute Query
+		// zcql.executeZCQLQuery(query)
+		Sessions.find({ Mobile: mobile })
+		.populate({
+			path: 'SystemPromptsROWID',
+			model: SystemPrompt,
+			select: 'Name Module -_id', // Select Name and Module fields, exclude _id
+			match: module ? { Module: module } : {} // Apply Module filter if provided
+		})
+		.sort({ CREATEDTIME: -1 })
 		.then((queryResult)=>{//On successful execution
 			if(queryResult==null){//If no data returned
 				responseBody['OperationStatus']='NO_DATA' //Send a non success status
@@ -44,8 +55,9 @@ app.post("/latestsession", (req, res) => {
 				sendResponse()
 			}
 			else{
-				query = "select Users.OnboardingComplete, Users.OnboardingStep from Users where Users.Mobile = "+mobile+""
-				zcql.executeZCQLQuery(query)
+				// query = "select Users.OnboardingComplete, Users.OnboardingStep from Users where Users.Mobile = "+mobile+""
+				// zcql.executeZCQLQuery(query)
+				User.findOne({ Mobile: mobile }, 'OnboardingComplete OnboardingStep')
 				.then((users)=>{//On successful execution
 					if(typeof users === 'undefined'){
 						responseBody['OperationStatus']='NO_USR' //Send a non success status

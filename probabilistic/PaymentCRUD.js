@@ -3,8 +3,10 @@
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
+const SessionEvents = require("./models/SessionEvents.js");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
-let userTopicSubscriptionMapper = require("./models/userTopicSubscriptionMapper.js")
+let userTopicSubscriptionMapper = require("./models/userTopicSubscriptionMapper.js");
+const User = require("./models/Users.js");
 
 // const app = express();
 // app.use(express.json());
@@ -55,8 +57,9 @@ app.post("/create", (req, res) => {
 
     const mobile = requestBody['Mobile'].toString().slice(-10)
 
-    let zcql = catalystApp.zcql()
-    zcql.executeZCQLQuery("Select ROWID, Name, GlificID from Users where Mobile ='"+mobile+"'")
+    // let zcql = catalystApp.zcql()
+    // zcql.executeZCQLQuery("Select ROWID, Name, GlificID from Users where Mobile ='"+mobile+"'")
+    User.findOne({ Mobile: mobile }, 'ROWID Name GlificID')
     .then(async (user)=>{
         if(!Array.isArray(user))
             throw new Error(user)
@@ -241,7 +244,7 @@ app.get("/update", async (req, res) => {
                         SystemPromptROWID: rowReturned[0]['SystemPromptROWID'],
                         Mobile: requestBody['payload']['payment_link']['entity']['customer']['contact'].slice(-10)
                     }
-                    let table = catalystApp.datastore().table("SessionEvents")
+                    // let table = catalystApp.datastore().table("SessionEvents")
                     
 					if(requestBody['payload']['payment_link']['entity']['status']=='paid'){
 						hsmTemplateID = process.env.PaymentSuccessMsgID
@@ -273,7 +276,7 @@ app.get("/update", async (req, res) => {
 						console.info((new Date()).toString()+"|"+prependToLog,"HSM Message Not to be Sent to User as Payment Status: "+requestBody['payload']['payment_link']['entity']['status'])
 					}
                     if(eventData['Event']!=null){
-                        const insertResult = await table.insertRow(eventData)
+                        const insertResult = await SessionEvents.create(eventData)
                         if(typeof insertResult['ROWID']==='undefined')
                             throw new Error(insertResult)
                         console.info((new Date()).toString()+"|"+prependToLog,"Session Event Table Updated for event = "+eventData['Event'])

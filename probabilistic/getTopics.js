@@ -6,6 +6,9 @@ const catalyst = require("zoho-catalyst-sdk");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
 let userTopicSubscriptionMapper = require("./models/userTopicSubscriptionMapper.js")
 let getConfigurationParam = require("./common/getConfigurationParam.js");
+const Session = require("./models/Sessions.js");
+const User = require("./models/Users.js");
+const UserPaidTopicMapper = require("./models/UserPaidTopicMapper.js");
 
 // const app = express();
 // app.use(express.json());
@@ -217,7 +220,8 @@ app.post("/allocatetopic", (req, res) => {
                     resolve('Unlocked')
                   }
                   else if(typeof topicConfig.Values['maxsessions'] !== 'undefined'){
-                    zcql.executeZCQLQuery("select distinct SessionID from Sessions where SystemPromptsROWID='"+systemPromptROWID+"'")
+                    // zcql.executeZCQLQuery("select distinct SessionID from Sessions where SystemPromptsROWID='"+systemPromptROWID+"'")
+                    Session.distinct('SessionID', { SystemPromptsROWID: systemPromptROWID })
                     .then((sessions)=>{
                       if(!Array.isArray(sessions)){
                         console.info((new Date()).toString()+"|"+prependToLog,"Failed to get session count for the user ")
@@ -252,9 +256,10 @@ app.post("/allocatetopic", (req, res) => {
             }
             else{
               console.info((new Date()).toString()+"|"+prependToLog,"Topic selected is paid. Checking status for the user")
-              let query = "Select ROWID from Users where IsActive = true and Users.Mobile="+mobile
-              console.debug("Checking status of Topic for the user:",query)
-              zcql.executeZCQLQuery(query)
+              // let query = "Select ROWID from Users where IsActive = true and Users.Mobile="+mobile
+              // console.debug("Checking status of Topic for the user:",query)
+              // zcql.executeZCQLQuery(query)
+              User.findOne({ Mobile: mobile, IsActive: { $ne: false } }, 'ROWID')
               .then(async (user)=>{
                 if(!Array.isArray(user)){
                   console.info((new Date()).toString()+"|"+prependToLog,"Error in query for getting user info")
@@ -364,17 +369,22 @@ app.post("/allocatetopic", (req, res) => {
               );
 
               //Get the list of all prompts of the that has been practised by user
-              query =
-                "select DISTINCT Sessions.SessionID, Sessions.SystemPromptsROWID " +
-                "from Sessions " +
-                "where Sessions.Mobile = " +
-                mobile +
-                " and SystemPromptsROWID in (" +
-                systemPromptROWIDs.join(",") +
-                ") " +
-                "order by CREATEDTIME desc";
-              zcql
-                .executeZCQLQuery(query)
+              // query =
+              //   "select DISTINCT Sessions.SessionID, Sessions.SystemPromptsROWID " +
+              //   "from Sessions " +
+              //   "where Sessions.Mobile = " +
+              //   mobile +
+              //   " and SystemPromptsROWID in (" +
+              //   systemPromptROWIDs.join(",") +
+              //   ") " +
+              //   "order by CREATEDTIME desc";
+              // zcql
+              //   .executeZCQLQuery(query)
+              Session.distinct('SessionID', {
+                Mobile: mobile,
+                SystemPromptsROWID: { $in: systemPromptROWIDs }
+              })
+                .sort({ CREATEDTIME: -1 })
                 .then((sessions) => {
                   var index = 0;
 
@@ -532,7 +542,8 @@ app.post("/topicpersonas", (req, res) => {
               responseJSON["Persona" + (i - nextStartIndex + 1)] = allPrompts[i]["Persona"]
             else{
               try{
-                const user = await zcql.executeZCQLQuery("Select ROWID from Users where Mobile = '"+requestBody["Mobile"].slice(-10)+"'")
+                // const user = await zcql.executeZCQLQuery("Select ROWID from Users where Mobile = '"+requestBody["Mobile"].slice(-10)+"'")
+                const user = await User.findOne({ Mobile: requestBody["Mobile"].slice(-10)}, 'ROWID');
                 if(!Array.isArray(user))
                   throw new Error(user)
                 console.info((new Date()).toString()+"|"+prependToLog,"Fetched User's ID")
@@ -610,11 +621,38 @@ app.post("/unlocktopic", (req, res) => {
   mobile = mobile.toString().slice(-10);
 
   //Get the SystemPrompt details for the topics
-  let query =
-    "select Users.ROWID, UserPaidTopicMapper.ROWID, UserPaidTopicMapper.SystemPromptROWID, UserPaidTopicMapper.IsActive, UserPaidTopicMapper.TransactionID, UserPaidTopicMapper.PaymentStatus  from Users left join UserPaidTopicMapper on Users.ROWID = UserPaidTopicMapper.UserROWID where Users.IsActive = true and Users.Mobile="+mobile;
-  let zcql = catalystApp.zcql();
-  zcql
-    .executeZCQLQuery(query)
+  // let query =
+  //   "select Users.ROWID, UserPaidTopicMapper.ROWID, UserPaidTopicMapper.SystemPromptROWID, UserPaidTopicMapper.IsActive, UserPaidTopicMapper.TransactionID, UserPaidTopicMapper.PaymentStatus  from Users left join UserPaidTopicMapper on Users.ROWID = UserPaidTopicMapper.UserROWID where Users.IsActive = true and Users.Mobile="+mobile;
+  // let zcql = catalystApp.zcql();
+  // zcql
+  //   .executeZCQLQuery(query)
+  User.aggregate([
+    {
+      $match: {
+        Mobile: mobile,
+        IsActive: true
+      }
+    },
+    {
+      $lookup: {
+        from: UserPaidTopicMapper, // Name of the collection to join with
+        localField: 'ROWID',
+        foreignField: 'UserROWID',
+        as: 'paidTopicMappings'
+      }
+    },
+    {
+      $project: {
+        _id: 0,
+        'Users.ROWID': 1,
+        'paidTopicMappings.ROWID': 1,
+        'paidTopicMappings.SystemPromptROWID': 1,
+        'paidTopicMappings.IsActive': 1,
+        'paidTopicMappings.TransactionID': 1,
+        'paidTopicMappings.PaymentStatus': 1
+      }
+    }
+  ])
     .then((paymentStatus) => {
       if ((!Array.isArray(paymentStatus)) && (paymentStatus.length > 0)) {
         responseObject["OperationStatus"] = "APP_ERR";

@@ -1,4 +1,6 @@
 const catalyst = require("zoho-catalyst-sdk");
+const SessionEvents = require(".././models/SessionEvents.js");
+const User = require(".././models/Users.js");
 
 const catalystApp = catalyst.initialize();
 
@@ -91,11 +93,20 @@ const getAllRows = (fields) => {
     resolve(jsonReport);
   });
 };
-getAllRows("distinct Mobile")
+// getAllRows("distinct Mobile")
+SessionEvents.find({SessionID:'Welcome Message'})
 .then(async (events) => {
   const mobiles = events.length > 0 ? events.map(data=>data.SessionEvents.Mobile) : []
-  query = "select {} from Users where Tags is not null" + (mobiles.length>0?" and Mobile not in ("+mobiles.join(",")+")":"");
-  getAllRows("Name, Mobile, GlificID, Tags")
+  let query = { Tags: { $ne: null } };
+
+  if (mobiles.length > 0) {
+    query.Mobile = { $nin: mobiles };
+  }
+  // query = "select {} from Users where Tags is not null" + (mobiles.length>0?" and Mobile not in ("+mobiles.join(",")+")":"");
+  // getAllRows("Name, Mobile, GlificID, Tags")
+  User.find(
+    query, // Conditions to match
+    'Name Mobile GlificID Tags')
   .then(async (users) => {
     //If there is no record, then the mobile number does not exist in system. Return error
     if (users == null) {
@@ -114,7 +125,7 @@ getAllRows("distinct Mobile")
         });
       };
 
-      let table = catalystApp.datastore().table("SessionEvents");
+      // let table = catalystApp.datastore().table("SessionEvents");
       const systemPrompt = await zcql.executeZCQLQuery(
         "Select ROWID from SystemPrompts where Name = 'Dummy' and IsActive = true"
       );
@@ -310,7 +321,7 @@ getAllRows("distinct Mobile")
                   SystemPromptROWID: topicID,
                   Mobile: record.Users.Mobile,
                 };
-                await table.insertRow(eventData);
+                await SessionEvents.create(eventData);
               } catch (e) {
                 console.error((new Date()).toString()+"|"+prependToLog,
                 i +
@@ -365,7 +376,7 @@ getAllRows("distinct Mobile")
                       SystemPromptROWID: topicID,
                       Mobile: record.Users.Mobile,
                     };
-                    await table.insertRow(eventData);
+                    await SessionEvents.create(eventData);
                   } catch (e) {
                     console.error((new Date()).toString()+"|"+prependToLog,
                       i +

@@ -4,6 +4,12 @@ const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
+const SessionEvents = require("./models/SessionEvents.js");
+const Session = require("./models/Sessions.js");
+const SystemPrompt = require("./models/SystemPrompts.js");
+const User = require("./models/Users.js");
+const UserAssessmentLog = require("./models/UserAssessmentLogs.js");
+
 // const app = express();
 // app.use(express.json());
 const app = express.Router();
@@ -53,15 +59,46 @@ app.post("/totalsessions", (req, res) => {
     const systemPromptROWID = requestBody["TopicID"] ? ((requestBody["TopicID"].startsWith("@result")||requestBody["TopicID"].startsWith("@contact")) ? null : requestBody["TopicID"]):null
     const game = requestBody["Game"] ? ((requestBody["Game"].startsWith("@result")||requestBody["Game"].startsWith("@contact")) ? null : requestBody["Game"]):null
         
-    let query = "Select {} from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID where Sessions.Mobile = "+mobile
-    const sessionQuery = getAllRows("distinct SystemPrompts.Persona, Sessions.SystemPromptsROWID, Sessions.SessionID, Sessions.IsActive",query,zcql,prependToLog)
-    const learningQuery = "Select {} from UserAssessmentLogs left join Users on Users.ROWID = UserAssessmentLogs.UserROWID where Users.Mobile = "+mobile
-    const userAssessmentQuery = getAllRows("distinct ROWID, IsAssessmentComplete",learningQuery,zcql,prependToLog)
+    // let query = "Select {} from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID where Sessions.Mobile = "+mobile
+    // const sessionQuery = getAllRows("distinct SystemPrompts.Persona, Sessions.SystemPromptsROWID, Sessions.SessionID, Sessions.IsActive",query,zcql,prependToLog)
+    const sessionQuery = Session.distinct('SystemPromptsROWID', { Mobile: mobile })
+                                  .populate({
+                                    path: 'SystemPromptsROWID',
+                                    model: SystemPrompt,
+                                    select: 'Persona'
+                                  })
+    // const learningQuery = "Select {} from UserAssessmentLogs left join Users on Users.ROWID = UserAssessmentLogs.UserROWID where Users.Mobile = "+mobile
+    // const userAssessmentQuery = getAllRows("distinct ROWID, IsAssessmentComplete",learningQuery,zcql,prependToLog)
+    const userAssessmentQuery = UserAssessmentLog.aggregate([
+      {
+        $lookup: {
+          from: User, // Name of the collection to join with
+          localField: 'UserROWID',
+          foreignField: 'ROWID',
+          as: 'user'
+        }
+      },
+      {
+        $unwind: '$user'
+      },
+      {
+        $match: {
+          'user.Mobile': mobile
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          'UserAssessmentLogs.ROWID': 1,
+          'UserAssessmentLogs.IsAssessmentComplete': 1
+        }
+      }
+    ]);
     const axios = require("axios");
     const gameQuery = axios.get(process.env.WordleReportURL+mobile)
-    const learningStartQuery = "Select {} from SessionEvents where Event = 'Learn Session Start' and Mobile = "+mobile
-    const runLearningStartQuery = getAllRows("distinct ROWID",learningStartQuery,zcql,prependToLog)
-    
+    // const learningStartQuery = "Select {} from SessionEvents where Event = 'Learn Session Start' and Mobile = "+mobile
+    // const runLearningStartQuery = getAllRows("distinct ROWID",learningStartQuery,zcql,prependToLog)
+    const runLearningStartQuery = SessionEvents.find({Event:'Learn Session Start',Mobile:mobile})
 
     Promise.all([sessionQuery,userAssessmentQuery,gameQuery,runLearningStartQuery])
     .then(([userSessions,userAssessmentLogs,wordleAttempts,learningStart])=>{

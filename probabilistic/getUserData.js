@@ -3,7 +3,8 @@
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
-
+const UserData = require("./models/UserData.js");
+const User = require("./models/Users.js");
 // const app = express();
 // app.use(express.json());
 const app = express.Router();
@@ -43,8 +44,36 @@ app.post("/getuserdata", (req, res) => {
 				res.status(200).json(result)
 			}
 			else{
-				let zcql = catalystApp.zcql()
-				zcql.executeZCQLQuery("Select Question, Answer from UserData left join Users on UserData.UserROWID = Users.ROWID where Segment = '"+segment+"' and Users.Mobile = "+mobile+" order by UserData.CREATEDTIME DESC")
+				// let zcql = catalystApp.zcql()
+				// zcql.executeZCQLQuery("Select Question, Answer from UserData left join Users on UserData.UserROWID = Users.ROWID where Segment = '"+segment+"' and Users.Mobile = "+mobile+" order by UserData.CREATEDTIME DESC")
+				UserData.aggregate([
+					{
+					  $lookup: {
+						from: User, // Name of the collection to join with
+						localField: 'UserROWID',
+						foreignField: 'ROWID',
+						as: 'user'
+					  }
+					},
+					{
+					  $unwind: '$user'
+					},
+					{
+					  $match: {
+						Segment: segment,
+						'user.Mobile': mobile
+					  }
+					},
+					{
+					  $sort: { CREATEDTIME: -1 }
+					},
+					{
+					  $project: {
+						Question: 1,
+						Answer: 1
+					  }
+					}
+				  ])
 				.then((userdata)=>{
 					if(typeof userdata === 'undefined'){
 						result['OperationStatus'] = "NO_DATA"
