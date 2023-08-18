@@ -113,9 +113,11 @@ app.post("/totalsessions", (req, res) => {
               //Filtering for Persona
               if((systemPromptROWID != null)&&(sessions.length>0)){
                 const personaSessions = sessions.filter(data=>data.Sessions.SystemPromptsROWID==systemPromptROWID)
-                responseObject['Persona'] = personaSessions[0]['SystemPrompts']['Persona']
-                responseObject['TotalPersonaSessionsStartd'] = personaSessions.map(data=>data.Sessions.SessionID).filter(unique).length
-                responseObject['TotalPersonaSessionsCompleted'] = responseObject['TotalPersonaSessionsStartd'] - personaSessions.filter(data=>data.Sessions.IsActive==true).map(data=>data.Sessions.SessionID).filter(unique)
+                if(personaSessions.length>0){
+                  responseObject['Persona'] = personaSessions[0]['SystemPrompts']['Persona']
+                  responseObject['TotalPersonaSessionsStartd'] = personaSessions.map(data=>data.Sessions.SessionID).filter(unique).length
+                  responseObject['TotalPersonaSessionsCompleted'] = responseObject['TotalPersonaSessionsStartd'] - personaSessions.filter(data=>data.Sessions.IsActive==true).map(data=>data.Sessions.SessionID).filter(unique)
+                }
               }
           }
           console.info((new Date()).toString()+"|"+prependToLog,"End of Execution")
