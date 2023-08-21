@@ -1332,7 +1332,7 @@ app.get("/sessionevents", (req, res) => {
 	let query = "Select {} from SessionEvents left join SystemPrompts on SystemPrompts.ROWID=SessionEvents.SystemPromptROWID where SessionEvents.CREATEDTIME >='"+startDate+" 00:00:00' and SessionEvents.CREATEDTIME <= '"+endDate+" 23:59:59' order by CREATEDTIME ASC"
 	getAllRows("Mobile, SessionID, Event, SystemPrompts.Name, SystemPrompts.Persona, SessionEvents.CREATEDTIME", query,zcql,dataLimit)
 			.then((sessions)=>{
-				var eventData = sessions.filter(data=> event == null ? true : event.includes(data.SessionEvents.Event))
+				var eventData = sessions.filter(data=> event == null ? true : (event.includes(data.SessionEvents.Event)) || (data.SessionEvents.Event.includes(event)))
 				var report = eventData.map(data=>{
 					return {
 						Mobile : data.SessionEvents.Mobile,
@@ -2107,6 +2107,150 @@ app.get("/cfuattempts", (req, res) => {
 	});
 });
 
+app.get("/sessionfeedbacks", (req, res) => {
+
+    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+
+	const executionID = Math.random().toString(36).slice(2)
+    
+    //Prepare text to prepend with logs
+    const params = ["Reports",req.url,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+
+	let zcql = catalystApp.zcql()
+	const startDate = req.query.startDate ? req.query.startDate : (req.query.date ? req.query.date : '1970-01-01')
+	var today = new Date()
+	today.setHours(today.getHours()+5)
+	today.setMinutes(today.getMinutes()+30)
+	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
+	const dataLimit = req.query.limit ? req.query.limit : null
+	
+	let query = "Select {} from SessionEvents left join SystemPrompts on SystemPrompts.ROWID=SessionEvents.SystemPromptROWID where SessionEvents.CREATEDTIME >='"+startDate+" 00:00:00' and SessionEvents.CREATEDTIME <= '"+endDate+" 23:59:59' "+
+				(req.query.mobile ? "and Mobile in ("+req.query.mobile.split(",")+")":"")+
+				"order by CREATEDTIME ASC"
+	getAllRows("Mobile, SessionID, Event, SystemPrompts.Name, SystemPrompts.Persona, SessionEvents.CREATEDTIME", query,zcql,dataLimit)
+	.then((sessions)=>{
+		let mobiles = sessions.map(data=>data.SessionEvents.Mobile).filter(unique)
+		query = "select {} from Users where Mobile in ("+mobiles.join(",")+")"
+		getAllRows("Mobile, GoalInMinutes", query,zcql,dataLimit)
+		.then((users)=>{
+			let eventData = []
+			let event = "Learn"
+			const learningEventData = sessions.filter(data=> event == null ? true : (event.includes(data.SessionEvents.Event)) || (data.SessionEvents.Event.includes(event)))
+			event = "Game"
+			const gamesEventData = sessions.filter(data=> event == null ? true : (event.includes(data.SessionEvents.Event)) || (data.SessionEvents.Event.includes(event)))
+			event = "Conversation"
+			const conversationEventData = sessions.filter(data=> event == null ? true : (event.includes(data.SessionEvents.Event)) || (data.SessionEvents.Event.includes(event)))
+			
+			let allSessions = learningEventData.map(data=>data.SessionEvents.SessionID).filter(unique)
+			allSessions = allSessions.concat(gamesEventData.map(data=>data.SessionEvents.SessionID).filter(unique))
+			allSessions = allSessions.concat(conversationEventData.map(data=>data.SessionEvents.SessionID).filter(unique))
+		
+			query = "Select {} from SessionFeedback where SessionID in ('"+allSessions.join("','")+"')"+
+					" order by CREATEDTIME ASC"
+			getAllRows("Mobile, SessionID, CREATEDTIME, Rating, Feedback, FeedbackType, FeedbackURL, GPTRating, GPTFeedback, GPTFeedbackType, GPTFeedbackURL", query,zcql,dataLimit)
+			.then((feedbacks)=>{			
+				var report = learningEventData.map(data=>{
+					var userReport = {
+						Mobile : data.SessionEvents.Mobile,
+						Topic : decodeURIComponent(data.SystemPrompts.Name),
+						Persona : decodeURIComponent(data.SystemPrompts.Persona),
+						SessionID : data.SessionEvents.SessionID,
+						Event : data.SessionEvents.Event,
+						EventTimestamp : data.SessionEvents.CREATEDTIME.toString().slice(0,19)
+					}
+					const user = users.filter(record=>record.Users.Mobile == data.SessionEvents.Mobile)
+					userReport['GoalInMinutes']=user[0]['Users']['GoalInMinutes']
+					const sessionFeedbacks = feedbacks.filter(record=>record.SessionFeedback.SessionID == data.SessionEvents.SessionID).map(record=>{		
+						return {
+							FlowRating: (record.SessionFeedback.Rating == null) || (record.SessionFeedback.Rating.length == 0) ? ((record.SessionFeedback.GPTRating == null) || (record.SessionFeedback.GPTRating.length == 0) ? "" : record.SessionFeedback.GPTRating.toString()) : record.SessionFeedback.Rating.toString(),
+							Feedback: (record.SessionFeedback.Feedback == null) || (record.SessionFeedback.Feedback.length == 0) ? ((record.SessionFeedback.GPTFeedback == null) || (record.SessionFeedback.GPTFeedback.length == 0) ? "" : record.SessionFeedback.GPTFeedback.toString()) : record.SessionFeedback.Feedback.toString(),
+							FeedbackTimestamp : record.SessionFeedback.CREATEDTIME.toString().slice(0,19)
+						}
+					})
+					const learningSessionFeedback= sessionFeedbacks.filter(data=>data.Feedback.startsWith("Learnings Started"))
+					if(learningSessionFeedback.length>0){
+						userReport['FeedbackRating']=learningSessionFeedback[0]['FlowRating']
+						userReport['Feedback']=learningSessionFeedback[0]['Feedback']
+						userReport['FeedbackTimestamp']=learningSessionFeedback[0]['FeedbackTimestamp']
+					}
+					return userReport
+				})
+				report = report.concat(gamesEventData.map(data=>{
+					var userReport = {
+						Mobile : data.SessionEvents.Mobile,
+						Topic : decodeURIComponent(data.SystemPrompts.Name),
+						Persona : decodeURIComponent(data.SystemPrompts.Persona),
+						SessionID : data.SessionEvents.SessionID,
+						Event : data.SessionEvents.Event,
+						EventTimestamp : data.SessionEvents.CREATEDTIME.toString().slice(0,19)
+					}
+					const user = users.filter(record=>record.Users.Mobile == data.SessionEvents.Mobile)
+					userReport['GoalInMinutes']=user[0]['Users']['GoalInMinutes']
+					const sessionFeedbacks = feedbacks.filter(record=>record.SessionFeedback.SessionID == data.SessionEvents.SessionID).map(record=>{		
+						return {
+							FlowRating: (record.SessionFeedback.Rating == null) || (record.SessionFeedback.Rating.length == 0) ? ((record.SessionFeedback.GPTRating == null) || (record.SessionFeedback.GPTRating.length == 0) ? "" : record.SessionFeedback.GPTRating.toString()) : record.SessionFeedback.Rating.toString(),
+							Feedback: (record.SessionFeedback.Feedback == null) || (record.SessionFeedback.Feedback.length == 0) ? ((record.SessionFeedback.GPTFeedback == null) || (record.SessionFeedback.GPTFeedback.length == 0) ? "" : record.SessionFeedback.GPTFeedback.toString()) : record.SessionFeedback.Feedback.toString(),
+							FeedbackTimestamp : record.SessionFeedback.CREATEDTIME.toString().slice(0,19)
+						}
+					})
+					const gameSessionFeedback= sessionFeedbacks.filter(data=>data.Feedback.startsWith("Overall Game Sessions"))
+					if(gameSessionFeedback.length>0){
+						userReport['FeedbackRating']=gameSessionFeedback[0]['FlowRating']
+						userReport['Feedback']=gameSessionFeedback[0]['Feedback']
+						userReport['FeedbackTimestamp']=gameSessionFeedback[0]['FeedbackTimestamp']
+					}
+					return userReport
+				}))
+				report = report.concat(conversationEventData.map(data=>{
+					var userReport = {
+						Mobile : data.SessionEvents.Mobile,
+						Topic : decodeURIComponent(data.SystemPrompts.Name),
+						Persona : decodeURIComponent(data.SystemPrompts.Persona),
+						SessionID : data.SessionEvents.SessionID,
+						Event : data.SessionEvents.Event,
+						EventTimestamp : data.SessionEvents.CREATEDTIME.toString().slice(0,19)
+					}
+					const user = users.filter(record=>record.Users.Mobile == data.SessionEvents.Mobile)
+					userReport['GoalInMinutes']=user[0]['Users']['GoalInMinutes']
+					const sessionFeedbacks = feedbacks.filter(record=>record.SessionFeedback.SessionID == data.SessionEvents.SessionID).map(record=>{		
+						return {
+							FlowRating: (record.SessionFeedback.Rating == null) || (record.SessionFeedback.Rating.length == 0) ? ((record.SessionFeedback.GPTRating == null) || (record.SessionFeedback.GPTRating.length == 0) ? "" : record.SessionFeedback.GPTRating.toString()) : record.SessionFeedback.Rating.toString(),
+							Feedback: (record.SessionFeedback.Feedback == null) || (record.SessionFeedback.Feedback.length == 0) ? ((record.SessionFeedback.GPTFeedback == null) || (record.SessionFeedback.GPTFeedback.length == 0) ? "" : record.SessionFeedback.GPTFeedback.toString()) : record.SessionFeedback.Feedback.toString(),
+							FeedbackTimestamp : record.SessionFeedback.CREATEDTIME.toString().slice(0,19)
+						}
+					})
+					const otherSessionFeedback= sessionFeedbacks.filter(data=>(data.Feedback.startsWith("Overall Game Sessions")==false)&&(data.Feedback.startsWith("Learnings Started")==false))
+					if(otherSessionFeedback.length>0){
+						userReport['FeedbackRating']=otherSessionFeedback[0]['FlowRating']
+						userReport['Feedback']=otherSessionFeedback[0]['Feedback']
+						userReport['FeedbackTimestamp']=otherSessionFeedback[0]['FeedbackTimestamp']
+					}
+					return userReport
+				}))
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Report Length = ",report.length)
+				res.status(200).json(report)
+			})
+			.catch((err) => {
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+				console.error((new Date()).toString()+"|"+prependToLog,err);
+				res.status(500).send(err);
+			});
+		})
+		.catch((err) => {
+			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+			console.error((new Date()).toString()+"|"+prependToLog,err);
+			res.status(500).send(err);
+		});
+	})
+	.catch((err) => {
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+		console.error((new Date()).toString()+"|"+prependToLog,err);
+		res.status(500).send(err);
+	});
+});
 
 app.get("/allattempts", (req, res) => {
 
