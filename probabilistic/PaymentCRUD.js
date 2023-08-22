@@ -102,7 +102,7 @@ app.post("/create", (req, res) => {
                     key_secret: process.env.RPayKeySecret
                 });
                 const paymentLinkPayload = {
-                    "amount": topicConfig.Values['subscriptionamt'],
+                    "amount": parseInt(topicConfig.Values['subscriptionamt'])*100,
                     "currency": "INR",
                     "accept_partial": false,
                     "first_min_partial_amount": 0,
@@ -175,7 +175,7 @@ app.post("/create", (req, res) => {
     })
 })
 
-app.get("/update", async (req, res) => {
+app.post("/update", async (req, res) => {
 
     let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
@@ -199,10 +199,10 @@ app.get("/update", async (req, res) => {
 
     console.info((new Date()).toString()+"|"+prependToLog,"Returned Response")
 
-    //const {validateWebhookSignature} = require('razorpay/dist/utils/razorpay-utils')
+    const {validateWebhookSignature} = require('razorpay/dist/utils/razorpay-utils')
 
-    if(1==2){//(validateWebhookSignature(JSON.stringify(requestBody), req.header['X-Razorpay-Signature'], process.env.RPayWebhookSecret)==false){
-        console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Signature Could not be Validated")
+    if(validateWebhookSignature(JSON.stringify(requestBody), req.header['X-Razorpay-Signature'], process.env.RPayWebhookSecret)==false){
+        console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Signature Could not be Validated. Signature: ",req.header['X-Razorpay-Signature'])
     }
     else{
         if(requestBody['entity']=="event"){

@@ -2496,7 +2496,13 @@ app.get("/allattempts", (req, res) => {
 		console.info((new Date()).toString()+"|"+prependToLog,"Fetched Conversation Attempt Report of length:",conversationQueryResult.data.length)
 		console.info((new Date()).toString()+"|"+prependToLog,"Fetched Onboarding Report of length:",obdQueryResult.data.length)
 
-		const quizQueryIDs = quizQueryResult.data.map(data=>data.AssessmentID).filter(unique)
+		const startDate = req.query.startDate ? req.query.startDate : (req.query.date ? req.query.date : '1970-01-01')
+		var today = new Date()
+		today.setHours(today.getHours()+5)
+		today.setMinutes(today.getMinutes()+30)
+		const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
+	
+		const quizQueryIDs = quizQueryResult.data.filter(data=>(data.AssessmentStartTime>=(startDate+" 00:00:00"))&&(data.AssessmentStartTime<=(endDate+" 23:59:59"))).map(data=>data.AssessmentID).filter(unique)
 		var report = quizQueryIDs.map(id=>{
 			const data = quizQueryResult.data.filter(report=>report.AssessmentID==id)
 			return {
@@ -2509,7 +2515,7 @@ app.get("/allattempts", (req, res) => {
 			}
 		})
 		console.info((new Date()).toString()+"|"+prependToLog,"Appended Quiz Report Data")
-		report = report.concat(gameQueryResult.data.map(data=>{
+		report = report.concat(gameQueryResult.data.filter(data=>(data.SessionStartedTime>=(startDate+" 00:00:00"))&&(data.SessionStartedTime<=(endDate+" 23:59:59"))).map(data=>{
 			return {
 				Mobile: data.Mobile,
 				Type: "Game",
@@ -2520,7 +2526,7 @@ app.get("/allattempts", (req, res) => {
 			}
 		}))
 		console.info((new Date()).toString()+"|"+prependToLog,"Appended Game Report Data")
-		report = report.concat(conversationQueryResult.data.map(data=>{
+		report = report.concat(conversationQueryResult.data.filter(data=>(data.SessionStartTime>=(startDate+" 00:00:00"))&&(data.SessionStartTime<=(endDate+" 23:59:59"))).map(data=>{
 			return {
 				Mobile: data.Mobile,
 				Type: "Conversation",
@@ -2531,7 +2537,7 @@ app.get("/allattempts", (req, res) => {
 			}
 		}))
 		console.info((new Date()).toString()+"|"+prependToLog,"Appended Conversation Report Data")
-		report = report.concat(obdQueryResult.data.map(data=>{
+		report = report.concat(obdQueryResult.data.filter(data=>data.SessionStartTime.toString().length>0).filter(data=>(data.SessionStartTime>=(startDate+" 00:00:00"))&&(data.SessionStartTime<=(endDate+" 23:59:59"))).map(data=>{
 			return {
 				Mobile: data.Mobile,
 				Type: "Onboarding",
