@@ -2252,6 +2252,227 @@ app.get("/sessionfeedbacks", (req, res) => {
 	});
 });
 
+app.get("/userlifecycle", (req, res) => {
+
+	const catalystApp = catalyst.initialize();
+
+    const executionID = Math.random().toString(36).slice(2)
+    
+    //Prepare text to prepend with logs
+    const params = ["Reports",req.url,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+
+	let zcql = catalystApp.zcql()
+
+	const startDate = req.query.startDate ? req.query.startDate : '1970-01-01'
+	var today = new Date()
+	today.setHours(today.getHours()+5)
+	today.setMinutes(today.getMinutes()+30)
+	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
+	const dataLimit = req.query.limit ? req.query.limit : null
+
+	let query = "select {} from Users "+
+				"where Users.CREATEDTIME >='"+startDate+" 00:00:00' and "+
+				"Users.CREATEDTIME <= '"+endDate+" 23:59:59' "+
+				(req.query.mobile ? ("and Mobile in ("+req.query.mobile+")"):"")
+	
+	getAllRows("Mobile, RegisteredTime, OnboardingComplete",query,zcql)
+	.then(async  (users)=>{
+		const mobiles = users.map(user=>user.Users.Mobile)
+		
+		
+		//Fetch all users from Glific BQ who sent a message to bot in last 4 days
+		const {BigQuery} = require('@google-cloud/bigquery');
+		const bigquery = new BigQuery({
+			keyFilename : process.env.GCPAuthFile,
+			projectId : process.env.GCPProjectID
+		});
+
+		query = "SELECT distinct contact_phone as Mobile, format_date('%Y-%m-%d',date(inserted_at)) as ActivityDate "+
+				"FROM `"+process.env.GCPProjectID+".91"+process.env.GlificBotNumber+".messages` "+
+				"where flow = 'inbound' and ((body = 'Chat with Ramya Bot') or (flow_name like 'Probabilistic%')) "+ //and inserted_at >=  (CURRENT_DATE('Asia/Kolkata')- 4) "+
+				"and contact_phone in ('91"+mobiles.join("','91")+"') "+
+				"order by 1,2"
+		console.info((new Date()).toString()+"|"+prependToLog,`BQ Query: `,query)
+		var bqUsers = null
+		
+		// Run the query as a job
+		const [job] = await bigquery.createQueryJob({
+			query: query,
+			location: 'US',
+		});
+		console.info((new Date()).toString()+"|"+prependToLog,`BQ Job ${job.id} started.`);
+	
+		// Wait for the query to finish
+		[bqUsers] = await job.getQueryResults();
+		console.info((new Date()).toString()+"|"+prependToLog,`BQ Job ${job.id} finished.`);
+		
+
+		query =
+            "Select {} " +
+            "from Sessions " +
+            "where Mobile in (" +mobiles.join(",")+")"+
+            " and Sessions.MessageType = 'UserMessage' "+
+            "order by Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME ASC";
+		const runSessionQuery = getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME",query,zcql)
+		const learningQuery = "Select {} " +
+			"from SessionEvents " +
+			"where Mobile in (" +mobiles.join(",")+")"+
+			" and Event = 'Learn Session Start'"
+			" order by Mobile, CREATEDTIME ASC";
+		const runLearningQuery = getAllRows("Mobile, CREATEDTIME",learningQuery,zcql)
+		const gameAttemptQuery = "Select {} " +
+				"from WordleAttempts " +
+				"left join Users on Users.ROWID = WordleAttempts.UserROWID " +
+				"where Users.Mobile in (" +mobiles.join(",")+")"+
+				" order by Users.Mobile, WordleAttempts.WordleROWID, WordleAttempts.CREATEDTIME ASC";
+		const runGameAttemptQuery = getAllRows("Users.Mobile, WordleAttempts.WordleROWID, WordleAttempts.CREATEDTIME",gameAttemptQuery,zcql)
+
+		Promise.all([runSessionQuery,runLearningQuery,runGameAttemptQuery])
+		.then(([allsessions,learning,wordleAttempts]) => {
+			if(!Array.isArray(allsessions))
+				throw new Error(allsessions)
+			else if(!Array.isArray(learning))
+				throw new Error(learning)
+			if(!Array.isArray(wordleAttempts))
+				throw new Error(wordleAttempts)
+			else{
+				const sessions = allsessions.filter(
+				(data) =>
+					!(
+					//data.Sessions.SessionID.endsWith("Hint") ||
+					//data.Sessions.SessionID.endsWith("Translation") ||
+					data.Sessions.SessionID.endsWith("ObjectiveFeedback") ||
+					data.Sessions.SessionID.startsWith("Onboarding") ||
+					data.Sessions.SessionID.endsWith("Onboarding") ||
+					data.Sessions.SessionID.startsWith("onboarding") ||
+					data.Sessions.SessionID.endsWith("onboarding")
+					)
+				);
+				
+				const report = mobiles.map(mobile=>{
+					//Initialize return object
+					let userReport = {
+						"Mobile":mobile
+					}
+					//Filter BQ data for the given mobile
+					const onboardingComplete = (users.filter(data=>data.Users.Mobile==mobile))[0]['Users']['OnboardingComplete']
+					const regDate = (users.filter(data=>data.Users.Mobile==mobile))[0]['Users']['RegisteredTime']
+
+					let activityDates = [] 
+					if(onboardingComplete == true){
+						activityDates = activityDates.concat(
+							sessions.filter(data=>
+								(data.Sessions.Mobile==mobile) && 
+								(data.Sessions.CREATEDTIME >= regDate)
+								).map(data=>data.Sessions.CREATEDTIME.toString().slice(0,10)
+								).filter(unique).sort()
+						)
+						activityDates = activityDates.concat(
+							learning.filter(data=>
+								(data.SessionEvents.Mobile==mobile) && 
+								(data.SessionEvents.CREATEDTIME >= regDate)
+								).map(data=>data.SessionEvents.CREATEDTIME.toString().slice(0,10)
+								).filter(unique).sort()
+						)
+						activityDates = activityDates.concat(
+							wordleAttempts.filter(data=>
+								(data.Users.Mobile==mobile) && 
+								(data.WordleAttempts.CREATEDTIME >= regDate)
+								).map(data=>data.WordleAttempts.CREATEDTIME.toString().slice(0,10)
+								).filter(unique).sort()
+						)
+					}
+					console.info((new Date()).toString()+"|"+prependToLog,"Got Conversation, Learning, Games Data:",activityDates)
+						
+
+					activityDates = activityDates.filter(unique).sort()
+
+					//Cases:
+					//1. User registers but never onboards but tries sth on different dates. 
+					//2. User registers but onboards on a later date and tries sth in between
+
+					const allActivityDates = bqUsers.filter(data=>data.Mobile==("91"+mobile)).map(data=>data.ActivityDate).sort()
+					userReport['LastActiveDate'] = allActivityDates.length > 0 ? allActivityDates[allActivityDates.length-1]:null
+					userReport['LastAttemptDate'] = regDate.toString().slice(0,10)
+					let lastStatusSince = userReport['LastAttemptDate']
+					let lastAttemptDate = userReport['LastAttemptDate']
+					let currentActiveDays = onboardingComplete!=true ? null : 0
+					let lifetimeActiveDays = onboardingComplete!=true ? null : 0
+					userReport['History'] = []
+					if(activityDates.length>0){
+						userReport['History'] = [{
+							"Date":activityDates[0],
+							"Status":"Active"
+						}]
+						lastStatusSince = activityDates[0]
+						currentActiveDays = 1
+						lifetimeActiveDays = 1
+						for(var i=1; i<activityDates.length;i++){
+							let previousDate = new Date(activityDates[i-1])
+							const currentDate = new Date(activityDates[i])
+							const gap = Math.floor((currentDate - previousDate)/1000/60/60/24)
+							if(gap>5){
+								previousDate.setDate(previousDate.getDate()+5)
+								const churnedDate = previousDate.getFullYear()+"-"+('0'+(previousDate.getMonth()+1)).slice(-2)+"-"+('0'+previousDate.getDate()).slice(-2)
+								userReport['History'].push({
+									"Date":churnedDate,
+									"Status":"Churned"
+								})
+								lastStatusSince = currentDate.getFullYear()+"-"+('0'+(currentDate.getMonth()+1)).slice(-2)+"-"+('0'+currentDate.getDate()).slice(-2)
+								currentActiveDays = 0
+							}
+							userReport['History'].push({
+								"Date":activityDates[i],
+								"Status":"Active"
+							})
+							currentActiveDays++
+							if(currentActiveDays % 7 == 0){
+								let lastIndex = userReport['History'].length-1
+								userReport['History'][lastIndex]['7Activedays']=true
+								userReport['History'][lastIndex]['CurrentStatusSince']=lastStatusSince
+							}
+							lifetimeActiveDays++
+						}
+						userReport['LastAttemptDate'] = userReport['History'][userReport['History'].length-1]['Date']
+					}
+					lastAttemptDate = new Date(userReport['LastAttemptDate'])
+					let daysSinceLastActivity = Math.floor(((new Date())-lastAttemptDate)/1000/60/60/24)
+					if((onboardingComplete==true)&&(daysSinceLastActivity > 5)){
+						lastAttemptDate.setDate(lastAttemptDate.getDate()+5)
+						const churnedDate = lastAttemptDate.getFullYear()+"-"+('0'+(lastAttemptDate.getMonth()+1)).slice(-2)+"-"+('0'+lastAttemptDate.getDate()).slice(-2)
+						userReport['History'].push({
+							"Date":churnedDate,
+							"Status":"Churned"
+						})
+						lastStatusSince = churnedDate
+						currentActiveDays = 0
+					}
+					userReport['CurrentStatus'] = (onboardingComplete != true) ? null: daysSinceLastActivity > 5 ? "Churned":"Active"
+					userReport['CurrentStatusSince'] = lastStatusSince.toString().slice(0,10)
+					userReport['LifetimeActiveDays'] = lifetimeActiveDays
+					userReport['CurrentActiveDays'] = currentActiveDays
+					return userReport
+				})
+				res.status(200).json(report)
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution")
+			}
+		})
+		.catch((err) => {
+			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+			console.error((new Date()).toString()+"|"+prependToLog,err);
+			res.status(500).send(err);
+		});
+	})
+	.catch((err) => {
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+		console.error((new Date()).toString()+"|"+prependToLog,err);
+		res.status(500).send(err);
+	});
+});         
+
 app.get("/allattempts", (req, res) => {
 
     const executionID = Math.random().toString(36).slice(2)
