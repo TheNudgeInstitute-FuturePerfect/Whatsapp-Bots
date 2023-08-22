@@ -59,7 +59,9 @@ module.exports = async (basicIO) => {
     try {
       const searchQueryResult = await zcql.executeZCQLQuery(searchQuery);
       result["OperationStatus"] = "SUCCESS";
-      if (searchQueryResult.length > 0) {
+      if(!Array.isArray(searchQueryResult))
+        throw new Error(searchQueryResult)
+      else if (searchQueryResult.length > 0) {
         var filteredValues = searchQueryResult;
         if (listOfParams.length > 0)
           filteredValues = searchQueryResult.filter((data) =>
