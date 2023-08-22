@@ -199,106 +199,110 @@ app.post("/update", async (req, res) => {
 
     console.info((new Date()).toString()+"|"+prependToLog,"Returned Response")
     console.info((new Date()).toString()+"|"+prependToLog,"Webhook Payload: ",JSON.stringify(requestBody))
-
-    const {validateWebhookSignature} = require('razorpay/dist/utils/razorpay-utils')
-    try{
-        if(validateWebhookSignature(JSON.stringify(requestBody), req.header['X-Razorpay-Signature'], process.env.RPayWebhookSecret)==false){
-            console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Signature Could not be Validated. Signature: ",req.header['X-Razorpay-Signature'])
-        }
-        else{
-            if(requestBody['entity']=="event"){
-                console.info((new Date()).toString()+"|"+prependToLog,"Received Event="+requestBody['event'])
-                console.info((new Date()).toString()+"|"+prependToLog,"Getting record from UserTopicSubscriptionMapper for payment ID :"+requestBody['payload']['payment_link']['entity']['id'])
-                const filter = {
-                    PaymentID: requestBody['payload']['payment_link']['entity']['id']
-                }
-                try{
-                    const rowReturned = await userTopicSubscriptionMapper.find(filter)
-                    if(rowReturned.length==0){
-                        console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. No record in UserTopicSubscriptionMapper for payment ID :"+requestBody['payload']['payment_link']['entity']['id'])
-                    }
-                    else{
-                        console.info((new Date()).toString()+"|"+prependToLog,"Returned "+rowReturned.length+" Records from UserTopicSubscriptionMapper matching payment ID :"+requestBody['payload']['payment_link']['entity']['id'])
-                        let isUnlocked = rowReturned[0]['IsUnlocked']
-                        console.info((new Date()).toString()+"|"+prependToLog,"Current Unlock Status="+rowReturned[0]['IsUnlocked'])
-                        if(requestBody['payload']['payment_link']['entity']['status']=='paid'){
-                            isUnlocked = true
-                            console.info((new Date()).toString()+"|"+prependToLog,"Payment Successful. Unlocking Topic Records")
-                        }
-                        let paymentTracker = rowReturned[0]['PaymentTracker']
-                        paymentTracker.push(requestBody)
-                        const updateData = {
-                            IsUnlocked: isUnlocked,
-                            PaymentTracker: paymentTracker
-                        }
-                        const updatedRow = await userTopicSubscriptionMapper.updateMany(filter,updateData)
-                        console.info((new Date()).toString()+"|"+prependToLog,"Matched Records: "+updatedRow.matchedCount+" | Modified Records: "+updatedRow.modifiedCount+" | Acknowledged Records: "+updatedRow.acknowledged)
-                        //Send HSM Message about payment being Successful
-                        let hsmTemplateID = null
-                        let params = null
-                        let eventData = {
-                            SessionID: rowReturned[0]['SessionID'],
-                            Event : null,
-                            SystemPromptROWID: rowReturned[0]['SystemPromptROWID'],
-                            Mobile: requestBody['payload']['payment_link']['entity']['customer']['contact'].slice(-10)
-                        }
-                        let table = catalystApp.datastore().table("SessionEvents")
-                        
-                        if(requestBody['payload']['payment_link']['entity']['status']=='paid'){
-                            hsmTemplateID = process.env.PaymentSuccessMsgID
-                            params = [requestBody['payload']['payment_link']['entity']['amount'].toString(),requestBody['payload']['order']['entity']['id']]
-                            eventData['Event']="Payment Success Msg Sent"
-                        }
-                        else if((requestBody['payload']['payment_link']['entity']['status']=='expired')&&(isUnlocked==false)){
-                            hsmTemplateID = process.env.PaymentExpiryMsgID
-                            params = [requestBody['payload']['payment_link']['entity']['short_url'],requestBody['payload']['payment_link']['entity']['amount'].toString()]
-                            eventData['Event']="Payment Link Expiry Msg Sent"
-                        }
-                        else if((requestBody['payload']['payment_link']['entity']['status']=='cancelled')&&(isUnlocked==false)){
-                            hsmTemplateID = process.env.PaymentCancelledMsgID
-                            params = [requestBody['payload']['payment_link']['entity']['short_url'],requestBody['payload']['payment_link']['entity']['amount'].toString()]
-                            eventData['Event']="Payment Link Cancellation Msg Sent"
-                        }
-                        if(hsmTemplateID!=null){
-                            const sendHSMMessage = require("./common/sendGlificHSMMsg.js")
-                            const msgStatus = JSON.parse(await sendHSMMessage({
-                                                    messageID:hsmTemplateID,
-                                                    contactID:requestBody['payload']['payment_link']['entity']['notes']['GlificID'],
-                                                    params: params
-                                                }))
-                            if(msgStatus['OperationStatus']!='SUCCESS')
-                                throw new Error(msgStatus)
-                            console.info((new Date()).toString()+"|"+prependToLog,"HSM Message Sent to User Regarding the Payment Status: "+requestBody['payload']['payment_link']['entity']['status'])
-                        }
-                        else{
-                            console.info((new Date()).toString()+"|"+prependToLog,"HSM Message Not to be Sent to User as Payment Status: "+requestBody['payload']['payment_link']['entity']['status'])
-                        }
-                        if(eventData['Event']!=null){
-                            const insertResult = await table.insertRow(eventData)
-                            if(typeof insertResult['ROWID']==='undefined')
-                                throw new Error(insertResult)
-                            console.info((new Date()).toString()+"|"+prependToLog,"Session Event Table Updated for event = "+eventData['Event'])
-                        }
-                        else
-                            console.info((new Date()).toString()+"|"+prependToLog,"No Session Event to be updated")
-
-                        console.info((new Date()).toString()+"|"+prependToLog,"End of Execution")
-                    }
-                }
-                catch(error){
-                    console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error.");
-                    console.error((new Date()).toString()+"|"+prependToLog,"End of Execution with Error: ",error);
-                }
+    if(requestBody==null){
+        console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. No payload in request")
+    }
+    else{
+        const {validateWebhookSignature} = require('razorpay/dist/utils/razorpay-utils')
+        try{
+            if(validateWebhookSignature(JSON.stringify(requestBody), req.header['X-Razorpay-Signature'], process.env.RPayWebhookSecret)==false){
+                console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Signature Could not be Validated. Signature: ",req.header['X-Razorpay-Signature'])
             }
             else{
-                console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Not a razorpay event")
+                if(requestBody['entity']=="event"){
+                    console.info((new Date()).toString()+"|"+prependToLog,"Received Event="+requestBody['event'])
+                    console.info((new Date()).toString()+"|"+prependToLog,"Getting record from UserTopicSubscriptionMapper for payment ID :"+requestBody['payload']['payment_link']['entity']['id'])
+                    const filter = {
+                        PaymentID: requestBody['payload']['payment_link']['entity']['id']
+                    }
+                    try{
+                        const rowReturned = await userTopicSubscriptionMapper.find(filter)
+                        if(rowReturned.length==0){
+                            console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. No record in UserTopicSubscriptionMapper for payment ID :"+requestBody['payload']['payment_link']['entity']['id'])
+                        }
+                        else{
+                            console.info((new Date()).toString()+"|"+prependToLog,"Returned "+rowReturned.length+" Records from UserTopicSubscriptionMapper matching payment ID :"+requestBody['payload']['payment_link']['entity']['id'])
+                            let isUnlocked = rowReturned[0]['IsUnlocked']
+                            console.info((new Date()).toString()+"|"+prependToLog,"Current Unlock Status="+rowReturned[0]['IsUnlocked'])
+                            if(requestBody['payload']['payment_link']['entity']['status']=='paid'){
+                                isUnlocked = true
+                                console.info((new Date()).toString()+"|"+prependToLog,"Payment Successful. Unlocking Topic Records")
+                            }
+                            let paymentTracker = rowReturned[0]['PaymentTracker']
+                            paymentTracker.push(requestBody)
+                            const updateData = {
+                                IsUnlocked: isUnlocked,
+                                PaymentTracker: paymentTracker
+                            }
+                            const updatedRow = await userTopicSubscriptionMapper.updateMany(filter,updateData)
+                            console.info((new Date()).toString()+"|"+prependToLog,"Matched Records: "+updatedRow.matchedCount+" | Modified Records: "+updatedRow.modifiedCount+" | Acknowledged Records: "+updatedRow.acknowledged)
+                            //Send HSM Message about payment being Successful
+                            let hsmTemplateID = null
+                            let params = null
+                            let eventData = {
+                                SessionID: rowReturned[0]['SessionID'],
+                                Event : null,
+                                SystemPromptROWID: rowReturned[0]['SystemPromptROWID'],
+                                Mobile: requestBody['payload']['payment_link']['entity']['customer']['contact'].slice(-10)
+                            }
+                            let table = catalystApp.datastore().table("SessionEvents")
+                            
+                            if(requestBody['payload']['payment_link']['entity']['status']=='paid'){
+                                hsmTemplateID = process.env.PaymentSuccessMsgID
+                                params = [requestBody['payload']['payment_link']['entity']['amount'].toString(),requestBody['payload']['order']['entity']['id']]
+                                eventData['Event']="Payment Success Msg Sent"
+                            }
+                            else if((requestBody['payload']['payment_link']['entity']['status']=='expired')&&(isUnlocked==false)){
+                                hsmTemplateID = process.env.PaymentExpiryMsgID
+                                params = [requestBody['payload']['payment_link']['entity']['short_url'],requestBody['payload']['payment_link']['entity']['amount'].toString()]
+                                eventData['Event']="Payment Link Expiry Msg Sent"
+                            }
+                            else if((requestBody['payload']['payment_link']['entity']['status']=='cancelled')&&(isUnlocked==false)){
+                                hsmTemplateID = process.env.PaymentCancelledMsgID
+                                params = [requestBody['payload']['payment_link']['entity']['short_url'],requestBody['payload']['payment_link']['entity']['amount'].toString()]
+                                eventData['Event']="Payment Link Cancellation Msg Sent"
+                            }
+                            if(hsmTemplateID!=null){
+                                const sendHSMMessage = require("./common/sendGlificHSMMsg.js")
+                                const msgStatus = JSON.parse(await sendHSMMessage({
+                                                        messageID:hsmTemplateID,
+                                                        contactID:requestBody['payload']['payment_link']['entity']['notes']['GlificID'],
+                                                        params: params
+                                                    }))
+                                if(msgStatus['OperationStatus']!='SUCCESS')
+                                    throw new Error(msgStatus)
+                                console.info((new Date()).toString()+"|"+prependToLog,"HSM Message Sent to User Regarding the Payment Status: "+requestBody['payload']['payment_link']['entity']['status'])
+                            }
+                            else{
+                                console.info((new Date()).toString()+"|"+prependToLog,"HSM Message Not to be Sent to User as Payment Status: "+requestBody['payload']['payment_link']['entity']['status'])
+                            }
+                            if(eventData['Event']!=null){
+                                const insertResult = await table.insertRow(eventData)
+                                if(typeof insertResult['ROWID']==='undefined')
+                                    throw new Error(insertResult)
+                                console.info((new Date()).toString()+"|"+prependToLog,"Session Event Table Updated for event = "+eventData['Event'])
+                            }
+                            else
+                                console.info((new Date()).toString()+"|"+prependToLog,"No Session Event to be updated")
+
+                            console.info((new Date()).toString()+"|"+prependToLog,"End of Execution")
+                        }
+                    }
+                    catch(error){
+                        console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error.");
+                        console.error((new Date()).toString()+"|"+prependToLog,"End of Execution with Error: ",error);
+                    }
+                }
+                else{
+                    console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Not a razorpay event")
+                }
             }
         }
-    }
-    catch(error){
-        console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error.");
-        console.error((new Date()).toString()+"|"+prependToLog,"End of Execution with Error: ",error);
-        console.debug((new Date()).toString()+"|"+prependToLog,"Razorpay Payload: ",error);
+        catch(error){
+            console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error.");
+            console.error((new Date()).toString()+"|"+prependToLog,"End of Execution with Error: ",error);
+            console.debug((new Date()).toString()+"|"+prependToLog,"Razorpay Payload: ",error);
+        }
     }
 })
 
