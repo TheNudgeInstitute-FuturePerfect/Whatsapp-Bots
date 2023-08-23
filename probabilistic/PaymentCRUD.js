@@ -205,7 +205,7 @@ app.post("/update", async (req, res) => {
     else{
         const {validateWebhookSignature} = require('razorpay/dist/utils/razorpay-utils')
         try{
-            if(validateWebhookSignature(JSON.stringify(requestBody), req.header['X-Razorpay-Signature'], process.env.RPayWebhookSecret)==false){
+            if(validateWebhookSignature(JSON.stringify(requestBody), req.headers['X-Razorpay-Signature'], process.env.RPayWebhookSecret)==false){
                 console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Signature Could not be Validated. Signature: ",req.header['X-Razorpay-Signature'])
             }
             else{
@@ -299,9 +299,11 @@ app.post("/update", async (req, res) => {
             }
         }
         catch(error){
+            console.debug((new Date()).toString()+"|"+prependToLog,"Razorpay Payload: ",JSON.stringify(requestBody));
+            console.info((new Date()).toString()+"|"+prependToLog,"Webhook Signature:"+req.headers['X-Razorpay-Signature'])
+            console.debug((new Date()).toString()+"|"+prependToLog,"Webhook Headers:",req.headers)
             console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error.");
             console.error((new Date()).toString()+"|"+prependToLog,"End of Execution with Error: ",error);
-            console.debug((new Date()).toString()+"|"+prependToLog,"Razorpay Payload: ",error);
         }
     }
 })

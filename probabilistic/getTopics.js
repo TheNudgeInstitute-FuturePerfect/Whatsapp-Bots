@@ -600,7 +600,7 @@ app.post("/topicpersonas", (req, res) => {
                 var paymentSuccessfull = false
                 //If there is no subscription attempt, show topic as locked
                 //Otherwise, if there is any subscription attempt
-                if(unlockCourseAttempts.length>=0){
+                if(unlockCourseAttempts.length>0){
                   //Filter any record whose IsUnlocked flag = true
                   const userSubscriptions = unlockCourseAttempts.filter(data=>data.IsUnlocked==true)
                   //If any record found with IsUnlocked flag = true, show topic as unlocked
