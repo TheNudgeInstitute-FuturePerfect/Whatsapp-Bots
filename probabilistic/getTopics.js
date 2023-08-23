@@ -6,6 +6,11 @@ const catalyst = require("zoho-catalyst-sdk");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
 let userTopicSubscriptionMapper = require("./models/userTopicSubscriptionMapper.js")
 let getConfigurationParam = require("./common/getConfigurationParam.js");
+const Razorpay = require("razorpay")
+var instance = new Razorpay({
+    key_id: process.env.RPayKeyID,
+    key_secret: process.env.RPayKeySecret
+});
 
 // const app = express();
 // app.use(express.json());
@@ -261,18 +266,68 @@ app.post("/allocatetopic", (req, res) => {
                   reject(user)
                 }
                 else{
-                  const unlockedCourses = await userTopicSubscriptionMapper.find({
+                  //Get the topic subscriptions initiated by the user
+                  const unlockCourseAttempts = await userTopicSubscriptionMapper.find({
                     UserROWID:user[0]['Users']['ROWID'],
-                    SystemPromptROWIDs:systemPrompts[0]["SystemPrompts"]["ROWID"],
-                    IsUnlocked: true
+                    SystemPromptROWID:systemPrompts[0]["SystemPrompts"]["ROWID"]
                   })
-                  if(unlockedCourses.length==0){
-                    console.info((new Date()).toString()+"|"+prependToLog,"User has not unlocked the topic")
+                  //If there is no subscription initiated, return topic to be Locked
+                  if(unlockCourseAttempts.lenght==0){
+                    console.info((new Date()).toString()+"|"+prependToLog,"User has not attempted to unlock the topic")
                     resolve("Locked")
                   }
+                  //Otherwise,
                   else{
-                    console.info((new Date()).toString()+"|"+prependToLog,"User has unlocked the topic")
-                    resolve("Unlocked")
+                    //check if any of the record has status isUnlocked = true
+                    const unlockedCourses = unlockCourseAttempts.filter(data=>data.IsUnlocked==true)
+                    //if any such record found, return that topic is unlocked
+                    if(unlockedCourses.length>0){
+                      console.info((new Date()).toString()+"|"+prependToLog,"User has unlocked the topic")
+                      resolve("Unlocked")
+                    }
+                    //Otherwise
+                    else{
+                      //Verify payment status of all pending records for the topic
+                      console.info((new Date()).toString()+"|"+prependToLog,"Verifying Payment Status")
+                      var paymentSuccessfull = false
+                      for(var i=0; i<unlockCourseAttempts.length; i++){
+                        const paymentID = unlockCourseAttempts[i].PaymentID
+                        console.info((new Date()).toString()+"|"+prependToLog,"Verifying Payment Status of "+paymentID)
+                        try{
+                          //Call Razor Pay API to verify payment link
+                          const paymentStatus =  await instance.paymentLink.fetch(paymentID)
+                          //If payment status = captured or paid,
+                          if((paymentStatus['status']=='captured') || (paymentStatus['status']=='paid')){
+                            const filter = {
+                              PaymentID: paymentID
+                            }
+                            let paymentTracker = unlockCourseAttempts[i]['PaymentTracker']
+                            paymentTracker.push(paymentStatus)
+                            const updateData = {
+                              IsUnlocked: true,
+                              PaymentTracker: paymentTracker
+                            }
+                            //Update the isUnlocked flag to true for the records matching the payent id
+                            const updatedRow = await userTopicSubscriptionMapper.updateMany(filter,updateData)
+                            console.info((new Date()).toString()+"|"+prependToLog,"Payment Successful for "+paymentID+" | Matched Records: "+updatedRow.matchedCount+" | Modified Records: "+updatedRow.modifiedCount+" | Acknowledged Records: "+updatedRow.acknowledged)
+                            paymentSuccessfull = true
+                            //exit from loop
+                            break;
+                          }
+                        }
+                        catch(err){
+                          console.info((new Date()).toString()+"|"+prependToLog,"Failed to get Payment Status of "+paymentID+" due to ",err)
+                        }
+                      }
+                      if(paymentSuccessfull==false){
+                        console.info((new Date()).toString()+"|"+prependToLog,"User has not unlocked the topic")
+                        resolve("Locked")
+                      }
+                      else{
+                        console.info((new Date()).toString()+"|"+prependToLog,"User paid for the topic")
+                        resolve("Unlocked")
+                      }
+                    }
                   }
                 }
 
@@ -536,13 +591,61 @@ app.post("/topicpersonas", (req, res) => {
                 if(!Array.isArray(user))
                   throw new Error(user)
                 console.info((new Date()).toString()+"|"+prependToLog,"Fetched User's ID")
-                const userSubscriptions = await userTopicSubscriptionMapper.find({
+                console.info((new Date()).toString()+"|"+prependToLog,"Fetching Topic Subscription Status of User")
+                //Get all the subscription attempts by the user for the topic
+                const unlockCourseAttempts = await userTopicSubscriptionMapper.find({
                   UserROWID:user[0]['Users']['ROWID'],
-                  SystemPromptROWIDs:allPrompts[i]["ROWID"],
-                  IsUnlocked: true
+                  SystemPromptROWID:allPrompts[i]["ROWID"]
                 })
-                console.info((new Date()).toString()+"|"+prependToLog,"Fetched Topic Subscription Status of User")
-                responseJSON["Persona" + (i - nextStartIndex + 1)] = allPrompts[i]["Persona"]+ (userSubscriptions.length==0? " 🔐" : "");
+                var paymentSuccessfull = false
+                //If there is no subscription attempt, show topic as locked
+                //Otherwise, if there is any subscription attempt
+                if(unlockCourseAttempts.length>=0){
+                  //Filter any record whose IsUnlocked flag = true
+                  const userSubscriptions = unlockCourseAttempts.filter(data=>data.IsUnlocked==true)
+                  //If any record found with IsUnlocked flag = true, show topic as unlocked
+                  if(userSubscriptions.length>0){
+                    console.info((new Date()).toString()+"|"+prependToLog,"User has unlocked the topic")
+                    paymentSuccessfull = true
+                  }
+                  //otherwise
+                  else{
+                    //Verify payment status of all the records
+                    console.info((new Date()).toString()+"|"+prependToLog,"Verifying Payment Status")
+                    //Call Razor Pay API to verify payment link
+                    for(var j=0; j<unlockCourseAttempts.length; j++){
+                      const paymentID = unlockCourseAttempts[j].PaymentID
+                      console.info((new Date()).toString()+"|"+prependToLog,"Verifying Payment Status of "+paymentID)
+                      try{
+                        const paymentStatus =  await instance.paymentLink.fetch(paymentID)
+                        //If any payment id has status as paid or captured,
+                        if((paymentStatus['status']=='captured') || (paymentStatus['status']=='paid')){
+                          const filter = {
+                            PaymentID: paymentID
+                          }
+                          let paymentTracker = unlockCourseAttempts[j]['PaymentTracker']
+                          paymentTracker.push(paymentStatus)
+                          const updateData = {
+                            IsUnlocked: true,
+                            PaymentTracker: paymentTracker
+                          }
+                          //Update IsUnlocked = true for all the records with matching payment id
+                          const updatedRow = await userTopicSubscriptionMapper.updateMany(filter,updateData)
+                          console.info((new Date()).toString()+"|"+prependToLog,"Payment Successful for "+paymentID+" | Matched Records: "+updatedRow.matchedCount+" | Modified Records: "+updatedRow.modifiedCount+" | Acknowledged Records: "+updatedRow.acknowledged)
+                          //show topic as unlocked
+                          paymentSuccessfull = true
+                          //Exit loop
+                          break;
+                        }
+                      }
+                      catch(err){
+                        console.info((new Date()).toString()+"|"+prependToLog,"Failed to get Payment Status of "+paymentID+" due to ",err)
+                      }
+                      console.info((new Date()).toString()+"|"+prependToLog,"Payment Status: "+paymentSuccessfull)
+                    }
+                  }
+                }
+                responseJSON["Persona" + (i - nextStartIndex + 1)] = allPrompts[i]["Persona"]+ (paymentSuccessfull==false? " 🔐" : "");
               }
               catch(error){
                 console.info((new Date()).toString()+"|"+prependToLog,"Encountered error in searching Users Table:",error)
