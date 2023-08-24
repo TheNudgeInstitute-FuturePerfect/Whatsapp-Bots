@@ -2178,18 +2178,20 @@ app.get("/sessionfeedbacks", (req, res) => {
 					}
 					//const user = users.filter(record=>record.Users.Mobile == data.SessionEvents.Mobile)
 					//userReport['GoalInMinutes']=user[0]['Users']['GoalInMinutes']
-					const sessionFeedbacks = feedbacks.filter(record=>record.SessionFeedback.SessionID == data.SessionEvents.SessionID).map(record=>{		
-						return {
-							FlowRating: (record.SessionFeedback.Rating == null) || (record.SessionFeedback.Rating.length == 0) ? ((record.SessionFeedback.GPTRating == null) || (record.SessionFeedback.GPTRating.length == 0) ? "" : record.SessionFeedback.GPTRating.toString()) : record.SessionFeedback.Rating.toString(),
-							Feedback: (record.SessionFeedback.Feedback == null) || (record.SessionFeedback.Feedback.length == 0) ? ((record.SessionFeedback.GPTFeedback == null) || (record.SessionFeedback.GPTFeedback.length == 0) ? "" : record.SessionFeedback.GPTFeedback.toString()) : record.SessionFeedback.Feedback.toString(),
-							FeedbackTimestamp : record.SessionFeedback.CREATEDTIME.toString().slice(0,19)
+					if(userReport['Event'].contains('Start')){
+						const sessionFeedbacks = feedbacks.filter(record=>record.SessionFeedback.SessionID == data.SessionEvents.SessionID).map(record=>{		
+							return {
+								FlowRating: (record.SessionFeedback.Rating == null) || (record.SessionFeedback.Rating.length == 0) ? ((record.SessionFeedback.GPTRating == null) || (record.SessionFeedback.GPTRating.length == 0) ? "" : record.SessionFeedback.GPTRating.toString()) : record.SessionFeedback.Rating.toString(),
+								Feedback: (record.SessionFeedback.Feedback == null) || (record.SessionFeedback.Feedback.length == 0) ? ((record.SessionFeedback.GPTFeedback == null) || (record.SessionFeedback.GPTFeedback.length == 0) ? "" : record.SessionFeedback.GPTFeedback.toString()) : record.SessionFeedback.Feedback.toString(),
+								FeedbackTimestamp : record.SessionFeedback.CREATEDTIME.toString().slice(0,19)
+							}
+						})
+						const learningSessionFeedback= sessionFeedbacks.filter(data=>data.Feedback.startsWith("Learnings Started"))
+						if(learningSessionFeedback.length>0){
+							userReport['FeedbackRating']=learningSessionFeedback[0]['FlowRating']
+							userReport['Feedback']=learningSessionFeedback[0]['Feedback']
+							userReport['FeedbackTimestamp']=learningSessionFeedback[0]['FeedbackTimestamp']
 						}
-					})
-					const learningSessionFeedback= sessionFeedbacks.filter(data=>data.Feedback.startsWith("Learnings Started"))
-					if(learningSessionFeedback.length>0){
-						userReport['FeedbackRating']=learningSessionFeedback[0]['FlowRating']
-						userReport['Feedback']=learningSessionFeedback[0]['Feedback']
-						userReport['FeedbackTimestamp']=learningSessionFeedback[0]['FeedbackTimestamp']
 					}
 					return userReport
 				})
@@ -2204,18 +2206,20 @@ app.get("/sessionfeedbacks", (req, res) => {
 					}
 					//const user = users.filter(record=>record.Users.Mobile == data.SessionEvents.Mobile)
 					//userReport['GoalInMinutes']=user[0]['Users']['GoalInMinutes']
-					const sessionFeedbacks = feedbacks.filter(record=>record.SessionFeedback.SessionID == data.SessionEvents.SessionID).map(record=>{		
-						return {
-							FlowRating: (record.SessionFeedback.Rating == null) || (record.SessionFeedback.Rating.length == 0) ? ((record.SessionFeedback.GPTRating == null) || (record.SessionFeedback.GPTRating.length == 0) ? "" : record.SessionFeedback.GPTRating.toString()) : record.SessionFeedback.Rating.toString(),
-							Feedback: (record.SessionFeedback.Feedback == null) || (record.SessionFeedback.Feedback.length == 0) ? ((record.SessionFeedback.GPTFeedback == null) || (record.SessionFeedback.GPTFeedback.length == 0) ? "" : record.SessionFeedback.GPTFeedback.toString()) : record.SessionFeedback.Feedback.toString(),
-							FeedbackTimestamp : record.SessionFeedback.CREATEDTIME.toString().slice(0,19)
+					if(userReport['Event'].contains('End')){
+						const sessionFeedbacks = feedbacks.filter(record=>record.SessionFeedback.SessionID == data.SessionEvents.SessionID).map(record=>{		
+							return {
+								FlowRating: (record.SessionFeedback.Rating == null) || (record.SessionFeedback.Rating.length == 0) ? ((record.SessionFeedback.GPTRating == null) || (record.SessionFeedback.GPTRating.length == 0) ? "" : record.SessionFeedback.GPTRating.toString()) : record.SessionFeedback.Rating.toString(),
+								Feedback: (record.SessionFeedback.Feedback == null) || (record.SessionFeedback.Feedback.length == 0) ? ((record.SessionFeedback.GPTFeedback == null) || (record.SessionFeedback.GPTFeedback.length == 0) ? "" : record.SessionFeedback.GPTFeedback.toString()) : record.SessionFeedback.Feedback.toString(),
+								FeedbackTimestamp : record.SessionFeedback.CREATEDTIME.toString().slice(0,19)
+							}
+						})
+						const gameSessionFeedback= sessionFeedbacks.filter(data=>data.Feedback.startsWith("Overall Game Sessions"))
+						if(gameSessionFeedback.length>0){
+							userReport['FeedbackRating']=gameSessionFeedback[0]['FlowRating']
+							userReport['Feedback']=gameSessionFeedback[0]['Feedback']
+							userReport['FeedbackTimestamp']=gameSessionFeedback[0]['FeedbackTimestamp']
 						}
-					})
-					const gameSessionFeedback= sessionFeedbacks.filter(data=>data.Feedback.startsWith("Overall Game Sessions"))
-					if(gameSessionFeedback.length>0){
-						userReport['FeedbackRating']=gameSessionFeedback[0]['FlowRating']
-						userReport['Feedback']=gameSessionFeedback[0]['Feedback']
-						userReport['FeedbackTimestamp']=gameSessionFeedback[0]['FeedbackTimestamp']
 					}
 					return userReport
 				}))
@@ -2230,18 +2234,20 @@ app.get("/sessionfeedbacks", (req, res) => {
 					}
 					//const user = users.filter(record=>record.Users.Mobile == data.SessionEvents.Mobile)
 					//userReport['GoalInMinutes']=user[0]['Users']['GoalInMinutes']
-					const sessionFeedbacks = feedbacks.filter(record=>record.SessionFeedback.SessionID == data.SessionEvents.SessionID).map(record=>{		
-						return {
-							FlowRating: (record.SessionFeedback.Rating == null) || (record.SessionFeedback.Rating.length == 0) ? ((record.SessionFeedback.GPTRating == null) || (record.SessionFeedback.GPTRating.length == 0) ? "" : record.SessionFeedback.GPTRating.toString()) : record.SessionFeedback.Rating.toString(),
-							Feedback: (record.SessionFeedback.Feedback == null) || (record.SessionFeedback.Feedback.length == 0) ? ((record.SessionFeedback.GPTFeedback == null) || (record.SessionFeedback.GPTFeedback.length == 0) ? "" : record.SessionFeedback.GPTFeedback.toString()) : record.SessionFeedback.Feedback.toString(),
-							FeedbackTimestamp : record.SessionFeedback.CREATEDTIME.toString().slice(0,19)
+					if(userReport['Event'].contains('End')){
+						const sessionFeedbacks = feedbacks.filter(record=>record.SessionFeedback.SessionID == data.SessionEvents.SessionID).map(record=>{		
+							return {
+								FlowRating: (record.SessionFeedback.Rating == null) || (record.SessionFeedback.Rating.length == 0) ? ((record.SessionFeedback.GPTRating == null) || (record.SessionFeedback.GPTRating.length == 0) ? "" : record.SessionFeedback.GPTRating.toString()) : record.SessionFeedback.Rating.toString(),
+								Feedback: (record.SessionFeedback.Feedback == null) || (record.SessionFeedback.Feedback.length == 0) ? ((record.SessionFeedback.GPTFeedback == null) || (record.SessionFeedback.GPTFeedback.length == 0) ? "" : record.SessionFeedback.GPTFeedback.toString()) : record.SessionFeedback.Feedback.toString(),
+								FeedbackTimestamp : record.SessionFeedback.CREATEDTIME.toString().slice(0,19)
+							}
+						})
+						const otherSessionFeedback= sessionFeedbacks.filter(data=>(data.Feedback.startsWith("Overall Game Sessions")==false)&&(data.Feedback.startsWith("Learnings Started")==false))
+						if(otherSessionFeedback.length>0){
+							userReport['FeedbackRating']=otherSessionFeedback[0]['FlowRating']
+							userReport['Feedback']=otherSessionFeedback[0]['Feedback']
+							userReport['FeedbackTimestamp']=otherSessionFeedback[0]['FeedbackTimestamp']
 						}
-					})
-					const otherSessionFeedback= sessionFeedbacks.filter(data=>(data.Feedback.startsWith("Overall Game Sessions")==false)&&(data.Feedback.startsWith("Learnings Started")==false))
-					if(otherSessionFeedback.length>0){
-						userReport['FeedbackRating']=otherSessionFeedback[0]['FlowRating']
-						userReport['Feedback']=otherSessionFeedback[0]['Feedback']
-						userReport['FeedbackTimestamp']=otherSessionFeedback[0]['FeedbackTimestamp']
 					}
 					return userReport
 				}))
