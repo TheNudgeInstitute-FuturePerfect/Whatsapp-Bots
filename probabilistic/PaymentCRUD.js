@@ -86,7 +86,7 @@ app.post("/create", (req, res) => {
         }
         else{
             console.info((new Date()).toString()+"|"+prependToLog,"Fetched Topic Subscription Amount:"+topicConfig.Values['subsciptionamt'])
-            zcql.executeZCQLQuery("Select distinct ROWID from SystemPrompts where IsPaid = true and Name = '"+requestBody["Topic"]+"'")
+            zcql.executeZCQLQuery("Select distinct ROWID from SystemPrompts where IsPaid = true and (Name = '"+requestBody["Topic"]+"' or ROWID = '"+requestBody["TopicID"]+"')")
             .then(async (systemPrompts)=>{
                 if(!Array.isArray(systemPrompts))
                     throw new Error(systemPrompts)
@@ -147,6 +147,7 @@ app.post("/create", (req, res) => {
                         })
                         const rowReturned = await userTopicSubscriptionMapper.create(insertData)
                         console.debug((new Date()).toString()+"|"+prependToLog,"Inserted Record: "+rowReturned.map(data=>data['_id']).join(","));
+                        console.debug((new Date()).toString()+"|"+prependToLog,"Inserted Record: "+JSON.stringify(rowReturned));
                         sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)
                     }
                     else{
@@ -198,14 +199,14 @@ app.post("/update", async (req, res) => {
     res.status(200).send(responseJSON)
 
     console.info((new Date()).toString()+"|"+prependToLog,"Returned Response")
-    console.info((new Date()).toString()+"|"+prependToLog,"Webhook Payload: ",JSON.stringify(requestBody))
+    console.debug((new Date()).toString()+"|"+prependToLog,"Webhook Payload: ",JSON.stringify(requestBody))
     if(requestBody==null){
         console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. No payload in request")
     }
     else{
         const {validateWebhookSignature} = require('razorpay/dist/utils/razorpay-utils')
         try{
-            if(validateWebhookSignature(JSON.stringify(requestBody), req.headers['X-Razorpay-Signature'], process.env.RPayWebhookSecret)==false){
+            if(validateWebhookSignature(JSON.stringify(requestBody), req.headers['x-razorpay-signature'], process.env.RPayWebhookSecret)==false){
                 console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Signature Could not be Validated. Signature: ",req.header['X-Razorpay-Signature'])
             }
             else{
@@ -300,7 +301,7 @@ app.post("/update", async (req, res) => {
         }
         catch(error){
             console.debug((new Date()).toString()+"|"+prependToLog,"Razorpay Payload: ",JSON.stringify(requestBody));
-            console.info((new Date()).toString()+"|"+prependToLog,"Webhook Signature:"+req.headers['X-Razorpay-Signature'])
+            console.info((new Date()).toString()+"|"+prependToLog,"Webhook Signature:"+req.headers['x-razorpay-signature'])
             console.debug((new Date()).toString()+"|"+prependToLog,"Webhook Headers:",req.headers)
             console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error.");
             console.error((new Date()).toString()+"|"+prependToLog,"End of Execution with Error: ",error);

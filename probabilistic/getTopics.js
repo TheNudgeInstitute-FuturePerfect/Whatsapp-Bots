@@ -267,10 +267,13 @@ app.post("/allocatetopic", (req, res) => {
                 }
                 else{
                   //Get the topic subscriptions initiated by the user
-                  const unlockCourseAttempts = await userTopicSubscriptionMapper.find({
+                  const unlockCourseAttemptsFilter = {
                     UserROWID:user[0]['Users']['ROWID'],
                     SystemPromptROWID:systemPrompts[0]["SystemPrompts"]["ROWID"]
-                  })
+                  }
+                  console.info((new Date()).toString()+"|"+prependToLog,'Fetching Topic Subscription Status of User for '+JSON.stringify(unlockCourseAttemptsFilter))
+                  const unlockCourseAttempts = await userTopicSubscriptionMapper.find(unlockCourseAttemptsFilter)
+                  console.info((new Date()).toString()+"|"+prependToLog,'Total Topic Subscription Status Records of User: '+unlockCourseAttempts.length)
                   //If there is no subscription initiated, return topic to be Locked
                   if(unlockCourseAttempts.lenght==0){
                     console.info((new Date()).toString()+"|"+prependToLog,"User has not attempted to unlock the topic")
@@ -280,6 +283,7 @@ app.post("/allocatetopic", (req, res) => {
                   else{
                     //check if any of the record has status isUnlocked = true
                     const unlockedCourses = unlockCourseAttempts.filter(data=>data.IsUnlocked==true)
+                    console.info((new Date()).toString()+"|"+prependToLog,'Total Topic Subscription Status = Paid for User: '+JSON.stringify(unlockedCourses))
                     //if any such record found, return that topic is unlocked
                     if(unlockedCourses.length>0){
                       console.info((new Date()).toString()+"|"+prependToLog,"User has unlocked the topic")
@@ -591,18 +595,23 @@ app.post("/topicpersonas", (req, res) => {
                 if(!Array.isArray(user))
                   throw new Error(user)
                 console.info((new Date()).toString()+"|"+prependToLog,"Fetched User's ID")
-                console.info((new Date()).toString()+"|"+prependToLog,"Fetching Topic Subscription Status of User")
                 //Get all the subscription attempts by the user for the topic
-                const unlockCourseAttempts = await userTopicSubscriptionMapper.find({
+                const unlockCourseAttemptsFilter = {
                   UserROWID:user[0]['Users']['ROWID'],
                   SystemPromptROWID:allPrompts[i]["ROWID"]
-                })
+                }
+                console.info((new Date()).toString()+"|"+prependToLog,"Fetching Topic Subscription Status of User for "+JSON.stringify(unlockCourseAttemptsFilter))
+                const unlockCourseAttempts = await userTopicSubscriptionMapper.find(unlockCourseAttemptsFilter)
+
+                console.info((new Date()).toString()+"|"+prependToLog,"Total Records for Topic Subscription Status of User: "+unlockCourseAttempts.length)
+                console.debug((new Date()).toString()+"|"+prependToLog,"Fetched Topic Subscription Status of User: "+JSON.stringify(unlockCourseAttempts))
                 var paymentSuccessfull = false
                 //If there is no subscription attempt, show topic as locked
                 //Otherwise, if there is any subscription attempt
                 if(unlockCourseAttempts.length>0){
                   //Filter any record whose IsUnlocked flag = true
                   const userSubscriptions = unlockCourseAttempts.filter(data=>data.IsUnlocked==true)
+                  console.debug((new Date()).toString()+"|"+prependToLog,"Total Records for Topic Subscription Status = Paid for User: "+JSON.stringify(userSubscriptions))
                   //If any record found with IsUnlocked flag = true, show topic as unlocked
                   if(userSubscriptions.length>0){
                     console.info((new Date()).toString()+"|"+prependToLog,"User has unlocked the topic")
