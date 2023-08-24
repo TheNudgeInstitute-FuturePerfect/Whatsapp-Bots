@@ -86,7 +86,7 @@ app.post("/create", (req, res) => {
         }
         else{
             console.info((new Date()).toString()+"|"+prependToLog,"Fetched Topic Subscription Amount:"+topicConfig.Values['subsciptionamt'])
-            zcql.executeZCQLQuery("Select distinct ROWID from SystemPrompts where IsPaid = true and Name = '"+requestBody["Topic"]+"'")
+            zcql.executeZCQLQuery("Select distinct ROWID from SystemPrompts where IsPaid = true and (Name = '"+requestBody["Topic"]+"' or ROWID = '"+requestBody["TopicID"]+"')")
             .then(async (systemPrompts)=>{
                 if(!Array.isArray(systemPrompts))
                     throw new Error(systemPrompts)
@@ -147,6 +147,7 @@ app.post("/create", (req, res) => {
                         })
                         const rowReturned = await userTopicSubscriptionMapper.create(insertData)
                         console.debug((new Date()).toString()+"|"+prependToLog,"Inserted Record: "+rowReturned.map(data=>data['_id']).join(","));
+                        console.debug((new Date()).toString()+"|"+prependToLog,"Inserted Record: "+JSON.stringify(rowReturned));
                         sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)
                     }
                     else{
