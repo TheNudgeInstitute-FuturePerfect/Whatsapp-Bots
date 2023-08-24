@@ -142,6 +142,10 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                   .then((allfeedbacks) => {
                     const feedbacks = allfeedbacks.filter((data) =>
                       sessionIDs.includes(data.SessionFeedback.SessionID)
+                      && (data.SessionFeedback.Feedback == null ? true : (data.SessionFeedback.Feedback.startsWith("Overall Game Sessions")==false)
+                        && (data.SessionFeedback.Feedback.startsWith("Learnings Started")==false))
+                      && (data.SessionFeedback.GPTFeedback ==null ? true : (data.SessionFeedback.GPTFeedback.startsWith("Overall Game Sessions")==false)
+                        && (data.SessionFeedback.GPTFeedback.startsWith("Learnings Started")==false))
                     );
                     zcql
                       .executeZCQLQuery(
