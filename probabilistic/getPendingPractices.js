@@ -44,7 +44,7 @@ app.post("/pendingpractices", (req, res) => {
 
   const executionID = Math.random().toString(36).slice(2)
     
-  const params = ["getUserSessionCount","totalsessions",executionID,""]
+  const params = ["getPendingPractices",req.url,executionID,""]
   const prependToLog = params.join(" | ")
   
   console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")

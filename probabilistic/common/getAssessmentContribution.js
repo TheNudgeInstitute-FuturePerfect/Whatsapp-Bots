@@ -64,7 +64,7 @@ module.exports = async (basicIO) => {
 			responseJSON['Prompts'] = retrunValues//.reduce(((r, c) => Object.assign(r, c)), {}) 
 			responseJSON['TotalPrompts'] = retrunValues.length
 		}
-		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Response:",responseJSON)
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution.")
 		return JSON.stringify(responseJSON);
 	} catch(error){
 		responseJSON['OperationStatus']="ZCQL_ERR"
