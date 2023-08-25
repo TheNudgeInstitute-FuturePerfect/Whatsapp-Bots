@@ -250,7 +250,7 @@ app.post("/update", async (req, res) => {
                             
                             if(requestBody['payload']['payment_link']['entity']['status']=='paid'){
                                 hsmTemplateID = process.env.PaymentSuccessMsgID
-                                params = [requestBody['payload']['payment_link']['entity']['amount'].toString(),requestBody['payload']['order']['entity']['id']]
+                                params = [(Math.round(parseInt(requestBody['payload']['payment_link']['entity']['amount'])/100,2)).toString(),requestBody['payload']['order']['entity']['id']]
                                 eventData['Event']="Payment Success Msg Sent"
                             }
                             else if((requestBody['payload']['payment_link']['entity']['status']=='expired')&&(isUnlocked==false)){
