@@ -157,7 +157,7 @@ app.post("/pendingpractices", (req, res) => {
                   if (daysSinceStart >= process.env.Period) {
                     responseObject["OperationStatus"] = "SSN_ABV_PERIOD";
                     responseObject["StatusDescription"] =
-                      "User registered " + daysSinceRegistration + " days ago";
+                      "User registered " + daysSinceStart + " days ago";
                     console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ", responseObject);
                     res.status(200).json(responseObject);
                   } 
