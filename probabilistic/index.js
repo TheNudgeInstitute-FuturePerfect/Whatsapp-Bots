@@ -27,6 +27,7 @@ const questionBank = require("./QuestionBankCRUD.js");
 const getRandomQuestions = require("./getRandomQuestions.js");
 const storeQuestionAnswers = require("./storeQuestionAnswers.js");
 const payment = require("./PaymentCRUD.js");
+const doubtsession = require("./DoubtSessionCRUD.js")
 
 // Basic I/O const
 const addUserData = require("./common/addUserData.js");
@@ -75,6 +76,7 @@ app.use("/question",questionBank);
 app.use("/getquestion",getRandomQuestions);
 app.use("/storeanswer",storeQuestionAnswers);
 app.use("/payment",payment);
+app.use("/doubtsessions",doubtsession);
 
 // Basic I/O  routes
 app.use("/addUserData",addUserData);

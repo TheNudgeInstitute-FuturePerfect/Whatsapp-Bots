@@ -4,6 +4,7 @@ const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 const Sessions = require("./models/Sessions.js");
+const sendResponseToGlific = require("./common/sendResponseToGlific.js");
 
 // const app = express();
 // app.use(express.json());
@@ -14,7 +15,17 @@ app.post("/gethintmessage", (req, res) => {
     let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const requestBody = req.body;
-	
+
+	const startTimeStamp = new Date();
+
+    const executionID = requestBody["SessionID"] ? requestBody["SessionID"] : Math.random().toString(36).slice(2)
+        
+    //Prepare text to prepend with logs
+    const params = ["getHintMessage",req.url,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+    	
 	var result = {
 		OperationStatus:"SUCCESS"
 	}
@@ -23,7 +34,7 @@ app.post("/gethintmessage", (req, res) => {
 	if(typeof sessionID === 'undefined'){
 		result['OperationStatus'] = "REQ_ERR"
 		result['StatusDescription'] = "Missing required parameter - SessionID"
-		console.log("End of Execution: ",result)
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ",result)
 		res.status(200).json(result)
 	}
 	else{
@@ -37,7 +48,7 @@ app.post("/gethintmessage", (req, res) => {
 			if((typeof hintcount !== 'undefined')&&(hintcount!=null)&&(parseInt(hintcount[0]['Sessions']['ROWID'])>=parseInt(process.env.MaxHints))){
 				result['OperationStatus'] = "MAX_HINTS_RCHD"
 				result['StatusDescription'] = "Maximum Number of Hints Reached"
-				console.log("End of Execution: ",result)
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ",result)
 				res.status(200).json(result)
 			}
 			else{
@@ -52,19 +63,19 @@ app.post("/gethintmessage", (req, res) => {
 					if(typeof sessiondata === 'undefined'){
 						result['OperationStatus'] = "NO_DATA"
 						result['StatusDescription'] = "No session data for the given session id"
-						console.log("End of Execution: ",result)
+						console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ",result)
 						res.status(200).json(result)
 					}
 					else if(sessiondata == null){
 						result['OperationStatus'] = "NO_DATA"
 						result['StatusDescription'] = "No session data for the given session id"
-						console.log("End of Execution: ",result)
+						console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ",result)
 						res.status(200).json(result)
 					}
 					else if(sessiondata.length == 0){
 						result['OperationStatus'] = "NO_DATA"
 						result['StatusDescription'] = "No session data for the given session id"
-						console.log("End of Execution: ",result)
+						console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ",result)
 						res.status(200).json(result)
 					}
 					else{
@@ -77,20 +88,95 @@ app.post("/gethintmessage", (req, res) => {
 						result['Message'] = "User:"+decodeURIComponent(sessiondata[0]['Sessions']['Message'])+
 											"\n"+"Ramya:"+decodeURIComponent(sessiondata[0]['Sessions']['Reply'])
 						result['PendingHints'] = process.env.MaxHints - hintcount[0]['Sessions']['ROWID']
-						console.log("End of Execution: ",result)
+						console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ",result)
 						res.status(200).json(result)
+						//Send Reponse to Glific
+						let endTimeStamp = new Date();
+						let executionDuration = (endTimeStamp - startTimeStamp) / 1000;
+						if (executionDuration > 5) {
+							sendResponseToGlific({
+								flowID: requestBody["FlowID"],
+								contactID: requestBody["contact"]["id"],
+								resultJSON: JSON.stringify({
+									hintmessages: responseJSON,
+								}),
+							})
+							.then((glificResponse) => {})
+							.catch((error) => console.info((new Date()).toString()+"|"+prependToLog,"Error returned from Glific: ", error));
+						}
 					}
 				})
 				.catch((err) => {
-					console.log("End of Execution: ",err);
+					console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ",err);
 					res.status(500).send(err);
 				});
 			}
 		})
 		.catch((err) => {
-			console.log("End of Execution: ",err);
+			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ",err);
 			res.status(500).send(err);
 		});		
+	}
+});
+
+app.post("/tokenizehintmessage", (req, res) => {
+
+    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+
+	const requestBody = req.body;
+
+	const startTimeStamp = new Date();
+
+    const executionID = requestBody["SessionID"] ? requestBody["SessionID"] : Math.random().toString(36).slice(2)
+        
+    //Prepare text to prepend with logs
+    const params = ["getHintMessage",req.url,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+    	
+	var result = {
+		OperationStatus:"SUCCESS"
+	}
+
+	let hint = requestBody["Hint"];
+	if(typeof hint === 'undefined'){
+		result['OperationStatus'] = "REQ_ERR"
+		result['StatusDescription'] = "Missing required parameter - Hint"
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ",result)
+		res.status(200).json(result)
+	}
+	else{
+		const hintTokens = hint.split("\n")
+		let hintIndex = 0
+		for(var i=0;i<hintTokens.length;i++){
+			if(hintTokens[i].startsWith("1.") || hintTokens[i].startsWith("2.") || hintTokens[i].startsWith("3.")){
+				result["Hint"+(++hintIndex)] = hintTokens[i].substring(2).trim()
+			}
+		}
+		if(hintIndex==0){
+			result['TotalTokens']=1
+			result["Hint1"]=hint
+		}
+		else{
+			result['TotalTokens']=hintIndex
+		}
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ",result)
+		res.status(200).json(result)
+		//Send Reponse to Glific
+		let endTimeStamp = new Date();
+		let executionDuration = (endTimeStamp - startTimeStamp) / 1000;
+		if (executionDuration > 5) {
+			sendResponseToGlific({
+				flowID: requestBody["FlowID"],
+				contactID: requestBody["contact"]["id"],
+				resultJSON: JSON.stringify({
+					hintmessages: responseJSON,
+				}),
+			})
+			.then((glificResponse) => {})
+			.catch((error) => console.info((new Date()).toString()+"|"+prependToLog,"Error returned from Glific: ", error));
+		}
 	}
 });
 

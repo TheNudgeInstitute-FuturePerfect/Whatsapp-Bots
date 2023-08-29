@@ -47,7 +47,7 @@ module.exports = async (basicIO) => {
 			result['OperationStatus']="NO_CFG_PARAM"
 			result['Values'] = null
 		}
-		console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result);
+		console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed");
 		return JSON.stringify(result);
 	} catch(error){
         result['OperationStatus']="ZCQL_ERR"
