@@ -2178,7 +2178,7 @@ app.get("/sessionfeedbacks", (req, res) => {
 					}
 					//const user = users.filter(record=>record.Users.Mobile == data.SessionEvents.Mobile)
 					//userReport['GoalInMinutes']=user[0]['Users']['GoalInMinutes']
-					if(userReport['Event'].contains('Start')){
+					if(userReport['Event'].includes('Start')){
 						const sessionFeedbacks = feedbacks.filter(record=>record.SessionFeedback.SessionID == data.SessionEvents.SessionID).map(record=>{		
 							return {
 								FlowRating: (record.SessionFeedback.Rating == null) || (record.SessionFeedback.Rating.length == 0) ? ((record.SessionFeedback.GPTRating == null) || (record.SessionFeedback.GPTRating.length == 0) ? "" : record.SessionFeedback.GPTRating.toString()) : record.SessionFeedback.Rating.toString(),
@@ -2206,7 +2206,7 @@ app.get("/sessionfeedbacks", (req, res) => {
 					}
 					//const user = users.filter(record=>record.Users.Mobile == data.SessionEvents.Mobile)
 					//userReport['GoalInMinutes']=user[0]['Users']['GoalInMinutes']
-					if(userReport['Event'].contains('End')){
+					if(userReport['Event'].includes('End')){
 						const sessionFeedbacks = feedbacks.filter(record=>record.SessionFeedback.SessionID == data.SessionEvents.SessionID).map(record=>{		
 							return {
 								FlowRating: (record.SessionFeedback.Rating == null) || (record.SessionFeedback.Rating.length == 0) ? ((record.SessionFeedback.GPTRating == null) || (record.SessionFeedback.GPTRating.length == 0) ? "" : record.SessionFeedback.GPTRating.toString()) : record.SessionFeedback.Rating.toString(),
@@ -2234,7 +2234,7 @@ app.get("/sessionfeedbacks", (req, res) => {
 					}
 					//const user = users.filter(record=>record.Users.Mobile == data.SessionEvents.Mobile)
 					//userReport['GoalInMinutes']=user[0]['Users']['GoalInMinutes']
-					if(userReport['Event'].contains('End')){
+					if(userReport['Event'].includes('End')){
 						const sessionFeedbacks = feedbacks.filter(record=>record.SessionFeedback.SessionID == data.SessionEvents.SessionID).map(record=>{		
 							return {
 								FlowRating: (record.SessionFeedback.Rating == null) || (record.SessionFeedback.Rating.length == 0) ? ((record.SessionFeedback.GPTRating == null) || (record.SessionFeedback.GPTRating.length == 0) ? "" : record.SessionFeedback.GPTRating.toString()) : record.SessionFeedback.Rating.toString(),
