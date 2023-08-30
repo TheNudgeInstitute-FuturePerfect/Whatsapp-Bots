@@ -110,7 +110,7 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
             "Select {} " +
             "from Sessions " +
             "left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID " +
-            "where ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) " + //and SessionID not in ('"+closedSessions.join("','")+"') "+
+            "where ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null) or (SystemPrompts.Name = 'SLF Doubts')) " + //and SessionID not in ('"+closedSessions.join("','")+"') "+
             "order by Sessions.CREATEDTIME ASC";
           getAllRows(
             "Sessions.IsActive, Sessions.PerformanceReportURL, Sessions.EndOfSession, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.ROWID, SystemPrompts.Name, SystemPrompts.Persona, SystemPrompts.Module, Sessions.Message, Sessions.MessageType, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens",
@@ -142,6 +142,10 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                   .then((allfeedbacks) => {
                     const feedbacks = allfeedbacks.filter((data) =>
                       sessionIDs.includes(data.SessionFeedback.SessionID)
+                      && (data.SessionFeedback.Feedback == null ? true : (data.SessionFeedback.Feedback.startsWith("Overall Game Sessions")==false)
+                        && (data.SessionFeedback.Feedback.startsWith("Learnings Started")==false))
+                      && (data.SessionFeedback.GPTFeedback ==null ? true : (data.SessionFeedback.GPTFeedback.startsWith("Overall Game Sessions")==false)
+                        && (data.SessionFeedback.GPTFeedback.startsWith("Learnings Started")==false))
                     );
                     zcql
                       .executeZCQLQuery(

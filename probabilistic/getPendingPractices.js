@@ -44,7 +44,7 @@ app.post("/pendingpractices", (req, res) => {
 
   const executionID = Math.random().toString(36).slice(2)
     
-  const params = ["getUserSessionCount","totalsessions",executionID,""]
+  const params = ["getPendingPractices",req.url,executionID,""]
   const prependToLog = params.join(" | ")
   
   console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
@@ -157,7 +157,7 @@ app.post("/pendingpractices", (req, res) => {
                   if (daysSinceStart >= process.env.Period) {
                     responseObject["OperationStatus"] = "SSN_ABV_PERIOD";
                     responseObject["StatusDescription"] =
-                      "User registered " + daysSinceRegistration + " days ago";
+                      "User registered " + daysSinceStart + " days ago";
                     console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ", responseObject);
                     res.status(200).json(responseObject);
                   } 

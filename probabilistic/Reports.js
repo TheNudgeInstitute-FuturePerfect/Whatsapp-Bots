@@ -1201,7 +1201,7 @@ app.get("/usertopicmsgs", (req, res) => {
 					"from Sessions "+
 					"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
 					"where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59' "+
-					"and (((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) or ((SystemPrompts.Type = 'Backend Prompt') and (SystemPrompts.Name = 'Self Introduction')))"+
+					"and (((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) or ((SystemPrompts.Type = 'Backend Prompt') and ((SystemPrompts.Name = 'Self Introduction') or (SystemPrompts.Name = 'SLF Doubts'))))"+
 					"order by Sessions.SessionID, Sessions.CREATEDTIME asc"
 	getAllRows("IsActive, MessageType, Classification, Improvement, UserFeedback, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name, Sessions.Message, MessageAudioURL, Sessions.Reply, ReplyAudioURL, Sessions.PerformanceReportURL, Sessions.SentenceLevelFeedback, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens	",query,zcql,dataLimit)
 	.then((allSessions)=>{
@@ -1332,19 +1332,34 @@ app.get("/sessionevents", (req, res) => {
 	let query = "Select {} from SessionEvents left join SystemPrompts on SystemPrompts.ROWID=SessionEvents.SystemPromptROWID where SessionEvents.CREATEDTIME >='"+startDate+" 00:00:00' and SessionEvents.CREATEDTIME <= '"+endDate+" 23:59:59' order by CREATEDTIME ASC"
 	getAllRows("Mobile, SessionID, Event, SystemPrompts.Name, SystemPrompts.Persona, SessionEvents.CREATEDTIME", query,zcql,dataLimit)
 			.then((sessions)=>{
-				var eventData = sessions.filter(data=> event == null ? true : (event.includes(data.SessionEvents.Event)) || (data.SessionEvents.Event.includes(event)))
-				var report = eventData.map(data=>{
-					return {
-						Mobile : data.SessionEvents.Mobile,
-						Topic : decodeURIComponent(data.SystemPrompts.Name),
-						Persona : decodeURIComponent(data.SystemPrompts.Persona),
-						SessionID : data.SessionEvents.SessionID,
-						Event : data.SessionEvents.Event,
-						EventTimestamp : data.SessionEvents.CREATEDTIME.toString().slice(0,19)
-					}
+				let mobiles = sessions.map(data=>data.SessionEvents.Mobile).filter(unique)
+				query = "select {} from Users where Mobile in ("+mobiles.join(",")+")"
+				getAllRows("Mobile, GoalInMinutes", query,zcql,dataLimit)
+				.then((users)=>{
+					var eventData = sessions.filter(data=> event == null ? true : (event.includes(data.SessionEvents.Event)) || (data.SessionEvents.Event.includes(event)))
+					var report = eventData.map(data=>{
+						let userReport = {
+							Mobile : data.SessionEvents.Mobile,
+							Topic : decodeURIComponent(data.SystemPrompts.Name),
+							Persona : decodeURIComponent(data.SystemPrompts.Persona),
+							SessionID : data.SessionEvents.SessionID,
+							Event : data.SessionEvents.Event,
+							EventTimestamp : data.SessionEvents.CREATEDTIME.toString().slice(0,19)
+						}
+						if(userReport['Event'].includes("Goal Reached")||userReport['Event'].includes("Goal Not Reached")){
+							const user = users.filter(record=>record.Users.Mobile == userReport['Mobile'])
+							userReport['GoalInMinutes']=user[0]['Users']['GoalInMinutes']
+						}
+						return userReport
+					})
+					console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Report Length = ",report.length)
+					res.status(200).json(report)
 				})
-				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Report Length = ",report.length)
-				res.status(200).json(report)
+				.catch((err) => {
+					console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+					console.error((new Date()).toString()+"|"+prependToLog,err);
+					res.status(500).send(err);
+				});
 			})
 			.catch((err) => {
 				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
@@ -2161,20 +2176,22 @@ app.get("/sessionfeedbacks", (req, res) => {
 						Event : data.SessionEvents.Event,
 						EventTimestamp : data.SessionEvents.CREATEDTIME.toString().slice(0,19)
 					}
-					const user = users.filter(record=>record.Users.Mobile == data.SessionEvents.Mobile)
-					userReport['GoalInMinutes']=user[0]['Users']['GoalInMinutes']
-					const sessionFeedbacks = feedbacks.filter(record=>record.SessionFeedback.SessionID == data.SessionEvents.SessionID).map(record=>{		
-						return {
-							FlowRating: (record.SessionFeedback.Rating == null) || (record.SessionFeedback.Rating.length == 0) ? ((record.SessionFeedback.GPTRating == null) || (record.SessionFeedback.GPTRating.length == 0) ? "" : record.SessionFeedback.GPTRating.toString()) : record.SessionFeedback.Rating.toString(),
-							Feedback: (record.SessionFeedback.Feedback == null) || (record.SessionFeedback.Feedback.length == 0) ? ((record.SessionFeedback.GPTFeedback == null) || (record.SessionFeedback.GPTFeedback.length == 0) ? "" : record.SessionFeedback.GPTFeedback.toString()) : record.SessionFeedback.Feedback.toString(),
-							FeedbackTimestamp : record.SessionFeedback.CREATEDTIME.toString().slice(0,19)
+					//const user = users.filter(record=>record.Users.Mobile == data.SessionEvents.Mobile)
+					//userReport['GoalInMinutes']=user[0]['Users']['GoalInMinutes']
+					if(userReport['Event'].contains('Start')){
+						const sessionFeedbacks = feedbacks.filter(record=>record.SessionFeedback.SessionID == data.SessionEvents.SessionID).map(record=>{		
+							return {
+								FlowRating: (record.SessionFeedback.Rating == null) || (record.SessionFeedback.Rating.length == 0) ? ((record.SessionFeedback.GPTRating == null) || (record.SessionFeedback.GPTRating.length == 0) ? "" : record.SessionFeedback.GPTRating.toString()) : record.SessionFeedback.Rating.toString(),
+								Feedback: (record.SessionFeedback.Feedback == null) || (record.SessionFeedback.Feedback.length == 0) ? ((record.SessionFeedback.GPTFeedback == null) || (record.SessionFeedback.GPTFeedback.length == 0) ? "" : record.SessionFeedback.GPTFeedback.toString()) : record.SessionFeedback.Feedback.toString(),
+								FeedbackTimestamp : record.SessionFeedback.CREATEDTIME.toString().slice(0,19)
+							}
+						})
+						const learningSessionFeedback= sessionFeedbacks.filter(data=>data.Feedback.startsWith("Learnings Started"))
+						if(learningSessionFeedback.length>0){
+							userReport['FeedbackRating']=learningSessionFeedback[0]['FlowRating']
+							userReport['Feedback']=learningSessionFeedback[0]['Feedback']
+							userReport['FeedbackTimestamp']=learningSessionFeedback[0]['FeedbackTimestamp']
 						}
-					})
-					const learningSessionFeedback= sessionFeedbacks.filter(data=>data.Feedback.startsWith("Learnings Started"))
-					if(learningSessionFeedback.length>0){
-						userReport['FeedbackRating']=learningSessionFeedback[0]['FlowRating']
-						userReport['Feedback']=learningSessionFeedback[0]['Feedback']
-						userReport['FeedbackTimestamp']=learningSessionFeedback[0]['FeedbackTimestamp']
 					}
 					return userReport
 				})
@@ -2187,20 +2204,22 @@ app.get("/sessionfeedbacks", (req, res) => {
 						Event : data.SessionEvents.Event,
 						EventTimestamp : data.SessionEvents.CREATEDTIME.toString().slice(0,19)
 					}
-					const user = users.filter(record=>record.Users.Mobile == data.SessionEvents.Mobile)
-					userReport['GoalInMinutes']=user[0]['Users']['GoalInMinutes']
-					const sessionFeedbacks = feedbacks.filter(record=>record.SessionFeedback.SessionID == data.SessionEvents.SessionID).map(record=>{		
-						return {
-							FlowRating: (record.SessionFeedback.Rating == null) || (record.SessionFeedback.Rating.length == 0) ? ((record.SessionFeedback.GPTRating == null) || (record.SessionFeedback.GPTRating.length == 0) ? "" : record.SessionFeedback.GPTRating.toString()) : record.SessionFeedback.Rating.toString(),
-							Feedback: (record.SessionFeedback.Feedback == null) || (record.SessionFeedback.Feedback.length == 0) ? ((record.SessionFeedback.GPTFeedback == null) || (record.SessionFeedback.GPTFeedback.length == 0) ? "" : record.SessionFeedback.GPTFeedback.toString()) : record.SessionFeedback.Feedback.toString(),
-							FeedbackTimestamp : record.SessionFeedback.CREATEDTIME.toString().slice(0,19)
+					//const user = users.filter(record=>record.Users.Mobile == data.SessionEvents.Mobile)
+					//userReport['GoalInMinutes']=user[0]['Users']['GoalInMinutes']
+					if(userReport['Event'].contains('End')){
+						const sessionFeedbacks = feedbacks.filter(record=>record.SessionFeedback.SessionID == data.SessionEvents.SessionID).map(record=>{		
+							return {
+								FlowRating: (record.SessionFeedback.Rating == null) || (record.SessionFeedback.Rating.length == 0) ? ((record.SessionFeedback.GPTRating == null) || (record.SessionFeedback.GPTRating.length == 0) ? "" : record.SessionFeedback.GPTRating.toString()) : record.SessionFeedback.Rating.toString(),
+								Feedback: (record.SessionFeedback.Feedback == null) || (record.SessionFeedback.Feedback.length == 0) ? ((record.SessionFeedback.GPTFeedback == null) || (record.SessionFeedback.GPTFeedback.length == 0) ? "" : record.SessionFeedback.GPTFeedback.toString()) : record.SessionFeedback.Feedback.toString(),
+								FeedbackTimestamp : record.SessionFeedback.CREATEDTIME.toString().slice(0,19)
+							}
+						})
+						const gameSessionFeedback= sessionFeedbacks.filter(data=>data.Feedback.startsWith("Overall Game Sessions"))
+						if(gameSessionFeedback.length>0){
+							userReport['FeedbackRating']=gameSessionFeedback[0]['FlowRating']
+							userReport['Feedback']=gameSessionFeedback[0]['Feedback']
+							userReport['FeedbackTimestamp']=gameSessionFeedback[0]['FeedbackTimestamp']
 						}
-					})
-					const gameSessionFeedback= sessionFeedbacks.filter(data=>data.Feedback.startsWith("Overall Game Sessions"))
-					if(gameSessionFeedback.length>0){
-						userReport['FeedbackRating']=gameSessionFeedback[0]['FlowRating']
-						userReport['Feedback']=gameSessionFeedback[0]['Feedback']
-						userReport['FeedbackTimestamp']=gameSessionFeedback[0]['FeedbackTimestamp']
 					}
 					return userReport
 				}))
@@ -2213,20 +2232,22 @@ app.get("/sessionfeedbacks", (req, res) => {
 						Event : data.SessionEvents.Event,
 						EventTimestamp : data.SessionEvents.CREATEDTIME.toString().slice(0,19)
 					}
-					const user = users.filter(record=>record.Users.Mobile == data.SessionEvents.Mobile)
-					userReport['GoalInMinutes']=user[0]['Users']['GoalInMinutes']
-					const sessionFeedbacks = feedbacks.filter(record=>record.SessionFeedback.SessionID == data.SessionEvents.SessionID).map(record=>{		
-						return {
-							FlowRating: (record.SessionFeedback.Rating == null) || (record.SessionFeedback.Rating.length == 0) ? ((record.SessionFeedback.GPTRating == null) || (record.SessionFeedback.GPTRating.length == 0) ? "" : record.SessionFeedback.GPTRating.toString()) : record.SessionFeedback.Rating.toString(),
-							Feedback: (record.SessionFeedback.Feedback == null) || (record.SessionFeedback.Feedback.length == 0) ? ((record.SessionFeedback.GPTFeedback == null) || (record.SessionFeedback.GPTFeedback.length == 0) ? "" : record.SessionFeedback.GPTFeedback.toString()) : record.SessionFeedback.Feedback.toString(),
-							FeedbackTimestamp : record.SessionFeedback.CREATEDTIME.toString().slice(0,19)
+					//const user = users.filter(record=>record.Users.Mobile == data.SessionEvents.Mobile)
+					//userReport['GoalInMinutes']=user[0]['Users']['GoalInMinutes']
+					if(userReport['Event'].contains('End')){
+						const sessionFeedbacks = feedbacks.filter(record=>record.SessionFeedback.SessionID == data.SessionEvents.SessionID).map(record=>{		
+							return {
+								FlowRating: (record.SessionFeedback.Rating == null) || (record.SessionFeedback.Rating.length == 0) ? ((record.SessionFeedback.GPTRating == null) || (record.SessionFeedback.GPTRating.length == 0) ? "" : record.SessionFeedback.GPTRating.toString()) : record.SessionFeedback.Rating.toString(),
+								Feedback: (record.SessionFeedback.Feedback == null) || (record.SessionFeedback.Feedback.length == 0) ? ((record.SessionFeedback.GPTFeedback == null) || (record.SessionFeedback.GPTFeedback.length == 0) ? "" : record.SessionFeedback.GPTFeedback.toString()) : record.SessionFeedback.Feedback.toString(),
+								FeedbackTimestamp : record.SessionFeedback.CREATEDTIME.toString().slice(0,19)
+							}
+						})
+						const otherSessionFeedback= sessionFeedbacks.filter(data=>(data.Feedback.startsWith("Overall Game Sessions")==false)&&(data.Feedback.startsWith("Learnings Started")==false))
+						if(otherSessionFeedback.length>0){
+							userReport['FeedbackRating']=otherSessionFeedback[0]['FlowRating']
+							userReport['Feedback']=otherSessionFeedback[0]['Feedback']
+							userReport['FeedbackTimestamp']=otherSessionFeedback[0]['FeedbackTimestamp']
 						}
-					})
-					const otherSessionFeedback= sessionFeedbacks.filter(data=>(data.Feedback.startsWith("Overall Game Sessions")==false)&&(data.Feedback.startsWith("Learnings Started")==false))
-					if(otherSessionFeedback.length>0){
-						userReport['FeedbackRating']=otherSessionFeedback[0]['FlowRating']
-						userReport['Feedback']=otherSessionFeedback[0]['Feedback']
-						userReport['FeedbackTimestamp']=otherSessionFeedback[0]['FeedbackTimestamp']
 					}
 					return userReport
 				}))
@@ -2496,7 +2517,13 @@ app.get("/allattempts", (req, res) => {
 		console.info((new Date()).toString()+"|"+prependToLog,"Fetched Conversation Attempt Report of length:",conversationQueryResult.data.length)
 		console.info((new Date()).toString()+"|"+prependToLog,"Fetched Onboarding Report of length:",obdQueryResult.data.length)
 
-		const quizQueryIDs = quizQueryResult.data.map(data=>data.AssessmentID).filter(unique)
+		const startDate = req.query.startDate ? req.query.startDate : (req.query.date ? req.query.date : '1970-01-01')
+		var today = new Date()
+		today.setHours(today.getHours()+5)
+		today.setMinutes(today.getMinutes()+30)
+		const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
+	
+		const quizQueryIDs = quizQueryResult.data.filter(data=>(data.AssessmentStartTime>=(startDate+" 00:00:00"))&&(data.AssessmentStartTime<=(endDate+" 23:59:59"))).map(data=>data.AssessmentID).filter(unique)
 		var report = quizQueryIDs.map(id=>{
 			const data = quizQueryResult.data.filter(report=>report.AssessmentID==id)
 			return {
@@ -2509,7 +2536,7 @@ app.get("/allattempts", (req, res) => {
 			}
 		})
 		console.info((new Date()).toString()+"|"+prependToLog,"Appended Quiz Report Data")
-		report = report.concat(gameQueryResult.data.map(data=>{
+		report = report.concat(gameQueryResult.data.filter(data=>(data.SessionStartedTime>=(startDate+" 00:00:00"))&&(data.SessionStartedTime<=(endDate+" 23:59:59"))).map(data=>{
 			return {
 				Mobile: data.Mobile,
 				Type: "Game",
@@ -2520,7 +2547,7 @@ app.get("/allattempts", (req, res) => {
 			}
 		}))
 		console.info((new Date()).toString()+"|"+prependToLog,"Appended Game Report Data")
-		report = report.concat(conversationQueryResult.data.map(data=>{
+		report = report.concat(conversationQueryResult.data.filter(data=>(data.SessionStartTime>=(startDate+" 00:00:00"))&&(data.SessionStartTime<=(endDate+" 23:59:59"))).map(data=>{
 			return {
 				Mobile: data.Mobile,
 				Type: "Conversation",
@@ -2531,7 +2558,7 @@ app.get("/allattempts", (req, res) => {
 			}
 		}))
 		console.info((new Date()).toString()+"|"+prependToLog,"Appended Conversation Report Data")
-		report = report.concat(obdQueryResult.data.map(data=>{
+		report = report.concat(obdQueryResult.data.filter(data=>data.SessionStartTime.toString().length>0).filter(data=>(data.SessionStartTime>=(startDate+" 00:00:00"))&&(data.SessionStartTime<=(endDate+" 23:59:59"))).map(data=>{
 			return {
 				Mobile: data.Mobile,
 				Type: "Onboarding",
