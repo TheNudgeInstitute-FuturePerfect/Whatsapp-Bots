@@ -1,5 +1,6 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
+const SystemPrompts = require(".././models/SystemPrompts.js");
 
 module.exports = async (basicIO) => {
   /*
@@ -194,15 +195,16 @@ module.exports = async (basicIO) => {
                     });
 
                     result["OperationStatus"] = "SUCCESS";
-                    const searchQuery =
-                      "Select ROWID from SystemPrompts where IsActive = true and Name = '" +
-                      prompt +
-                      "'";
-                    const zcql = catalystApp.zcql();
+                    // const searchQuery =
+                    //   "Select ROWID from SystemPrompts where IsActive = true and Name = '" +
+                    //   prompt +
+                    //   "'";
+                    // const zcql = catalystApp.zcql();
                     try {
-                      const searchQueryResult = await zcql.executeZCQLQuery(
-                        searchQuery
-                      );
+                      // const searchQueryResult = await zcql.executeZCQLQuery(
+                      //   searchQuery
+                      // );
+                      const searchQueryResult = await SystemPrompt.findOne({ IsActive: true, Name: prompt }, 'ROWID');
                       if (searchQueryResult == null) {
                         result["OperationStatus"] = "SUCCESS_NO_ACTV";
                         result["StatusDescription"] =

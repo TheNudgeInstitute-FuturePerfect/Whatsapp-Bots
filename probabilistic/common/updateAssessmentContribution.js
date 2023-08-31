@@ -1,5 +1,6 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
+const SystemPrompt = require(".././models/SystemPrompts.js");
 
 module.exports = async (basicIO) => {
 	/*
@@ -40,9 +41,10 @@ module.exports = async (basicIO) => {
 		
 		//Get the data for this ROWID
 		const zcql = catalystApp.zcql()
-		const query = "select ROWID, Name, Content, IsActive, SupportingText, SupportingAVURL,SupportingImageURL, Sequence, Persona, ObjectiveMessage, Type, ShowLearningContent from SystemPrompts where ROWID='"+rowID+"'"
+		//const query = "select ROWID, Name, Content, IsActive, SupportingText, SupportingAVURL,SupportingImageURL, Sequence, Persona, ObjectiveMessage, Type, ShowLearningContent from SystemPrompts where ROWID='"+rowID+"'"
 		try{
-           const searchQuery = await zcql.executeZCQLQuery(query);
+        //    const searchQuery = await zcql.executeZCQLQuery(query);
+		    const searchQuery = await SystemPrompt.findOne({ ROWID: rowID });
 		   if(!((searchQuery!=null)&&(searchQuery.length>0))){
 				result['OperationStatus']="REQ_ERR"
 				result['StatusDescription']="There is no record for id="+rowID

@@ -5,6 +5,7 @@ const express = require("express");
 const catalyst = require("zoho-catalyst-sdk");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
 let userTopicSubscriptionMapper = require("./models/userTopicSubscriptionMapper.js")
+const SystemPrompts = require("./models/SystemPrompts.js");
 let getConfigurationParam = require("./common/getConfigurationParam.js");
 const Razorpay = require("razorpay")
 var instance = new Razorpay({
@@ -190,15 +191,25 @@ app.post("/allocatetopic", (req, res) => {
   mobile = mobile.toString().slice(-10);
 
   //Get the SystemPrompt details for the topics
-  let query =
-    "select distinct SystemPrompts.ROWID, SystemPrompts.Sequence, SystemPrompts.SupportingText, SystemPrompts.SupportingImageURL, SystemPrompts.SupportingAVURL, SystemPrompts.ObjectiveMessage, SystemPrompts.IsPaid, SystemPrompts.ShowLearningContent, SystemPrompts.LearningObjective, SystemPrompts.Game from SystemPrompts where SystemPrompts.Name = '" +
-    topic +
-    "' and SystemPrompts.IsActive = true";
+  // let query =
+  //   "select distinct SystemPrompts.ROWID, SystemPrompts.Sequence, SystemPrompts.SupportingText, SystemPrompts.SupportingImageURL, SystemPrompts.SupportingAVURL, SystemPrompts.ObjectiveMessage, SystemPrompts.IsPaid, SystemPrompts.ShowLearningContent, SystemPrompts.LearningObjective, SystemPrompts.Game from SystemPrompts where SystemPrompts.Name = '" +
+  //   topic +
+  //   "' and SystemPrompts.IsActive = true";
+  let query = SystemPrompts.distinct('ROWID', {
+    Name: topic,
+    IsActive: true,
+  })
   if (persona != null)
-    query = query + " and Persona = '" + persona.replace(/'/g, "''").replace(" 🔐","") + "'";
-  let zcql = catalystApp.zcql();
-  zcql
-    .executeZCQLQuery(query)
+    // query = query + " and Persona = '" + persona.replace(/'/g, "''").replace(" 🔐","") + "'";
+       query = SystemPrompts.distinct('ROWID', {
+        Name: topic,
+        IsActive: true,
+        Persona : persona.replace(/'/g, "''").replace(" 🔐","")
+      })
+  // let zcql = catalystApp.zcql();
+  // zcql
+  //   .executeZCQLQuery(query)
+  query
     .then((systemPrompts) => {
       if (!(systemPrompts != null && systemPrompts.length > 0)) {
         responseObject["OperationStatus"] = "NO_DATA";

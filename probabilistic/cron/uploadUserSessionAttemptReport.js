@@ -6,6 +6,7 @@ const Session = require(".././models/Sessions.js");
 const SystemPrompts = require(".././models/SystemPrompts.js");
 const UsersReport = require(".././models/UsersReport.js");
 const UserSessionAttemptReport = require(".././models/UserSessionAttemptReport.js");
+const Version = require(".././models/versions.js");
 
 const catalystApp = catalyst.initialize();
 
@@ -169,10 +170,11 @@ UserSessionAttemptReport.find({}, 'ROWID SessionID IsActive EndOfSession')
                       && (data.SessionFeedback.GPTFeedback ==null ? true : (data.SessionFeedback.GPTFeedback.startsWith("Overall Game Sessions")==false)
                         && (data.SessionFeedback.GPTFeedback.startsWith("Learnings Started")==false))
                     );
-                    zcql
-                      .executeZCQLQuery(
-                        "Select Version,StartDate from Versions order by StartDate"
-                      )
+                    // zcql
+                    //   .executeZCQLQuery(
+                    //     "Select Version,StartDate from Versions order by StartDate"
+                    //   )
+                    Version.find().sort({ StartDate: 1 })
                       .then(async (versionRecords) => {
                         var versions = [];
                         if (

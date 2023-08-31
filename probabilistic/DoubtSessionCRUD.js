@@ -5,6 +5,9 @@ const express = require("express");
 const catalyst = require("zoho-catalyst-sdk");
 const userDoubtSession = require("./models/userDoubtSession.js");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
+const Session = require("./models/Sessions.js");
+const User = require("./models/Users.js");
+const SystemPrompts = require("./models/SystemPrompts.js");
 
 // const app = express();
 // app.use(express.json());
@@ -64,7 +67,8 @@ app.get("/", (req, res) => {
         let table = catalystApp.datastore().table("SessionEvents")
 
         let zcql = catalystApp.zcql()
-        zcql.executeZCQLQuery("Select distinct Mobile,SystemPromptsROWID from Sessions where SessionID ='"+sessionID+"'")
+        // zcql.executeZCQLQuery("Select distinct Mobile,SystemPromptsROWID from Sessions where SessionID ='"+sessionID+"'")
+        Session.distinct('Mobile SystemPromptsROWID', { SessionID: sessionID })
         .then((session)=>{
             if(!Array.isArray(session))
                 throw new Error(session)
@@ -72,7 +76,8 @@ app.get("/", (req, res) => {
                 console.info((new Date()).toString()+"|"+prependToLog,"Fetched Session Details")
                 eventData["SystemPromptROWID"]= session[0]['Sessions']['SystemPromptsROWID']
                 eventData['Mobile']=session[0]['Sessions']['Mobile']
-                zcql.executeZCQLQuery("Select distinct ROWID, GlificID from Users where Mobile ='"+session[0]['Sessions']['Mobile']+"'")
+                // zcql.executeZCQLQuery("Select distinct ROWID, GlificID from Users where Mobile ='"+session[0]['Sessions']['Mobile']+"'")
+                User.distinct('ROWID', { Mobile: sessionMobile })
                 .then(async (user)=>{
                     if(!Array.isArray(user))
                         throw new Error(user)
@@ -153,7 +158,9 @@ app.post("/getsessiondetails", async (req, res) => {
     const mobile = requestBody['Mobile'].toString().slice(-10)
 
     let zcql = catalystApp.zcql()
-    zcql.executeZCQLQuery('Select ROWID from Users where Mobile = '+mobile)
+    // zcql.executeZCQLQuery('Select ROWID from Users where Mobile = '+mobile)
+
+    User.findOne({ Mobile: mobile }).select('ROWID')
     .then(async (user)=>{
         if(!Array.isArray(user))
             throw new Error(user)
@@ -172,7 +179,8 @@ app.post("/getsessiondetails", async (req, res) => {
             else{
                 console.info((new Date()).toString()+"|"+prependToLog,"Returned "+rowReturned.length+" Records from UserDoubtSession matching User ROWID :"+user[0]['Users']['ROWID'])
                 responseJSON['SessionID']=rowReturned[0]['SessionID']
-                zcql.executeZCQLQuery("Select ROWID from SystemPrompts where Name = 'SLF Doubts'")
+                // zcql.executeZCQLQuery("Select ROWID from SystemPrompts where Name = 'SLF Doubts'")
+                SystemPrompts.findOne({ Name: queryName }, 'ROWID')
                 .then((systemPrompt)=>{
                     if(!Array.isArray(systemPrompt))
                         throw new Error(systemPrompt)

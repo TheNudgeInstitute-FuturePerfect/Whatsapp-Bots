@@ -350,15 +350,15 @@ app.post("/search", (req, res) => {
   let zcql = catalystApp.zcql();
 
   //Update consent
-  let query =
-    "Select ROWID, IsActive from User where Mobile='" +
-    mobile +
-    "' and isActive=true";
-  console.info((new Date()).toString()+"|"+prependToLog,"Query : " + query);
-  //Execute Query
-  let zcqlQuestions = zcql.executeZCQLQuery(query);
+  // let query =
+  //   "Select ROWID, IsActive from User where Mobile='" +
+  //   mobile +
+  //   "' and isActive=true";
+  // console.info((new Date()).toString()+"|"+prependToLog,"Query : " + query);
+  // //Execute Query
+  // let zcqlQuestions = zcql.executeZCQLQuery(query);
   var responseJSON = {};
-  zcqlQuestions
+  User.findOne({ Mobile: mobile, IsActive: true }).select('ROWID IsActive')
     .then((questionQueryResult) => {
       //If there is no record, then the mobile number does not exist in system. Return error
       if (questionQueryResult.length == 0) {

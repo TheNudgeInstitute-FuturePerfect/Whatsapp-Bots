@@ -6,6 +6,9 @@ const catalyst = require("zoho-catalyst-sdk");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
 const Configurations = require("./models/Configurations");
 const User = require("./models/Users.js");
+const UserAssessmentLog = require("./models/UserAssessmentLogs.js");
+const QuestionBank = require("./models/questionBank.js");
+const UserAssessment = require("./models/UserAssessment.js");
 // const app = express();
 // app.use(express.json());
 const bodyParser = require('body-parser')
@@ -81,10 +84,11 @@ app.post("/updateassessmentquestion", (req, res) => {
         let zcql = catalystApp.zcql();
 
 		//Fetch the User ID from mobile number
-		let query = "Select QuestionsAsked from UserAssessmentLogs where ROWID = '"+requestBody['UserAssessmentLogID']+"'"
-        console.debug((new Date()).toString()+"|"+prependToLog,"Getting Questions Asked in Session: "+query);
+		// let query = "Select QuestionsAsked from UserAssessmentLogs where ROWID = '"+requestBody['UserAssessmentLogID']+"'"
+        // console.debug((new Date()).toString()+"|"+prependToLog,"Getting Questions Asked in Session: "+query);
 
-        zcql.executeZCQLQuery(query)
+        // zcql.executeZCQLQuery(query)
+        UserAssessmentLog.findOne({ "ROWID": requestBody['UserAssessmentLogID'] }, 'QuestionsAsked')
         .then((logs)=>{
             if(!Array.isArray(logs) && (logs!=null)){
                 responseJSON['OperationStatus']='FAILED_TO_GET_SESSION'
@@ -267,9 +271,13 @@ app.post("/", async (req, res) => {
 
                             console.info((new Date()).toString()+"|"+prependToLog,"MaxAttempts="+maxAttempts+" | MaxQuestions="+maxQuestions)
 
-                            query = "Select ROWID, NextQuestionROWID, IsAssessmentComplete from UserAssessmentLogs where SystemPromptROWID = '"+requestBody["TopicID"]+"' and UserROWID = '"+userROWID+"'"
-                            console.debug((new Date()).toString()+"|"+prependToLog,"Get Total Attempts for SystemPrompt/Topic: "+query);
-                            zcql.executeZCQLQuery(query)
+                            // query = "Select ROWID, NextQuestionROWID, IsAssessmentComplete from UserAssessmentLogs where SystemPromptROWID = '"+requestBody["TopicID"]+"' and UserROWID = '"+userROWID+"'"
+                            // console.debug((new Date()).toString()+"|"+prependToLog,"Get Total Attempts for SystemPrompt/Topic: "+query);
+                            // zcql.executeZCQLQuery(query)
+                            UserAssessmentLog.find({
+                                SystemPromptROWID: requestBody["TopicID"],
+                                UserROWID: userROWID
+                              }).select('ROWID NextQuestionROWID IsAssessmentComplete')
                             .then((topicAttempts) => {
                                 if(!Array.isArray(topicAttempts) && (topicAttempts!=null)){
                                     responseJSON['OperationStatus']='FAILED_TO_GET_ATTMPTS'
@@ -287,13 +295,14 @@ app.post("/", async (req, res) => {
                                         sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody,res)
                                     }
                                     else{
-                                        query = "SELECT QuestionBank.ResponseTimeOut, QuestionBank.ROWID, QuestionBank.Question, "
-                                                +"QuestionBank.QuestionType, QuestionBank.avURL, QuestionBank.ResponseFormat, QuestionBank.Tags, "
-                                                +"QuestionBank.ImageURL, QuestionBank.Options, QuestionBank.AskingOrder "
-                                                +"FROM QuestionBank "
-                                                +"where SystemPromptROWID='"+requestBody["TopicID"]+"'"
-                                        console.debug((new Date()).toString()+"|"+prependToLog,"Get SystemPrompt/Topic and Question Details: "+query);
-                                        zcql.executeZCQLQuery(query)
+                                        // query = "SELECT QuestionBank.ResponseTimeOut, QuestionBank.ROWID, QuestionBank.Question, "
+                                        //         +"QuestionBank.QuestionType, QuestionBank.avURL, QuestionBank.ResponseFormat, QuestionBank.Tags, "
+                                        //         +"QuestionBank.ImageURL, QuestionBank.Options, QuestionBank.AskingOrder "
+                                        //         +"FROM QuestionBank "
+                                        //         +"where SystemPromptROWID='"+requestBody["TopicID"]+"'"
+                                        // console.debug((new Date()).toString()+"|"+prependToLog,"Get SystemPrompt/Topic and Question Details: "+query);
+                                        // zcql.executeZCQLQuery(query)
+                                        QuestionBank.find({ SystemPromptROWID: requestBody["TopicID"] })
                                         .then(async (questionBank) => {
                                             if(!Array.isArray(questionBank) && (questionBank!=null)){
                                                 responseJSON['OperationStatus']='FAILED_TO_GET_QUEST'
@@ -364,8 +373,19 @@ app.post("/", async (req, res) => {
 
                                                     try{
 
-                                                        query = "Select distinct QuestionROWID, ResponseText from UserAssessment where ((ErrorInResponse is null) or (ErrorInResponse='')) and UserAssessmentLogROWID = '"+responseJSON["UserAssessmentLogID"]+"'"
-                                                        previousResponsesResult = await zcql.executeZCQLQuery(query)
+                                                        //query = "Select distinct QuestionROWID, ResponseText from UserAssessment where ((ErrorInResponse is null) or (ErrorInResponse='')) and UserAssessmentLogROWID = '"+responseJSON["UserAssessmentLogID"]+"'"
+                                                        // previousResponsesResult = await zcql.executeZCQLQuery(query)
+                                                        previousResponsesResult = await UserAssessment.distinct('QuestionROWID', {
+                                                            $and: [
+                                                              {
+                                                                $or: [
+                                                                  { ErrorInResponse: null },
+                                                                  { ErrorInResponse: '' },
+                                                                ],
+                                                              },
+                                                              { UserAssessmentLogROWID: responseJSON["UserAssessmentLogID"] },
+                                                            ],
+                                                          })
                                                         if(!Array.isArray(previousResponsesResult)){
                                                             console.info((new Date()).toString()+"|"+prependToLog,'Failed to get the responses for the assessment =',responses)
                                                             responseJSON['OperationStatus']='FAILED_TO_GET_PREV_ANS'

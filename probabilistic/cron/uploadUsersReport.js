@@ -3,6 +3,7 @@ const Session = require(".././models/Sessions.js");
 const SystemPrompt = require(".././models/SystemPrompts.js");
 const UsersReport = require(".././models/UsersReport.js");
 const User = require(".././models/Users.js");
+const Version = require(".././models/versions.js");
 
 const catalystApp = catalyst.initialize();
 
@@ -183,7 +184,8 @@ UsersReport.find({},'ROWID Mobile')
 						}
 					  ])
 			.then((obdSessions)=>{
-				zcql.executeZCQLQuery("Select Version,StartDate from Versions order by StartDate")
+				// zcql.executeZCQLQuery("Select Version,StartDate from Versions order by StartDate")
+				Version.find().sort({ StartDate: 1 })
 				.then(async (versionRecords)=>{
 					var versions = []
 					if((typeof versionRecords !== 'undefined')&&(versionRecords!=null)&&(versionRecords.length>0))

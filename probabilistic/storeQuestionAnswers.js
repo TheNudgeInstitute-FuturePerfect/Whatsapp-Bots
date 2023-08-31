@@ -6,6 +6,9 @@ const catalyst = require("zoho-catalyst-sdk");
 const storeAudioFileinGCS = require("./common/storeAudioFileinGCS.js");
 const convertSpeechToText = require("./common/convertSpeechToText.js");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
+const UserAssessmentLog = require("./models/UserAssessmentLogs.js");
+const UserAssessment = require("./models/UserAssessment.js");
+const Question = require("./models/questionBank.js");
 // const app = express();
 // app.use(express.json());
 const bodyParser = require('body-parser')
@@ -86,15 +89,35 @@ app.post("/", (req, res) => {
 
         let zcql = catalystApp.zcql()
 
-        let query = "SELECT UserAssessmentLogs.UserROWID, UserAssessmentLogs.SystemPromptROWID, UserAssessmentLogs.QuestionsAsked, "
-                    +"UserAssessment.QuestionROWID, UserAssessment.ErrorInResponse, UserAssessment.ResponseText "
-                    +"FROM UserAssessmentLogs "
-                    +"left join UserAssessment on UserAssessmentLogs.ROWID = UserAssessment.UserAssessmentLogROWID "
-                    +"where IsAssessmentComplete = false and ROWID='"+requestBody["UserAssessmentLogID"]+"'"
 
-        console.debug((new Date()).toString()+"|"+prependToLog,"Get Assessment Details: "+query);
+        // let query = "SELECT UserAssessmentLogs.UserROWID, UserAssessmentLogs.SystemPromptROWID, UserAssessmentLogs.QuestionsAsked, "
+        //             +"UserAssessment.QuestionROWID, UserAssessment.ErrorInResponse, UserAssessment.ResponseText "
+        //             +"FROM UserAssessmentLogs "
+        //             +"left join UserAssessment on UserAssessmentLogs.ROWID = UserAssessment.UserAssessmentLogROWID "
+        //             +"where IsAssessmentComplete = false and ROWID='"+requestBody["UserAssessmentLogID"]+"'"
 
-        zcql.executeZCQLQuery(query)
+        // console.debug((new Date()).toString()+"|"+prependToLog,"Get Assessment Details: "+query);
+
+        // zcql.executeZCQLQuery(query)
+        UserAssessmentLog.aggregate([
+            {
+              $match: {
+                IsAssessmentComplete: false,
+                ROWID: requestBody["UserAssessmentLogID"]
+              }
+            },
+            {
+              $lookup: {
+                from: UserAssessment,
+                localField: 'ROWID',
+                foreignField: 'UserAssessmentLogROWID',
+                as: 'assessment'
+              }
+            },
+            {
+              $unwind: '$assessment'
+            }
+          ])
         .then((userAssessmentLog)=>{
             if(!Array.isArray(userAssessmentLog) && (userAssessmentLog!=null)){
                 responseJSON['OperationStatus']='FAILED_TO_GET_ASSMNTLOG'
@@ -110,12 +133,15 @@ app.post("/", (req, res) => {
                 if(previousResponses.length==0)
                     console.info((new Date()).toString()+"|"+prependToLog,"Either it's first question or no correct response could be captured at all")
                 
-                query = "Select ROWID, AskingOrder, SkipLogic, ResponseValidations, ResponseFormat, Question, "
-                        +"Answers, Options, Feedback, IsEvaluative "
-                        +"from QuestionBank where SystemPromptROWID='"+topicID+"' order by AskingOrder asc"
-                console.debug((new Date()).toString()+"|"+prependToLog,"Fetching questions configured for SystemPromptROWID = "+topicID+" : "+query);
-                zcql.executeZCQLQuery(query)
-                .then((questionBank)=>{
+                // query = "Select ROWID, AskingOrder, SkipLogic, ResponseValidations, ResponseFormat, Question, "
+                //         +"Answers, Options, Feedback, IsEvaluative "
+                //         +"from QuestionBank where SystemPromptROWID='"+topicID+"' order by AskingOrder asc"
+                // console.debug((new Date()).toString()+"|"+prependToLog,"Fetching questions configured for SystemPromptROWID = "+topicID+" : "+query);
+                // zcql.executeZCQLQuery(query)
+                Question.find({ SystemPromptROWID: topicID })
+                .sort({ AskingOrder: 1 })
+                .select('ROWID AskingOrder SkipLogic ResponseValidations ResponseFormat Question Answers Options Feedback IsEvaluative')
+                 .then((questionBank)=>{
                     if(!Array.isArray(questionBank) && (questionBank!=null)){
                         responseJSON['OperationStatus']='FAILED_TO_GET_QUEST'
                         responseJSON['StatusDescription']=questionBank
@@ -709,8 +735,15 @@ app.post("/", (req, res) => {
                                                                 console.info((new Date()).toString()+"|"+prependToLog,"Updated Question asked in User Assessmet Log")
                                                                 responseJSON['QuestionResponseID'] = storeResponseResult['ROWID'];//Response element to be sent
                                                                 var alwaysSucccessFeedback = successFeedback.replace("@contacts.name",contactName)
-                                                                const correctAnswers=(await zcql.executeZCQLQuery("select distinct QuestionROWID from UserAssessment where StudentAssessmentLogID = '"+requestBody["UserAssessmentLogID"]+"' and IsCorrectResponse=true")).length
-                                                                const totalQuestions=(await zcql.executeZCQLQuery("select distinct QuestionROWID from UserAssessment where StudentAssessmentLogID = '"+requestBody["UserAssessmentLogID"]+"'")).length
+                                                                // const correctAnswers=(await zcql.executeZCQLQuery("select distinct QuestionROWID from UserAssessment where StudentAssessmentLogID = '"+requestBody["UserAssessmentLogID"]+"' and IsCorrectResponse=true")).length
+                                                                // const totalQuestions=(await zcql.executeZCQLQuery("select distinct QuestionROWID from UserAssessment where StudentAssessmentLogID = '"+requestBody["UserAssessmentLogID"]+"'")).length
+                                                                const correctAnswers=(await UserAssessment.distinct('QuestionROWID', {
+                                                                    StudentAssessmentLogID: requestBody["UserAssessmentLogID"],
+                                                                    IsCorrectResponse: true
+                                                                  })).length
+                                                                const totalQuestions=(await UserAssessment.distinct('QuestionROWID', {
+                                                                    StudentAssessmentLogID: requestBody["UserAssessmentLogID"]
+                                                                  })).length
                                                                 
                                                                 const correctAnswerTokens = ["@correctAnswers","@correctanswers","@correctanswer"]
                                                                 for(var i=0;i<correctAnswerTokens.length;i++){
