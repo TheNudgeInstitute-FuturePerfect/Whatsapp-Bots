@@ -107,9 +107,14 @@ app.post("/updateassessmentquestion", (req, res) => {
                     console.log('List of questions asked = ',questionsAsked)
                     questionsAsked = questionsAsked + (questionsAsked.length == 0 ? '' : ',') + questionID
                     console.info((new Date()).toString()+"|"+prependToLog,'List of questions updated = ',questionsAsked)
-                    query = "UPDATE UserAssessmentLogs set QuestionsAsked = '"+questionsAsked+"' where ROWID='"+requestBody['AssessmentCompletionReason']+"'"
-                    console.info((new Date()).toString()+"|"+prependToLog,"Updating current questions asked : "+query);
-                    zcql.executeZCQLQuery(query)
+                    // query = "UPDATE UserAssessmentLogs set QuestionsAsked = '"+questionsAsked+"' where ROWID='"+requestBody['AssessmentCompletionReason']+"'"
+                    // console.info((new Date()).toString()+"|"+prependToLog,"Updating current questions asked : "+query);
+                    // zcql.executeZCQLQuery(query)
+                    UserAssessmentLog.findOneAndUpdate(
+                        { ROWID: requestBody['AssessmentCompletionReason'] },
+                        { $set: { QuestionsAsked: questionsAsked } },
+                        { new: true }
+                      )
                     .then((row)=>{
                         sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody,res)
                     })
@@ -161,11 +166,23 @@ app.post("/closeassessment", (req, res) => {
         let zcql = catalystApp.zcql();
 
 		//Fetch the User ID from mobile number
-		let query = "Update UserAssessmentLogs set IsAssessmentComplete=true, AssessmentCompletionReason = '"+requestBody['AssessmentCompletionReason']+"' where ROWID='"+requestBody["UserAssessmentLogID"]+"' and IsAssessmentComplete != true";
-		console.debug((new Date()).toString()+"|"+prependToLog,"Closing Session: "+query);
+		// let query = "Update UserAssessmentLogs set IsAssessmentComplete=true, AssessmentCompletionReason = '"+requestBody['AssessmentCompletionReason']+"' where ROWID='"+requestBody["UserAssessmentLogID"]+"' and IsAssessmentComplete != true";
+		// console.debug((new Date()).toString()+"|"+prependToLog,"Closing Session: "+query);
 		
-        //Execute Query
-		zcql.executeZCQLQuery(query)
+        // //Execute Query
+		// zcql.executeZCQLQuery(query)
+        UserAssessmentLog.updateOne(
+            {
+              ROWID: requestBody['UserAssessmentLogID'],
+              IsAssessmentComplete: { $ne: true }, // Ensure IsAssessmentComplete is not already true
+            },
+            {
+              $set: {
+                IsAssessmentComplete: true,
+                AssessmentCompletionReason: requestBody['AssessmentCompletionReason'],
+              },
+            }
+          )
         .then((user) => {
             if(!Array.isArray(user) && (user!=null)){
                 responseJSON['OperationStatus']='FAILED_TO_CLOSE_SESSION'
