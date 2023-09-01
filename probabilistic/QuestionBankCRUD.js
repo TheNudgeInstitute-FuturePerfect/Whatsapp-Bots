@@ -554,20 +554,20 @@ app.patch("/", (req, res) => {
 				if(Array.isArray(row['options']))
 				{
 					const optionValues = row['options'].filter(option=>option.length>0)
-					finalData['Options']= optionValues==null?null:encodeURI(optionValues.join('\n'))
+					finalData['Options']= optionValues.length==0?null:optionValues
 				}
 
 			if(typeof row['answers'] !== 'undefined')
 				if(Array.isArray(row['answers']))
 				{
 					const answerValues = row['answers'].filter(answer=>answer.length>0)
-					finalData['Answers']= answerValues==null?null:encodeURI(row['answers'].join('\n'))
+					finalData['Answers']= answerValues.length==0?null:answerValues
 				}
 
 			if(typeof row['tags'] !== 'undefined')
 				if(Array.isArray(row['tags'])){
 					const tagValues = row['tags'].filter(tag=>tag.length>0)
-					finalData['Tags']= tagValues==null?null:encodeURI(row["tags"].join(','))
+					finalData['Tags']= tagValues.length==0?null:tagValues
 				}
 
 			if((typeof row['successMessage'] !== 'undefined') || (typeof row['errorMessage'] !== 'undefined'))

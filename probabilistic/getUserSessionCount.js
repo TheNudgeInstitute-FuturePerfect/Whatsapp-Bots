@@ -54,7 +54,7 @@ app.post("/totalsessions", (req, res) => {
     const game = requestBody["Game"] ? ((requestBody["Game"].startsWith("@result")||requestBody["Game"].startsWith("@contact")) ? null : requestBody["Game"]):null
         
     let query = "Select {} from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID where Sessions.Mobile = "+mobile
-    const sessionQuery = getAllRows("distinct SystemPrompts.Persona, Sessions.SystemPromptsROWID, Sessions.SessionID, Sessions.IsActive",query,zcql,prependToLog)
+    const sessionQuery = getAllRows("distinct SystemPrompts.Module, SystemPrompts.Name, SystemPrompts.Persona, Sessions.SystemPromptsROWID, Sessions.SessionID, Sessions.IsActive, Sessions.CREATEDTIME",query,zcql,prependToLog)
     const learningQuery = "Select {} from UserAssessmentLogs left join Users on Users.ROWID = UserAssessmentLogs.UserROWID where Users.Mobile = "+mobile
     const userAssessmentQuery = getAllRows("distinct ROWID, IsAssessmentComplete",learningQuery,zcql,prependToLog)
     const axios = require("axios");
@@ -110,15 +110,34 @@ app.post("/totalsessions", (req, res) => {
               responseObject['TotalGameSessions']=wordleAttemptsReport.length
               //All Game Sessions Completed
               responseObject['TotalGameSessionsCompleted']=wordleAttemptsReport.filter(data=>data.CompletedWordle=="Yes").length
-              //Filtering for Persona
+              //Getting Persona, Topic and Module Started and Completed
               if((systemPromptROWID != null)&&(sessions.length>0)){
-                const personaSessions = sessions.filter(data=>data.Sessions.SystemPromptsROWID==systemPromptROWID)
+                let personaSessions = sessions.filter(data=>data.Sessions.SystemPromptsROWID==systemPromptROWID)
                 if(personaSessions.length>0){
                   responseObject['Persona'] = personaSessions[0]['SystemPrompts']['Persona']
                   responseObject['TotalPersonaSessionsStartd'] = personaSessions.map(data=>data.Sessions.SessionID).filter(unique).length
-                  responseObject['TotalPersonaSessionsCompleted'] = responseObject['TotalPersonaSessionsStartd'] - personaSessions.filter(data=>data.Sessions.IsActive==true).map(data=>data.Sessions.SessionID).filter(unique)
+                  responseObject['TotalPersonaSessionsCompleted'] = responseObject['TotalPersonaSessionsStartd'] - personaSessions.filter(data=>data.Sessions.IsActive==true).map(data=>data.Sessions.SessionID).filter(unique).length
+                  responseObject['TotalDaysPersonaPracticed'] = personaSessions.map(data=>data.Sessions.CREATEDTIME.toString().slice(0,10)).filter(unique).length
+                
+                  const topic = personaSessions[0]['SystemPrompts']['Name']
+                  const module = personaSessions[0]['SystemPrompts']['Module']
+                  personaSessions = sessions.filter(data=>data.SystemPrompts.Name==topic)
+                  if(personaSessions.length>0){
+                    responseObject['Topic'] = personaSessions[0]['SystemPrompts']['Name']
+                    responseObject['TotalTopicSessionsStartd'] = personaSessions.map(data=>data.Sessions.SessionID).filter(unique).length
+                    responseObject['TotalTopicSessionsCompleted'] = responseObject['TotalTopicSessionsStartd'] - personaSessions.filter(data=>data.Sessions.IsActive==true).map(data=>data.Sessions.SessionID).filter(unique).length
+                    responseObject['TotalDaysTopicPracticed'] = personaSessions.map(data=>data.Sessions.CREATEDTIME.toString().slice(0,10)).filter(unique).length
+                  }
+                  personaSessions = sessions.filter(data=>data.SystemPrompts.Module==module)
+                  if(personaSessions.length>0){
+                    responseObject['Module'] = personaSessions[0]['SystemPrompts']['Module']
+                    responseObject['TotalModuleSessionsStartd'] = personaSessions.map(data=>data.Sessions.SessionID).filter(unique).length
+                    responseObject['TotalModuleSessionsCompleted'] = responseObject['TotalModuleSessionsStartd'] - personaSessions.filter(data=>data.Sessions.IsActive==true).map(data=>data.Sessions.SessionID).filter(unique).length
+                    responseObject['TotalDaysModulePracticed'] = personaSessions.map(data=>data.Sessions.CREATEDTIME.toString().slice(0,10)).filter(unique).length
+                  }
                 }
               }
+            
           }
           console.info((new Date()).toString()+"|"+prependToLog,"End of Execution")
           console.debug((new Date()).toString()+"|"+prependToLog,"End of Execution. Response:",responseObject)
@@ -127,15 +146,16 @@ app.post("/totalsessions", (req, res) => {
           let endTimeStamp = new Date();
           let executionDuration = (endTimeStamp - startTimeStamp) / 1000;
           if (executionDuration > 5) {
-            sendResponseToGlific({
-              flowID: requestBody["FlowID"],
-              contactID: requestBody["contact"]["id"],
-              resultJSON: JSON.stringify({
-                practicesessions: responseObject,
-              }),
-            })
-            .then((glificResponse) => {})
-            .catch((err) => console.info((new Date()).toString()+"|"+prependToLog,"Error returned from Glific: ", err));
+            if((typeof requestBody["FlowID"] !== 'undefined')&&(typeof requestBody["contact"] !== 'undefined'))
+              sendResponseToGlific({
+                flowID: requestBody["FlowID"],
+                contactID: requestBody["contact"]["id"],
+                resultJSON: JSON.stringify({
+                  practicesessions: responseObject,
+                }),
+              })
+              .then((glificResponse) => {})
+              .catch((err) => console.info((new Date()).toString()+"|"+prependToLog,"Error returned from Glific: ", err));
           }      
         }
     })

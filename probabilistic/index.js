@@ -28,6 +28,9 @@ const getRandomQuestions = require("./getRandomQuestions.js");
 const storeQuestionAnswers = require("./storeQuestionAnswers.js");
 const payment = require("./PaymentCRUD.js");
 const doubtsession = require("./DoubtSessionCRUD.js")
+const flowQuestions = require("./FlowQuestionsCRUD.js");
+const getFlowQuestion = require("./getFlowQuestions.js");
+const storeFlowQuestionAnswer = require("./storeFlowQuestionAnswer.js");
 
 // Basic I/O const
 const addUserData = require("./common/addUserData.js");
@@ -77,6 +80,9 @@ app.use("/getquestion",getRandomQuestions);
 app.use("/storeanswer",storeQuestionAnswers);
 app.use("/payment",payment);
 app.use("/doubtsessions",doubtsession);
+app.use("/flowQuestions",flowQuestions);
+app.use("/getflowquestion",getFlowQuestion);
+app.use("/storeflowanswer",storeFlowQuestionAnswer);
 
 // Basic I/O  routes
 app.use("/addUserData",addUserData);
