@@ -91,7 +91,7 @@ app.post("/pendingpractices", (req, res) => {
           const gameQuery = axios.get(process.env.WordleReportURL+mobile)
           const userReportQuery = getAllRows("LastActiveDate, DeadlineDate","select {} from UsersReport where Mobile = "+mobile,zcql,prependToLog)
           const learningStartQuery = "Select {} from SessionEvents where Event = 'Learn Session Start' and Mobile = "+mobile
-          const runLearningStartQuery = getAllRows("distinct ROWID",learningStartQuery,zcql,prependToLog)
+          const runLearningStartQuery = getAllRows("distinct ROWID, CREATEDTIME",learningStartQuery,zcql,prependToLog)
     
           
           Promise.all([sessionQuery,userAssessmentQuery,gameQuery,userReportQuery,runLearningStartQuery])
