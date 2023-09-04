@@ -4,6 +4,8 @@ const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 const emojiRegex = require('emoji-regex');
+const userFlowQuestionLogs = require("./models/userFlowQuestionLogs");
+const flowQuestions = require("./models/flowQuestions");
 
 // const app = express();
 // app.use(express.json());
@@ -2579,6 +2581,117 @@ app.get("/allattempts", (req, res) => {
 		res.status(500).send(err);
 	});
 });         
+
+app.get("/flowquestionanswers", (req, res) => {
+
+    const executionID = Math.random().toString(36).slice(2)
+    
+    //Prepare text to prepend with logs
+    const params = ["Reports",req.url,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+
+	const startDate = req.query.startDate ? req.query.startDate : '1970-01-01 00:00:00'
+	var today = new Date()
+	today.setHours(today.getHours()+5)
+	today.setMinutes(today.getMinutes()+30)
+	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))+" 23:59:59"
+	
+	let filter = {
+		createdAt: {
+			$gte:startDate,
+			$lte:endDate
+		}
+	}
+	if(req.query.category)
+		filter["Category"]=req.query.category
+
+	let flowQuestionLogsQuery = userFlowQuestionLogs.find(filter)
+	let flowQuestionsQuery = flowQuestions.find()
+	Promise.all([flowQuestionLogsQuery,flowQuestionsQuery])
+	.then(([logs,questionBank])=>{
+		if(logs==null){
+			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. No record found matching given criteria")
+			res.status(200).json([])
+		}
+		else if(questionBank==null){
+			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. No question configured")
+			res.status(200).json([])
+		}
+		else{
+			let report = [] 
+			
+			for(var i = 0; i < logs.length; i++){
+				const record=logs[i]
+				var j=0;
+				while(true){
+					let userReport = {
+						Mobile:record.Mobile,
+						SessionID: record.SessionID,
+						Category: record.Category,
+						LogID: record.id,
+						StartTime: record.createdAt.toString().slice(0,19),
+						EndTime: record.updatedAt.toString().slice(0,19),
+						IsComplete: record.IsComplete,
+						CompletionReason: record.CompletionReason
+					}
+
+					if(record.QuestionAnswers.length>0){
+						const question = questionBank.filter(quest=>quest.id == record.QuestionAnswers[j]['QuestionID'])
+						userReport["DisplaySequence"]= question[0].AskingOrder,
+						userReport["Question"]= question[0].Question,
+						userReport["Answer"]= record.QuestionAnswers[j].ResponseText
+						userReport["AnswerAVURL"]= record.QuestionAnswers[j].ResponseAVURL
+						userReport["IsCorrectResponse"]= record.QuestionAnswers[j].IsCorrectResponse
+						userReport["CorrectAnswer"]= question[0].Answers
+						report.push(userReport);;
+						j++;
+						if(j>=record.QuestionAnswers.length)
+							break;
+					}
+					else{
+						userReport["DisplaySequence"]= "",
+						userReport["Question"]= "",
+						userReport["Answer"]= ""
+						userReport["AnswerAVURL"]= ""
+						userReport["IsCorrectResponse"]= ""
+						userReport["CorrectAnswer"]= ""
+						report.push(userReport)
+						break;
+					}
+				}
+			}
+
+			report = report.sort((a, b)=>{
+				if((a['Mobile'] == b['Mobile']) && (a.StartTime < b.StartTime)) {
+					return -1;
+				}
+				if((a['Mobile'] == b['Mobile']) && (a.StartTime > b.StartTime)) {
+					return 1;
+				}
+				if((a['Mobile'] == b['Mobile'])) {
+					return 0;
+				}
+				if((a['Mobile'] < b['Mobile'])) {
+					return -1;
+				}
+				if((a['Mobile'] > b['Mobile'])) {
+					return 1;
+				}
+				// a must be equal to b
+				return 0;
+			})
+			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Report Length = ",report.length)
+			res.status(200).json(report)
+		}
+	})
+	.catch((err) => {
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+		console.error((new Date()).toString()+"|"+prependToLog,err);
+		res.status(500).send(err);
+	});
+});
 
 app.all("/", (req,res) => {
 
