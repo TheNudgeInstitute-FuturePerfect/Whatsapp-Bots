@@ -65,7 +65,7 @@ const schema = new Schema(
                 TotalPracticeDays:{type:Number}
             },
             Persona:{
-                Persona:{type:String},
+                Name:{type:String},
                 TotalStarted:{type:Number},
                 TotalFinished:{type:Number},
                 TotalPracticeDays:{type:Number}
