@@ -285,7 +285,7 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                       uniqueTopics[j] == null
                                         ? ""
                                         : uniqueTopics[j].split("-")[0];
-                                    userReport["Module"] = userReport["Module"]==null ? "" : userReport["Module"]
+                                    userReport["Module"] = topicSessionsData[0].SystemPrompts.Persona;
                                     userReport["Topic"] = userReport["Topic"]==null ? "" : userReport["Topic"]
                                     userReport["Persona"] =
                                       topicSessionsData[0].SystemPrompts.Persona;
