@@ -758,7 +758,7 @@ app.post("/unlocktopic", (req, res) => {
     },
     {
       $lookup: {
-        from: UserPaidTopicMapper, // Name of the collection to join with
+        from: "UserPaidTopicMapper", 
         localField: 'ROWID',
         foreignField: 'UserROWID',
         as: 'paidTopicMappings'

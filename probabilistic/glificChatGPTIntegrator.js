@@ -308,7 +308,7 @@ app.post("/chatgpt", async (request, response) => {
       },
       {
         $lookup: {
-          from: SystemPrompt, // Name of the collection to join with
+          from: "SystemPrompts", // Name of the collection to join with
           localField: 'SystemPromptsROWID',
           foreignField: 'ROWID',
           as: 'systemPromptData'

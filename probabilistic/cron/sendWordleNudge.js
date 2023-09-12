@@ -62,7 +62,7 @@ const getAllRows = (fields) => {
 User.aggregate([
     {
       $lookup: {
-        from: WordleAttempts, // Name of the WordleAttempts collection
+        from: "WordleAttempts", // Name of the WordleAttempts collection
         localField: 'ROWID',
         foreignField: 'UserROWID',
         as: 'wordleAttempts'

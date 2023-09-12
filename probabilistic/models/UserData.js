@@ -9,7 +9,7 @@ const schema = new Schema({
   Segment: { type: String },
   Question: { type: String },
   Answer: { type: String },
-  UserROWID: { type: Number }
+  UserROWID: { type: Schema.Types.ObjectId, ref: 'Users' }
 });
 
 module.exports = model("UserData", schema);

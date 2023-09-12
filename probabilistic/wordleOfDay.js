@@ -95,7 +95,7 @@ app.post("/userstatus", (req, res) => {
             },
             {
               $lookup: {
-                from: WordleAttempts, // Name of the collection to join with
+                from: "WordleAttempts", // Name of the collection to join with
                 localField: 'ROWID',
                 foreignField: 'UserROWID',
                 as: 'wordleAttempts'

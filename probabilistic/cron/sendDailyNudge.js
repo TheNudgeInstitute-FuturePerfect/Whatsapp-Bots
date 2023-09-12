@@ -189,7 +189,7 @@ User.countDocuments(
 					const userAssessmentQuery = UserAssessment.aggregate([
 						{
 						  $lookup: {
-							from: UserAssessmentLogs, // Name of the UserAssessmentLogs collection
+							from: "UserAssessmentLogs", // Name of the UserAssessmentLogs collection
 							localField: 'UserAssessmentLogROWID',
 							foreignField: 'ROWID',
 							as: 'assessmentLogs'
@@ -200,7 +200,7 @@ User.countDocuments(
 						},
 						{
 						  $lookup: {
-							from: User, // Name of the Users collection
+							from: "Users", // Name of the Users collection
 							localField: 'assessmentLogs.UserROWID',
 							foreignField: 'ROWID',
 							as: 'user'
@@ -227,7 +227,7 @@ User.countDocuments(
                     const userGameQuery = WordleAttempts.aggregate([
 						{
 						  $lookup: {
-							from: User, // Name of the Users collection
+							from: "Users", // Name of the Users collection
 							localField: 'UserROWID',
 							foreignField: 'ROWID',
 							as: 'user'

@@ -102,7 +102,7 @@ app.post("/pendingpractices", (req, res) => {
           const userAssessmentQuery = UserAssessmentLog.aggregate([
             {
               $lookup: {
-                from: User, // Name of the collection to join with
+                from: "Users", // Name of the collection to join with
                 localField: 'UserROWID',
                 foreignField: 'ROWID',
                 as: 'user'

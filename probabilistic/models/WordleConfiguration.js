@@ -1,7 +1,7 @@
 const { Schema, model } = require("mongoose");
 
 const schema = new Schema({
-  ROWID: Schema.Types.ObjectId,
+  ROWID: {type: Number},
   CREATORID: {type: Number}, 
   CREATEDTIME: {type: Date,default: Date.now},
   MODIFIEDTIME: {type: Date,default: Date.now},

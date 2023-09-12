@@ -108,7 +108,7 @@ app.post("/", (req, res) => {
             },
             {
               $lookup: {
-                from: UserAssessment,
+                from: "UserAssessment",
                 localField: 'ROWID',
                 foreignField: 'UserAssessmentLogROWID',
                 as: 'assessment'

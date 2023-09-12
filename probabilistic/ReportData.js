@@ -87,7 +87,7 @@ app.get("/sessions", (req, res) => {
 	Session.aggregate([
 		{
 		  $lookup: {
-			from: SystemPrompt, // Name of the collection to join with
+			from: "SystemPrompts", // Name of the collection to join with
 			localField: 'SystemPromptsROWID',
 			foreignField: 'ROWID',
 			as: 'systemPromptData'
@@ -149,7 +149,7 @@ app.get("/sessionfeedbacks", (req, res) => {
 		SessionFeedback.aggregate([
 			{
 			$lookup: {
-				from: Session, // Name of the collection to join with
+				from: "Sessions", // Name of the collection to join with
 				localField: 'Sessions.SystemPromptsROWID', // Adjust this based on your schema
 				foreignField: 'SystemPromptsROWID',
 				as: 'sessionData'
@@ -163,7 +163,7 @@ app.get("/sessionfeedbacks", (req, res) => {
 			},
 			{
 			$lookup: {
-				from: SystemPrompt, // Name of the collection to join with
+				from: "SystemPrompts", // Name of the collection to join with
 				localField: 'sessionData.SystemPromptsROWID',
 				foreignField: 'ROWID',
 				as: 'systemPromptData'

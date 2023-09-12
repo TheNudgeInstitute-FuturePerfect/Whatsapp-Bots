@@ -49,7 +49,7 @@ app.post("/getuserdata", (req, res) => {
 				UserData.aggregate([
 					{
 					  $lookup: {
-						from: User, // Name of the collection to join with
+						from: "Users", 
 						localField: 'UserROWID',
 						foreignField: 'ROWID',
 						as: 'user'

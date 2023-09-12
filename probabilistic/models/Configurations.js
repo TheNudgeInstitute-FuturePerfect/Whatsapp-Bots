@@ -8,7 +8,7 @@ const schema = new Schema({
   Name: { type: String },
   Description: { type: String },
   Value: { type: String },
-  SystemPromptROWID: { type: Number },
+  SystemPromptROWID: { type: Schema.Types.ObjectId, ref: 'SystemPrompts' },
   PrimaryKey: { type: String }
 });
 

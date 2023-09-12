@@ -222,7 +222,7 @@ app.post("/getoverallperformancereport", (req, res) => {
       },
       {
         $lookup: {
-          from: SystemPrompts, // Name of the collection to join with
+          from: "SystemPrompts", // Name of the collection to join with
           localField: 'SystemPromptsROWID',
           foreignField: 'ROWID',
           as: 'systemPromptData'
@@ -686,7 +686,7 @@ app.post("/dailygoalprogress", (req, res) => {
           const runAssessmentQuery = UserAssessment.aggregate([
             {
               $lookup: {
-                from: UserAssessmentLog, // Name of the collection to join with
+                from: "UserAssessmentLogs", // Name of the collection to join with
                 localField: 'UserAssessmentLogROWID',
                 foreignField: 'ROWID',
                 as: 'assessmentLog'

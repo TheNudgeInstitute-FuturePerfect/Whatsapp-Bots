@@ -7,7 +7,7 @@ const schema = new Schema({
   MODIFIEDTIME: {type: Date,default: Date.now},
   SessionID: { type: String },
   Event: { type: String },
-  SystemPromptROWID: { type: Number },
+  SystemPromptROWID: { type: Schema.Types.ObjectId, ref: 'SystemPrompts' },
   Mobile: { type: Number }
 });
 

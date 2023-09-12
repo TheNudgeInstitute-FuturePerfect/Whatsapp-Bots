@@ -105,7 +105,7 @@ UsersReport.find({},'ROWID Mobile')
 			},
 			{
 			  $lookup: {
-				from: SystemPrompt, // Name of the collection to join with
+				from: "SystemPrompts", // Name of the collection to join with
 				localField: 'SystemPromptsROWID',
 				foreignField: 'ROWID',
 				as: 'systemPromptData'
@@ -155,7 +155,7 @@ UsersReport.find({},'ROWID Mobile')
 				},
 				{
 				  $lookup: {
-					from: SystemPrompt, // Name of the collection to join with
+					from: "SystemPrompts", // Name of the collection to join with
 					localField: 'SystemPromptsROWID',
 					foreignField: 'ROWID',
 					as: 'systemPromptData'
