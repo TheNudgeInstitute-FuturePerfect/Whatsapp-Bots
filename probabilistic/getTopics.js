@@ -578,7 +578,16 @@ app.post("/topicpersonas", (req, res) => {
       if (allPrompts["OperationStatus"] == "SUCCESS") {
         allPrompts = allPrompts["Prompts"].filter(
           (data) => data.Persona != null
-        );
+        ).sort((a, b) => {//Sort the Persona by Sequence
+          if (a["Sequence"] < b["Sequence"]) {
+            return -1;
+          }
+          if (a["Sequence"] > b["Sequence"]) {
+            return 1;
+          }
+          // a must be equal to b
+          return 0;
+        });
         if (
           typeof allPrompts !== "undefined" &&
           allPrompts != null &&
