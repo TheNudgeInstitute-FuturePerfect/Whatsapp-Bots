@@ -300,16 +300,16 @@ app.post("/", (req, res) => {
                                 TotalGameSessionsStarted : userSessions.data.TotalGameSessions,
                                 TotalGameSessionsCompleted : userSessions.data.TotalGameSessionsCompleted,
                                 Persona : userSessions.data.Persona ? userSessions.data.Persona : null,
-                                TotalPersonaSessionsStartd : userSessions.data.TotalPersonaSessionsStartd ? userSessions.data.TotalPersonaSessionsStartd : userSessions.data.TotalPersonaSessionsStartd,
+                                TotalPersonaSessionsStarted : userSessions.data.TotalPersonaSessionsStarted ? userSessions.data.TotalPersonaSessionsStarted : userSessions.data.TotalPersonaSessionsStarted,
                                 TotalPersonaSessionsCompleted : userSessions.data.TotalPersonaSessionsCompleted ? userSessions.data.TotalPersonaSessionsCompleted : userSessions.data.TotalPersonaSessionsCompleted,
                                 TotalDaysPersonaPracticed : userSessions.data.TotalDaysPersonaPracticed ? userSessions.data.TotalDaysPersonaPracticed : null,
                                 Topic : userSessions.data.Topic ? userSessions.data.Topic : null,
-                                TotalTopicSessionsStartd : userSessions.data.TotalTopicSessionsStartd ? userSessions.data.TotalTopicSessionsStartd : null,
+                                TotalTopicSessionsStarted : userSessions.data.TotalTopicSessionsStarted ? userSessions.data.TotalTopicSessionsStarted : null,
                                 TotalTopicSessionsCompleted : userSessions.data.TotalTopicSessionsCompleted ? userSessions.data.TotalTopicSessionsCompleted : null,
                                 TotalDaysTopicPracticed : userSessions.data.TotalDaysTopicPracticed ? userSessions.data.TotalDaysTopicPracticed : null,
                                 Module : userSessions.data.Module ? userSessions.data.Module : null,
-                                TotalModuleSessionsStartd : userSessions.data.TotalModuleSessionsStartd ? userSessions.data.TotalModuleSessionsStartd : null,
-                                TotalModuleSessionsCompleted : userSessions.data.TotalModuleSessionsStartd ? userSessions.data.TotalModuleSessionsStartd : null,
+                                TotalModuleSessionsStarted : userSessions.data.TotalModuleSessionsStarted ? userSessions.data.TotalModuleSessionsStarted : null,
+                                TotalModuleSessionsCompleted : userSessions.data.TotalModuleSessionsCompleted ? userSessions.data.TotalModuleSessionsCompleted : null,
                                 TotalDaysModulePracticed : userSessions.data.TotalDaysModulePracticed ? userSessions.data.TotalDaysModulePracticed : null
                             }
                             console.info((new Date()).toString()+"|"+prependToLog,"Total Logs for Category/SessionID: "+topicAttempts.length);
@@ -382,7 +382,7 @@ app.post("/", (req, res) => {
                                                 if(typeof trigger[triggerElement]['Name'] !== 'undefined')
                                                     match.push(trigger[triggerElement]['Name'] == userSessionData[triggerElement])
                                                 if(typeof trigger[triggerElement]['TotalStarted'] !== 'undefined')
-                                                    match.push(trigger[triggerElement]['TotalStarted'] == userSessionData['Total'+triggerElement+'SessionsStartd'])
+                                                    match.push(trigger[triggerElement]['TotalStarted'] == userSessionData['Total'+triggerElement+'SessionsStarted'])
                                                 if(typeof trigger[triggerElement]['TotalFinished'] !== 'undefined')
                                                     match.push(trigger[triggerElement]['TotalFinished'] == userSessionData['Total'+triggerElement+'SessionsCompleted'])
                                                 if(typeof trigger[triggerElement]['TotalPracticeDays'] !== 'undefined')
@@ -471,7 +471,7 @@ app.post("/", (req, res) => {
                                                                 if(typeof trigger[triggerElement]['Name']!=='undefined')
                                                                     match.push(trigger[triggerElement]['Name'] == userSessionData[triggerElement])
                                                                 if(typeof trigger[triggerElement]['TotalStarted'] !== 'undefined')
-                                                                    match.push(trigger[triggerElement]['TotalStarted'] == userSessionData['Total'+triggerElement+'SessionsStartd'])
+                                                                    match.push(trigger[triggerElement]['TotalStarted'] == userSessionData['Total'+triggerElement+'SessionsStarted'])
                                                                 if(typeof trigger[triggerElement]['TotalFinished'] !== 'undefined')
                                                                     match.push(trigger[triggerElement]['TotalFinished'] == userSessionData['Total'+triggerElement+'SessionsCompleted'])
                                                                 if(typeof trigger[triggerElement]['TotalPracticeDays'] !== 'undefined')

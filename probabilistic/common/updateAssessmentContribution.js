@@ -156,13 +156,17 @@ module.exports = async (basicIO) => {
 
 								let table = catalystApp.datastore().table('SystemPrompts')
 								try{
-								const updateQueryResult = await table.updateRow(updateData);
-								result['OperationStatus']="SUCCESS"
-									console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result);
-									return JSON.stringify(result);
+									const updateQueryResult = await table.updateRow(updateData);
+									if(typeof updateQueryResult['ROWID']==='undefined') 
+										throw new Error(updateQueryResult)
+									else{
+										result['OperationStatus']="SUCCESS"
+										console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result);
+										return JSON.stringify(result);
+									}
 								} catch(error){
 									result['OperationStatus']="ZCQL_ERR"
-									result['ErrorDescription']="Error in execution update query"
+									result['ErrorDescription']="Error in execution update query: "+error
 									console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed with Error",result);
 									console.error((new Date()).toString()+"|"+prependToLog,error)
 									return JSON.stringify(result);
