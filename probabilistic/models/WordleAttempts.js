@@ -1,18 +1,16 @@
 const { Schema, model } = require("mongoose");
 
 const schema = new Schema({
-  ROWID: Schema.Types.ObjectId,
+  ROWID: {type:Number},
   CREATORID: {type: Number}, 
   CREATEDTIME: {type: Date,default: Date.now},
   MODIFIEDTIME: {type: Date,default: Date.now},
-  UserAssessmentLogROWID : {type: Number},
-  QuestionROWID : {type: Number},
-  ResponseAVURL : {type: String},
-  ResponseText : {type: String},
-  IsCorrectResponse : {type: Boolean,default: false},
-  ErrorInResponse : {type: String},
-  ErrorDescription : {type: String},
-  ConfidenceInterval : {type: Number}
+  UserROWID : { type: Schema.Types.ObjectId, ref: 'Users' },
+  WordleROWID : { type: Schema.Types.ObjectId, ref: 'WordleConfiguration' },
+  Answer : {type: String},
+  IsCorrect : {type: Boolean,default: false},
+  Source : {type: String},
+  SystemPromptROWID : { type: Schema.Types.ObjectId, ref: 'SystemPrompts' }
 });
 
 module.exports = model("WordleAttempts", schema);

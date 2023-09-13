@@ -2,6 +2,7 @@
 const catalyst = require("zoho-catalyst-sdk");
 const SystemPrompts = require(".././models/SystemPrompts.js");
 
+
 module.exports = async (basicIO) => {
   /*
 	Request Params: 
@@ -156,10 +157,11 @@ module.exports = async (basicIO) => {
                     Module: module,
                     Game: game
                   };
-                  const datastore = catalystApp.datastore();
-                  let table = datastore.table("SystemPrompts");
+                  // const datastore = catalystApp.datastore();
+                  // let table = datastore.table("SystemPrompts");
                   try {
-                    const insertQueryResult = await table.insertRow(insertQuery);
+                    const insertQueryResult = await SystemPrompts.create(insertQuery);
+                    console.log("--------------",insertQueryResult);
                     if(typeof insertQueryResult['ROWID']==='undefined'){
                         throw new Error(insertQueryResult)
                     }
@@ -204,7 +206,8 @@ module.exports = async (basicIO) => {
                       // const searchQueryResult = await zcql.executeZCQLQuery(
                       //   searchQuery
                       // );
-                      const searchQueryResult = await SystemPrompt.findOne({ IsActive: true, Name: prompt }, 'ROWID');
+                      const searchQueryResult = await SystemPrompts.findOne({ IsActive: true, Name: prompt }, '_id');
+                      console.log("searchQueryResult................",searchQueryResult);
                       if (searchQueryResult == null) {
                         result["OperationStatus"] = "SUCCESS_NO_ACTV";
                         result["StatusDescription"] =

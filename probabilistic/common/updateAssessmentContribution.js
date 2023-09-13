@@ -1,6 +1,8 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 const SystemPrompt = require(".././models/SystemPrompts.js");
+const mongoose = require('mongoose');
+const ObjectId = mongoose.Types.ObjectId;
 
 module.exports = async (basicIO) => {
 	/*
@@ -28,6 +30,7 @@ module.exports = async (basicIO) => {
 	}
 	var updateData = {}
 	var rowID = basicIO["id"];
+	var objectIdRow;
 	if(typeof rowID === 'undefined'){
 		result['OperationStatus']="REQ_ERR"
 		result['ErrorDescription']="Missing parameter: id. ID of the prompt of the topic is required."
@@ -37,15 +40,15 @@ module.exports = async (basicIO) => {
 	}
 	else{
 		rowID = rowID
-		updateData["ROWID"]= rowID
-		
+		objectIdRow = new ObjectId(rowID);
 		//Get the data for this ROWID
-		const zcql = catalystApp.zcql()
+		//const zcql = catalystApp.zcql()
 		//const query = "select ROWID, Name, Content, IsActive, SupportingText, SupportingAVURL,SupportingImageURL, Sequence, Persona, ObjectiveMessage, Type, ShowLearningContent from SystemPrompts where ROWID='"+rowID+"'"
 		try{
         //    const searchQuery = await zcql.executeZCQLQuery(query);
-		    const searchQuery = await SystemPrompt.findOne({ ROWID: rowID });
-		   if(!((searchQuery!=null)&&(searchQuery.length>0))){
+		    const searchQuery = await SystemPrompt.findOne({ _id: objectIdRow });
+			console.log(searchQuery,"y");
+		   if(!((searchQuery!=null))){
 				result['OperationStatus']="REQ_ERR"
 				result['StatusDescription']="There is no record for id="+rowID
 				console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result);
@@ -98,7 +101,7 @@ module.exports = async (basicIO) => {
 									updateData["ShowLearningContent"]=showLearningContent
 
 								if(typeof seqNO === 'undefined')
-									seqNO = searchQuery[0]['SystemPrompts']['Sequence']
+									seqNO = searchQuery['Sequence']
 								else
 									updateData["Sequence"]=seqNO
 					
@@ -108,7 +111,7 @@ module.exports = async (basicIO) => {
 									updateData["Name"]= name
 								}
 								else
-									name = searchQuery[0]['SystemPrompts']['Name']
+									name = searchQuery['Name']
 
 								var prompt = basicIO["content"];		
 								if(typeof prompt !== 'undefined')
@@ -156,9 +159,9 @@ module.exports = async (basicIO) => {
 
 								console.debug((new Date()).toString()+"|"+prependToLog,updateData)
 
-								let table = catalystApp.datastore().table('SystemPrompts')
+								// let table = catalystApp.datastore().table('SystemPrompts')
 								try{
-								const updateQueryResult = await table.updateRow(updateData);
+								const updateQueryResult = await SystemPrompt.updateOne({_id:objectIdRow},updateData);
 								result['OperationStatus']="SUCCESS"
 									console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result);
 									return JSON.stringify(result);

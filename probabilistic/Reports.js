@@ -121,22 +121,23 @@ app.get("/userreport", (req, res) => {
 		}
 	  })
 	.then((reportData)=>{
+		console.log("++++++++++++++++++++",reportData)
 		const report = reportData.map(data=>{
 			return {
 				//Name:data.UsersReport.Name == null ? "" : data.UsersReport.Name.toString(),
-				Mobile:data.UsersReport.Mobile == null ? "" : data.UsersReport.Mobile.toString(),
+				Mobile:data.Mobile == null ? "" : data.Mobile.toString(),
 				//Consent:data.UsersReport.Consent == null ? "" : data.UsersReport.Consent.toString(),
-				Excluded:data.UsersReport.Excluded == null ? "" : data.UsersReport.Excluded.toString(),
-				UserCreatedAt:data.UsersReport.UserCreatedAt == null ? "" : data.UsersReport.UserCreatedAt.toString(),
+				Excluded:data.Excluded == null ? "" : data.Excluded.toString(),
+				UserCreatedAt:data.UserCreatedAt == null ? "" : data.UserCreatedAt.toString(),
 				//OnboardingDate:data.UsersReport.OnboardingDate == null ? "" : data.UsersReport.OnboardingDate.toString(),
 				//OnboardingVersion:data.UsersReport.OnboardingVersion == null ? "" : data.UsersReport.OnboardingVersion.toString(),
 				//Onboarded:data.UsersReport.Onboarded == null ? "" : data.UsersReport.Onboarded.toString(),
-				OnboardingResurrectionDate : (data.UsersReport.ResurrectionDate != null) && (data.UsersReport.ResurrectionDate > data.UsersReport.OnboardingDate) ? data.UsersReport.ResurrectionDate.toString() : data.UsersReport.OnboardingDate.toString(),
-				OnboardingResurrectionVersion : (data.UsersReport.ResurrectionDate != null) && (data.UsersReport.ResurrectionDate > data.UsersReport.OnboardingDate) ? data.UsersReport.RessurectionVersion.toString() : data.UsersReport.OnboardingVersion.toString(),
-				DeadlineDate:data.UsersReport.DeadlineDate == null ? "" : data.UsersReport.DeadlineDate.toString(),
-				ReminderTime:data.UsersReport.ReminderTime == null ? "" : data.UsersReport.ReminderTime.toString(),
-				LastActiveDate:data.UsersReport.LastActiveDate == null ? "" : data.UsersReport.LastActiveDate.toString(),
-				Churned:data.UsersReport.Churned == null ? "" : data.UsersReport.Churned.toString(),
+				OnboardingResurrectionDate : (data.ResurrectionDate != null) && (data.ResurrectionDate > data.OnboardingDate) ? data.ResurrectionDate.toString() : data.OnboardingDate.toString(),
+				OnboardingResurrectionVersion : (data.ResurrectionDate != null) && (data.ResurrectionDate > data.OnboardingDate) ? data.RessurectionVersion.toString() : data.OnboardingVersion.toString(),
+				DeadlineDate:data.DeadlineDate == null ? "" : data.DeadlineDate.toString(),
+				ReminderTime:data.ReminderTime == null ? "" : data.ReminderTime.toString(),
+				LastActiveDate:data.LastActiveDate == null ? "" : data.LastActiveDate.toString(),
+				Churned:data.Churned == null ? "" : data.Churned.toString(),
 				//Resurrected:data.UsersReport.Resurrected == null ? "" : data.UsersReport.Resurrected.toString(),
 				//ResurrectionDate:data.UsersReport.ResurrectionDate == null ? "" : data.UsersReport.ResurrectionDate.toString(),
 				//RessurectionVersion:data.UsersReport.RessurectionVersion == null ? "" : data.UsersReport.RessurectionVersion.toString(),
@@ -156,7 +157,7 @@ app.get("/userreport", (req, res) => {
 				//DaysAttmptCmpltdPstOBD:data.UsersReport.DaysAttmptCmpltdPstOBD == null ? "" :data.UsersReport.DaysAttmptCmpltdPstOBD.toString(),
 				//DaysAttmptdPstOBD:data.UsersReport.DaysAttmptdPstOBD == null ? "" :data.UsersReport.DaysAttmptdPstOBD.toString(),
 				//EnglishProficiency:data.UsersReport.EnglishProficiency == null ? "" :data.UsersReport.EnglishProficiency.toString(),
-				SourcingChannel:data.UsersReport.SourcingChannel == null ? "" :data.UsersReport.SourcingChannel.toString(),
+				SourcingChannel:data.SourcingChannel == null ? "" :data.SourcingChannel.toString(),
 			}
 		})
 		console.info((new Date()).toString()+"|"+prependToLog,'End of Execution. Total Length of Report=',report.length)
@@ -2171,232 +2172,232 @@ app.get("/sessionabandoned", (req, res) => {
 
 app.get("/wordleattempts", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
-
-	const executionID = Math.random().toString(36).slice(2)
-    
-    //Prepare text to prepend with logs
-    const params = ["Reports",req.url,executionID,""]
-    const prependToLog = params.join(" | ")
-    
-    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
-
-	let zcql = catalystApp.zcql()
-
-	const mobile = req.query.mobile ? req.query.mobile.slice(-10) : null
-	const startDate = req.query.startDate ? req.query.startDate : '1970-01-01'
-	var today = new Date()
-	today.setHours(today.getHours()+5)
-	today.setMinutes(today.getMinutes()+30)
-	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
-	const dataLimit = req.query.limit ? req.query.limit : null
-
-	// let query = "Select {} "+
-	// 				"from WordleAttempts "+
-	// 				"left join Users on WordleAttempts.UserROWID = Users.ROWID "+
-	// 				"left join WordleConfiguration on WordleAttempts.WordleROWID = WordleConfiguration.ROWID "+
-	// 				"where WordleAttempts.CREATEDTIME >='"+startDate+" 00:00:00' and WordleAttempts.CREATEDTIME <= '"+endDate+" 23:59:59' "+
-	// 				(mobile !=null ? (" and Users.Mobile="+mobile+" "):"")+
-	// 				"order by WordleAttempts.UserROWID, WordleAttempts.CREATEDTIME asc"
-	// getAllRows("WordleConfiguration.ROWID, WordleConfiguration.MaxAttempts, WordleConfiguration.Word, WordleConfiguration.RecommendedTopic, Users.Mobile, WordleAttempts.ROWID, WordleAttempts.CREATEDTIME, WordleAttempts.IsCorrect, WordleAttempts.Answer, WordleAttempts.Source",query,zcql,dataLimit)
-		const aggregatePipeline = [
+	let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+  
+  const executionID = Math.random().toString(36).slice(2)
+	
+	//Prepare text to prepend with logs
+	const params = ["Reports",req.url,executionID,""]
+	const prependToLog = params.join(" | ")
+	
+	console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
+  let zcql = catalystApp.zcql()
+  
+  const mobile = req.query.mobile ? req.query.mobile.slice(-10) : null
+  const startDate = req.query.startDate ? req.query.startDate : '1970-01-01'
+  var today = new Date()
+  today.setHours(today.getHours()+5)
+  today.setMinutes(today.getMinutes()+30)
+  const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
+  const dataLimit = req.query.limit ? req.query.limit : null
+  
+  // let query = "Select {} "+
+  // 				"from WordleAttempts "+
+  // 				"left join Users on WordleAttempts.UserROWID = Users.ROWID "+
+  // 				"left join WordleConfiguration on WordleAttempts.WordleROWID = WordleConfiguration.ROWID "+
+  // 				"where WordleAttempts.CREATEDTIME >='"+startDate+" 00:00:00' and WordleAttempts.CREATEDTIME <= '"+endDate+" 23:59:59' "+
+  // 				(mobile !=null ? (" and Users.Mobile="+mobile+" "):"")+
+  // 				"order by WordleAttempts.UserROWID, WordleAttempts.CREATEDTIME asc"
+  // getAllRows("WordleConfiguration.ROWID, WordleConfiguration.MaxAttempts, WordleConfiguration.Word, WordleConfiguration.RecommendedTopic, Users.Mobile, WordleAttempts.ROWID, WordleAttempts.CREATEDTIME, WordleAttempts.IsCorrect, WordleAttempts.Answer, WordleAttempts.Source",query,zcql,dataLimit)
+	const aggregatePipeline = [
+	{
+	  $match: {
+	  CREATEDTIME: {
+		$gte: new Date(startDate + 'T00:00:00Z'),
+		$lte: new Date(endDate + 'T23:59:59Z')
+	  }
+	  }
+	},
+	{
+	  $lookup: {
+	  from: "Users", // Name of the collection to join with
+	  localField: 'UserROWID',
+	  foreignField: '_id',
+	  as: 'user'
+	  }
+	},
+	{
+	  $unwind: '$user'
+	},
+	{
+	  $lookup: {
+	  from: "WordleConfiguration", // Name of the collection to join with
+	  localField: 'WordleROWID',
+	  foreignField: '_id',
+	  as: 'wordleConfiguration'
+	  }
+	},
+	{
+	  $project: {
+	  _id: 0,
+	  'WordleAttempts._id': 1,
+	  'WordleAttempts.UserROWID': 1,
+	  'WordleAttempts.CREATEDTIME': 1,
+	  'WordleAttempts.IsCorrect': 1,
+	  'WordleAttempts.Answer': 1,
+	  'WordleAttempts.Source': 1,
+	  'user.Mobile': 1,
+	  'wordleConfiguration._id': 1,
+	  'wordleConfiguration.MaxAttempts': 1,
+	  'wordleConfiguration.Word': 1,
+	  'wordleConfiguration.RecommendedTopic': 1
+	  }
+	},
+	{
+	  $sort: {
+	  'WordleAttempts.UserROWID': 1,
+	  'WordleAttempts.CREATEDTIME': 1
+	  }
+	}
+	];
+  
+	if (mobile) {
+	aggregatePipeline[2].$match['user.Mobile'] = mobile;
+	}
+  
+	WordleAttempt.aggregate(aggregatePipeline)
+  .then((cfuAttempts)=>{
+	if(cfuAttempts.length>0){
+	  const mobiles = cfuAttempts.map(data=>data.Mobile).filter(unique)
+	  // query = "Select {} from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID where Sessions.Mobile in ("+mobiles.join(",")+")"
+	  // getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, SystemPrompts.Name, SystemPrompts.Persona",query,zcql,dataLimit)
+	  
+	  Session.aggregate([
 		{
-			$match: {
-			CREATEDTIME: {
-				$gte: new Date(startDate + 'T00:00:00Z'),
-				$lte: new Date(endDate + 'T23:59:59Z')
-			}
-			}
-		},
-		{
-			$lookup: {
-			from: "Users", // Name of the collection to join with
-			localField: 'UserROWID',
-			foreignField: 'ROWID',
-			as: 'user'
-			}
-		},
-		{
-			$unwind: '$user'
-		},
-		{
-			$lookup: {
-			from: "WordleConfiguration", // Name of the collection to join with
-			localField: 'WordleROWID',
-			foreignField: 'ROWID',
-			as: 'wordleConfiguration'
-			}
-		},
-		{
-			$project: {
-			_id: 0,
-			'WordleAttempts.ROWID': 1,
-			'WordleAttempts.UserROWID': 1,
-			'WordleAttempts.CREATEDTIME': 1,
-			'WordleAttempts.IsCorrect': 1,
-			'WordleAttempts.Answer': 1,
-			'WordleAttempts.Source': 1,
-			'user.Mobile': 1,
-			'wordleConfiguration.ROWID': 1,
-			'wordleConfiguration.MaxAttempts': 1,
-			'wordleConfiguration.Word': 1,
-			'wordleConfiguration.RecommendedTopic': 1
-			}
-		},
-		{
-			$sort: {
-			'WordleAttempts.UserROWID': 1,
-			'WordleAttempts.CREATEDTIME': 1
-			}
+		$match: {
+		  Mobile: { $in: mobiles }
 		}
-		];
-
-		if (mobile) {
-		aggregatePipeline[2].$match['user.Mobile'] = mobile;
+		},
+		{
+		$lookup: {
+		  from: "SystemPrompts", 
+		  localField: 'SystemPromptsROWID',
+		  foreignField: '_id',
+		  as: 'systemPromptData'
 		}
-
-		WordleAttempt.aggregate(aggregatePipeline)
-	.then((cfuAttempts)=>{
-		if(cfuAttempts.length>0){
-			const mobiles = cfuAttempts.map(data=>data.Users.Mobile).filter(unique)
-			// query = "Select {} from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID where Sessions.Mobile in ("+mobiles.join(",")+")"
-			// getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, SystemPrompts.Name, SystemPrompts.Persona",query,zcql,dataLimit)
-			
-			Session.aggregate([
-				{
-				$match: {
-					Mobile: { $in: mobiles }
-				}
-				},
-				{
-				$lookup: {
-					from: "SystemPrompts", 
-					localField: 'SystemPromptsROWID',
-					foreignField: 'ROWID',
-					as: 'systemPromptData'
-				}
-				},
-				{
-				$project: {
-					Mobile: 1,
-					SessionID: 1,
-					CREATEDTIME: 1,
-					'systemPromptData.Name': 1,
-					'systemPromptData.Persona': 1
-				}
-				}
-			])
-			.then((sessions)=>{
-				const wordleROWIDs = cfuAttempts.map(data=>data.WordleConfiguration.ROWID).filter(unique)
-				// query = "Select {} from SessionEvents where SessionID in ('"+wordleROWIDs.join("','")+"') and Mobile in ("+mobiles.join(",")+")"
-				// getAllRows("Mobile, SessionID, CREATEDTIME, Event",query,zcql,dataLimit)
-				SessionEvents.find({SessionID : { $in : wordleROWIDs},Mobile: {$in : mobiles}})
-				.then((events)=>{
-					var report = []
-					//For each mobile which played Wordle
-					for(var i = 0; i<mobiles.length; i++){
-						const mobile = mobiles[i]
-						//Get the list of wordles played
-						const wordlesPlayed = cfuAttempts.filter(data=>data.Users.Mobile == mobile).map(data=>data.WordleConfiguration.ROWID).filter(unique)
-						//For each wordle played
-						for(var j=0; j<wordlesPlayed.length; j++){
-							var userReport = {
-								Mobile: mobile
-							}	
-							const wordlePlayed = wordlesPlayed[j]
-							//Get the wordle attempt data
-							const wordleAttemptData = cfuAttempts.filter(data=>(data.WordleConfiguration.ROWID==wordlePlayed)&&(data.Users.Mobile == userReport['Mobile']))
-							//Get the wordle attempt timestamps
-							const wordleAttemptTimeStamps = wordleAttemptData.map(data=>data.WordleAttempts.CREATEDTIME).filter(unique).sort()
-							userReport['SessionStartedTime'] = wordleAttemptTimeStamps[0].slice(0,19)
-							userReport['SessionEndTime'] = wordleAttemptTimeStamps[wordleAttemptTimeStamps.length-1].slice(0,19)
-							//Get the total attempts
-							userReport['NumberOfGuesses'] = wordleAttemptData.length
-							//If wordle has been answered correctly or max attempts has been reached
-							userReport['CompletedWordle'] = (wordleAttemptData.some(data=>data.WordleAttempts.IsCorrect == true)) || (parseInt(userReport['NumberOfGuesses'])==parseInt(wordleAttemptData[0]['WordleConfiguration']['MaxAttempts'])) ? "Yes" : "No"
-							userReport['GuessedCorrect'] = wordleAttemptData.some(data=>data.WordleAttempts.IsCorrect == true) ? "Yes" : "No"
-							userReport['Guessedwords'] = wordleAttemptData.map(data=>data.WordleAttempts.Answer).join(",")
-							userReport['WordOfDay'] = wordleAttemptData[0]['WordleConfiguration']['Word']
-							userReport['RecommendedTopic'] = wordleAttemptData[0]['WordleConfiguration']['RecommendedTopic']
-							const wordleSource = wordleAttemptData.map(data=>data.WordleAttempts.Source).filter(unique).filter(data=>data!=null)
-							userReport['WordleSource'] = wordleSource.length > 0 ? wordleSource.join(","):null
-							
-							var sessionStartedTimeStamp = new Date(userReport['SessionStartedTime'])
-							const sessionStartedTime = ('0'+sessionStartedTimeStamp.getHours()).slice(-2)+":"+('0'+sessionStartedTimeStamp.getMinutes()).slice(-2)
-							if(sessionStartedTime>=process.env.WordleStartTime){
-								sessionStartedTimeStamp.setDate(sessionStartedTimeStamp.getDate()+1)
-							}
-							var endTimeStamp = new Date(sessionStartedTimeStamp.getFullYear(),sessionStartedTimeStamp.getMonth(),sessionStartedTimeStamp.getDate(),20,45)
-							const sessionData = sessions.filter(session=>(session.Sessions.Mobile==userReport['Mobile'])
-															&&(session.Sessions.CREATEDTIME >= userReport['SessionStartedTime'])
-															&&((new Date(session.Sessions.CREATEDTIME)) < endTimeStamp))
-												.map(session=>session.SystemPrompts.Name +"-"+session.SystemPrompts.Persona +"-"+ session.Sessions.SessionID)
-												.filter(unique)
-							userReport['NextTopicAttemptedBeforeReminder'] = sessionData.length > 0 ? sessionData.join(",") :  null
-
-							const wordleAttemptEvents = events.filter(data=>(data.SessionEvents.Mobile == userReport['Mobile'])&&
-																			(data.SessionEvents.SessionID == wordleAttemptData[0]['WordleConfiguration']['ROWID']) &&
-																			((data.SessionEvents.Event == 'How to Play')||(data.SessionEvents.Event.startsWith('Start Wordle')))
-																	).map(data=>data.SessionEvents.Event).filter(unique).filter(data=>data!=null)
-							
-							userReport['ButtonClick'] = wordleAttemptEvents.length > 0 ? wordleAttemptEvents.join(",") : null
-							userReport['WordleID'] = wordleAttemptData[0]['WordleAttempts']['ROWID']
-
-							report.push(userReport)
-						}
-					}
-					report = report.sort((a, b)=>{
-						if((a['Mobile'] == b['Mobile']) && (a.SessionStartTime < b.SessionStartTime)) {
-							return -1;
-						}
-						if((a['Mobile'] == b['Mobile']) && (a.SessionStartTime > b.SessionStartTime)) {
-							return 1;
-						}
-						if((a['Mobile'] == b['Mobile'])) {
-							return 0;
-						}
-						if((a['Mobile'] < b['Mobile'])) {
-							return -1;
-						}
-						if((a['Mobile'] > b['Mobile'])) {
-							return 1;
-						}
-						// a must be equal to b
-						return 0;
-					})
-					var attempted = 0
-					for(var m = 0; m < report.length; m++){
-						if((m>0)&&(report[m-1]['Mobile']!=report[m]['Mobile'])){
-							attempted = 0
-						}
-						report[m]['Attempt'] = ++attempted
-					}
-					console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Report Length = ",report.length)
-					res.status(200).json(report)
-				})
-				.catch((err) => {
-					console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
-					console.error((new Date()).toString()+"|"+prependToLog,err);
-					res.status(500).send(err);
-				});
-			})
-			.catch((err) => {
-				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
-				console.error((new Date()).toString()+"|"+prependToLog,err);
-				res.status(500).send(err);
-			});
+		},
+		{
+		$project: {
+		  Mobile: 1,
+		  SessionID: 1,
+		  CREATEDTIME: 1,
+		  'systemPromptData.Name': 1,
+		  'systemPromptData.Persona': 1
 		}
-		else{
-			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. No Wordle Attempt found")
-			res.status(200).json([])
 		}
-	})
-	.catch((err) => {
+	  ])
+	  .then((sessions)=>{
+		const wordleROWIDs = cfuAttempts.map(data=>data._id).filter(unique)
+		// query = "Select {} from SessionEvents where SessionID in ('"+wordleROWIDs.join("','")+"') and Mobile in ("+mobiles.join(",")+")"
+		// getAllRows("Mobile, SessionID, CREATEDTIME, Event",query,zcql,dataLimit)
+		SessionEvents.find({SessionID : { $in : wordleROWIDs},Mobile: {$in : mobiles}})
+		.then((events)=>{
+		  var report = []
+		  //For each mobile which played Wordle
+		  for(var i = 0; i<mobiles.length; i++){
+			const mobile = mobiles[i]
+			//Get the list of wordles played
+			const wordlesPlayed = cfuAttempts.filter(data=>data.Mobile == mobile).map(data=>data._id).filter(unique)
+			//For each wordle played
+			for(var j=0; j<wordlesPlayed.length; j++){
+			  var userReport = {
+				Mobile: mobile
+			  }	
+			  const wordlePlayed = wordlesPlayed[j]
+			  //Get the wordle attempt data
+			  const wordleAttemptData = cfuAttempts.filter(data=>(data.ROWID==wordlePlayed)&&(data.Mobile == userReport['Mobile']))
+			  //Get the wordle attempt timestamps
+			  const wordleAttemptTimeStamps = wordleAttemptData.map(data=>data.CREATEDTIME).filter(unique).sort()
+			  userReport['SessionStartedTime'] = wordleAttemptTimeStamps[0].slice(0,19)
+			  userReport['SessionEndTime'] = wordleAttemptTimeStamps[wordleAttemptTimeStamps.length-1].slice(0,19)
+			  //Get the total attempts
+			  userReport['NumberOfGuesses'] = wordleAttemptData.length
+			  //If wordle has been answered correctly or max attempts has been reached
+			  userReport['CompletedWordle'] = (wordleAttemptData.some(data=>data.IsCorrect == true)) || (parseInt(userReport['NumberOfGuesses'])==parseInt(wordleAttemptData[0]['WordleConfiguration']['MaxAttempts'])) ? "Yes" : "No"
+			  userReport['GuessedCorrect'] = wordleAttemptData.some(data=>data.IsCorrect == true) ? "Yes" : "No"
+			  userReport['Guessedwords'] = wordleAttemptData.map(data=>data.Answer).join(",")
+			  userReport['WordOfDay'] = wordleAttemptData[0]['Word']
+			  userReport['RecommendedTopic'] = wordleAttemptData[0]['RecommendedTopic']
+			  const wordleSource = wordleAttemptData.map(data=>data.Source).filter(unique).filter(data=>data!=null)
+			  userReport['WordleSource'] = wordleSource.length > 0 ? wordleSource.join(","):null
+			  
+			  var sessionStartedTimeStamp = new Date(userReport['SessionStartedTime'])
+			  const sessionStartedTime = ('0'+sessionStartedTimeStamp.getHours()).slice(-2)+":"+('0'+sessionStartedTimeStamp.getMinutes()).slice(-2)
+			  if(sessionStartedTime>=process.env.WordleStartTime){
+				sessionStartedTimeStamp.setDate(sessionStartedTimeStamp.getDate()+1)
+			  }
+			  var endTimeStamp = new Date(sessionStartedTimeStamp.getFullYear(),sessionStartedTimeStamp.getMonth(),sessionStartedTimeStamp.getDate(),20,45)
+			  const sessionData = sessions.filter(session=>(session.Mobile==userReport['Mobile'])
+							  &&(session.CREATEDTIME >= userReport['SessionStartedTime'])
+							  &&((new Date(session.CREATEDTIME)) < endTimeStamp))
+						.map(session=>session.Name +"-"+session.Persona +"-"+ session.SessionID)
+						.filter(unique)
+			  userReport['NextTopicAttemptedBeforeReminder'] = sessionData.length > 0 ? sessionData.join(",") :  null
+  
+			  const wordleAttemptEvents = events.filter(data=>(data.Mobile == userReport['Mobile'])&&
+									  (data.SessionID == wordleAttemptData[0]['_id']) &&
+									  ((data.Event == 'How to Play')||(data.Event.startsWith('Start Wordle')))
+								  ).map(data=>data.Event).filter(unique).filter(data=>data!=null)
+			  
+			  userReport['ButtonClick'] = wordleAttemptEvents.length > 0 ? wordleAttemptEvents.join(",") : null
+			  userReport['WordleID'] = wordleAttemptData[0]['_id']
+  
+			  report.push(userReport)
+			}
+		  }
+		  report = report.sort((a, b)=>{
+			if((a['Mobile'] == b['Mobile']) && (a.SessionStartTime < b.SessionStartTime)) {
+			  return -1;
+			}
+			if((a['Mobile'] == b['Mobile']) && (a.SessionStartTime > b.SessionStartTime)) {
+			  return 1;
+			}
+			if((a['Mobile'] == b['Mobile'])) {
+			  return 0;
+			}
+			if((a['Mobile'] < b['Mobile'])) {
+			  return -1;
+			}
+			if((a['Mobile'] > b['Mobile'])) {
+			  return 1;
+			}
+			// a must be equal to b
+			return 0;
+		  })
+		  var attempted = 0
+		  for(var m = 0; m < report.length; m++){
+			if((m>0)&&(report[m-1]['Mobile']!=report[m]['Mobile'])){
+			  attempted = 0
+			}
+			report[m]['Attempt'] = ++attempted
+		  }
+		  console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Report Length = ",report.length)
+		  res.status(200).json(report)
+		})
+		.catch((err) => {
+		  console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+		  console.error((new Date()).toString()+"|"+prependToLog,err);
+		  res.status(500).send(err);
+		});
+	  })
+	  .catch((err) => {
 		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
 		console.error((new Date()).toString()+"|"+prependToLog,err);
 		res.status(500).send(err);
-	});
-});
+	  });
+	}
+	else{
+	  console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. No Wordle Attempt found")
+	  res.status(200).json([])
+	}
+  })
+  .catch((err) => {
+	console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+	console.error((new Date()).toString()+"|"+prependToLog,err);
+	res.status(500).send(err);
+  });
+  });
 
 app.get("/cfuattempts", (req, res) => {
 
@@ -2438,87 +2439,102 @@ app.get("/cfuattempts", (req, res) => {
 	// 		"SystemPrompts.Name, SystemPrompts.Persona "
 	// ,query,zcql,dataLimit)
 
-	
-const aggregatePipeline = [
-	{
-	  $match: {
-		CREATEDTIME: {
-			$gte: new Date(startDate + 'T00:00:00Z'),
-			$lte: new Date(endDate + 'T23:59:59Z')
-		}
-	  }
-	},
-	{
-	  $lookup: {
-		from: "UserAssessmentLogs", 
-		localField: 'UserROWID',
-		foreignField: 'UserROWID',
-		as: 'userAssessmentLogs'
-	  }
-	},
-	{
-	  $unwind: '$userAssessmentLogs'
-	},
-	{
-	  $lookup: {
-		from: "UserAssessment", // Name of the collection to join with
-		localField: 'userAssessmentLogs.ROWID',
-		foreignField: 'UserAssessmentLogROWID',
-		as: 'userAssessment'
-	  }
-	},
-	{
-	  $lookup: {
-		from: "questionBank", // Name of the collection to join with
-		localField: 'userAssessment.QuestionROWID',
-		foreignField: 'ROWID',
-		as: 'questionBank'
-	  }
-	},
-	{
-	  $lookup: {
-		from: "SystemPrompts", // Name of the collection to join with
-		localField: 'questionBank.SystemPromptROWID',
-		foreignField: 'ROWID',
-		as: 'systemPrompt'
-	  }
-	},
-	{
-	  $project: {
-		_id: 0,
-		'Users.Name': 1,
-		'Users.Mobile': 1,
-		'UserAssessmentLogs.SessionID': 1,
-		'UserAssessmentLogs.ROWID': 1,
-		'UserAssessmentLogs.IsAssessmentComplete': 1,
-		'UserAssessmentLogs.AssessmentCompletionReason': 1,
-		'UserAssessmentLogs.CREATEDTIME': 1,
-		'UserAssessmentLogs.MODIFIEDTIME': 1,
-		'QuestionBank.AskingOrder': 1,
-		'QuestionBank.Question': 1,
-		'QuestionBank.Answers': 1,
-		'UserAssessment.ResponseText': 1,
-		'UserAssessment.ResponseAVURL': 1,
-		'UserAssessment.IsCorrectResponse': 1,
-		'SystemPrompts.Name': 1,
-		'SystemPrompts.Persona': 1
-	  }
-	},
-	{
-	  $sort: {
-		'Users.Mobile': 1,
-		'UserAssessmentLogs.ROWID': 1,
-		'UserAssessmentLogs.CREATEDTIME': 1,
-		'QuestionBank.AskingOrder': 1
-	  }
-	}
-  ];
-  
-  User.aggregate(aggregatePipeline)
+User.aggregate([
+  {
+    $match: {
+      $and: [
+        {
+          'UserAssessment.ErrorInResponse': { $in: ['', null] },
+        },
+        {
+          'UserAssessmentLogs.CREATEDTIME': {
+            $gte: new Date(startDate + ' 00:00:00'),
+            $lte: new Date(endDate + ' 23:59:59'),
+          },
+        },
+      ],
+    },
+  },
+  {
+    $lookup: {
+      from: 'UserAssessmentLogs',
+      localField: '_id',
+      foreignField: 'UserROWID',
+      as: 'UserAssessmentLogs',
+    },
+  },
+  {
+    $unwind: '$UserAssessmentLogs',
+  },
+  {
+    $lookup: {
+      from: 'UserAssessment',
+      localField: 'UserAssessmentLogs._id',
+      foreignField: 'UserAssessmentLogROWID',
+      as: 'UserAssessment',
+    },
+  },
+  {
+    $unwind: { path: '$UserAssessment', preserveNullAndEmptyArrays: true },
+  },
+  {
+    $lookup: {
+      from: 'QuestionBank',
+      localField: 'UserAssessment.QuestionROWID',
+      foreignField: '_id',
+      as: 'QuestionBank',
+    },
+  },
+  {
+    $unwind: { path: '$QuestionBank', preserveNullAndEmptyArrays: true },
+  },
+  {
+    $lookup: {
+      from: 'SystemPrompts',
+      localField: 'QuestionBank.SystemPromptROWID',
+      foreignField: '_id',
+      as: 'SystemPrompts',
+    },
+  },
+  {
+    $unwind: { path: '$SystemPrompts', preserveNullAndEmptyArrays: true },
+  },
+  {
+    $project: {
+      Name: 1,
+      Mobile: 1,
+      'UserAssessmentLogs.SessionID': 1,
+      'UserAssessmentLogs._id': 1,
+      'UserAssessmentLogs.IsAssessmentComplete': 1,
+      'UserAssessmentLogs.AssessmentCompletionReason': 1,
+      'UserAssessmentLogs.CREATEDTIME': 1,
+      'UserAssessmentLogs.MODIFIEDTIME': 1,
+      'QuestionBank.AskingOrder': 1,
+      'QuestionBank.Question': 1,
+      'QuestionBank.Answers': 1,
+      'UserAssessment.ResponseText': 1,
+      'UserAssessment.ResponseAVURL': 1,
+      'UserAssessment.IsCorrectResponse': 1,
+      'SystemPrompts.Name': 1,
+      'SystemPrompts.Persona': 1,
+    },
+  },
+  {
+    $sort: {
+      Mobile: 1,
+      'UserAssessmentLogs._id': 1,
+      'UserAssessmentLogs.CREATEDTIME': 1,
+      'QuestionBank.AskingOrder': 1,
+    },
+  },
+])
+  .exec()
 	.then((cfuAttempts)=>{
+		console.log("++++++++++++++++",cfuAttempts)
 		if(!Array.isArray(cfuAttempts))
 			throw new Error(cfuAttempts)
 		else if(cfuAttempts.length>0){
+			console.log("++++++++++++++++",cfuAttempts)
 			var report = cfuAttempts.map(record=>{
 				return {
 					Mobile:record.Users.Mobile,
