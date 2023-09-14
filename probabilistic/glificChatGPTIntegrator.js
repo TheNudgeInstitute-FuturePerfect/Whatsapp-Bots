@@ -174,7 +174,9 @@ app.post("/chatgpt", async (request, response) => {
         "responsetype",
         "performance template",
         "progressbarat",
-        "feedback prompt" //Get the feedback prompt configured for the topic to return whether feedback prompt exists or not
+        "feedback prompt", //Get the feedback prompt configured for the topic to return whether feedback prompt exists or not
+        "serious mode prompt", //Get the serious mode prompt
+        "voice challenge prompt" //Get the voice challenge prompt
       ],
     })
   );
@@ -282,7 +284,7 @@ app.post("/chatgpt", async (request, response) => {
       "where Mobile = " +
       mobile +
       " and SessionID = '" +
-      sessionId +
+      (["Serious Mode","Voice Challenge"].includes(sessionType)? requestBody.sessionId :sessionId) +
       "'" +
       " order by CREATEDTIME ASC" /*+
       " limit " +
@@ -301,7 +303,10 @@ app.post("/chatgpt", async (request, response) => {
 
   sessionRecords.push({
     role: "system",
-    content: commandMsg == 'feedback prompt' ? messagePrompt.Values['feedback prompt'] : systemPrompt, //queryOutput[j]['SystemPrompts']['Content']
+    content: commandMsg == 'feedback prompt' ? messagePrompt.Values['feedback prompt'] : 
+      (sessionType == "Serious Mode" ?  messagePrompt.Values['serious mode prompt'] : 
+        (sessionType == "Voice Challenge" ?  messagePrompt.Values['voice challenge prompt'] : systemPrompt)
+      ), //queryOutput[j]['SystemPrompts']['Content']
   });
 
   // Prepare a request from active session
@@ -320,7 +325,7 @@ app.post("/chatgpt", async (request, response) => {
     let content = queryOutput[j]["Sessions"]["Message"];
     content = decodeURIComponent(content);
 
-    if (sessionType === "SentenceFeedback") {
+    if (["SentenceFeedback","Serious Mode","Voice Challenge"].includes(sessionType)) {
       content = delimeterStartToken + content + delimeterEndToken;
     }
 
@@ -328,7 +333,7 @@ app.post("/chatgpt", async (request, response) => {
     if (
       j === queryOutput.length - 1 &&
       queryOutput.length >= maxlinesofchat &&
-      !["ObjectiveFeedback", "SentenceFeedback", "Hint"].includes(sessionType)
+      !["ObjectiveFeedback", "SentenceFeedback", "Hint", "Serious Mode", "Voice Challenge"].includes(sessionType)
     ) {
       content = content + "\n" + messagePrompt["Values"]["terminationprompt"];
       operationStatus = "END_OF_CNVRSSN";
@@ -338,7 +343,7 @@ app.post("/chatgpt", async (request, response) => {
     //Add prompt to keep conversation on track, in the last message
     if (
       !isConfigMsg &&
-      !["ObjectiveFeedback", "SentenceFeedback", "Hint"].includes(sessionType) &&
+      !["ObjectiveFeedback", "SentenceFeedback", "Hint", "Serious Mode", "Voice Challenge"].includes(sessionType) &&
       !message.includes("I want to continue our last conversation") &&
       j === queryOutput.length - 1
     ) {

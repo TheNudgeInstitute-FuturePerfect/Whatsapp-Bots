@@ -1205,7 +1205,7 @@ app.get("/usertopicmsgs", (req, res) => {
 					"where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59' "+
 					"and (((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) or ((SystemPrompts.Type = 'Backend Prompt') and ((SystemPrompts.Name = 'Self Introduction') or (SystemPrompts.Name = 'SLF Doubts'))))"+
 					"order by Sessions.SessionID, Sessions.CREATEDTIME asc"
-	getAllRows("IsActive, MessageType, Classification, Improvement, UserFeedback, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name, Sessions.Message, MessageAudioURL, Sessions.Reply, ReplyAudioURL, Sessions.PerformanceReportURL, Sessions.SentenceLevelFeedback, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens	",query,zcql,dataLimit)
+	getAllRows("IsActive, MessageType, Classification, Improvement, UserFeedback, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name,SystemPrompts.Module,SystemPrompts.Persona, Sessions.Message, MessageAudioURL, Sessions.Reply, ReplyAudioURL, Sessions.PerformanceReportURL, Sessions.SentenceLevelFeedback, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens	",query,zcql,dataLimit)
 	.then((allSessions)=>{
 		const sessions = allSessions.filter(data=>!(data.Sessions.SessionID.endsWith(' - Translation')||data.Sessions.SessionID.endsWith(' - Hints')||data.Sessions.SessionID.endsWith(' - ObjectiveFeedback')))
 		if(sessions.length>0){
@@ -1214,6 +1214,8 @@ app.get("/usertopicmsgs", (req, res) => {
 					return {
 						Mobile : data.Sessions.Mobile,
 						Topic : decodeURIComponent(data.SystemPrompts.Name),
+						Persona : decodeURIComponent(data.SystemPrompts.Persona),
+						Module : data.SystemPrompts.Module,
 						SessionID : data.Sessions.SessionID,
 						IsActive : data.Sessions.IsActive.toString(),
 						MsgTimeStamp : data.Sessions.CREATEDTIME,
@@ -1332,7 +1334,7 @@ app.get("/sessionevents", (req, res) => {
 	const event = req.query.event ? req.query.event.split(",") : null
 
 	let query = "Select {} from SessionEvents left join SystemPrompts on SystemPrompts.ROWID=SessionEvents.SystemPromptROWID where SessionEvents.CREATEDTIME >='"+startDate+" 00:00:00' and SessionEvents.CREATEDTIME <= '"+endDate+" 23:59:59' order by CREATEDTIME ASC"
-	getAllRows("Mobile, SessionID, Event, SystemPrompts.Name, SystemPrompts.Persona, SessionEvents.CREATEDTIME", query,zcql,dataLimit)
+	getAllRows("Mobile, SessionID, Event, SystemPrompts.Name, SystemPrompts.Persona, SystemPrompts.Module, SessionEvents.CREATEDTIME", query,zcql,dataLimit)
 			.then((sessions)=>{
 				let mobiles = sessions.map(data=>data.SessionEvents.Mobile).filter(unique)
 				query = "select {} from Users where Mobile in ("+mobiles.join(",")+")"
@@ -1344,6 +1346,7 @@ app.get("/sessionevents", (req, res) => {
 							Mobile : data.SessionEvents.Mobile,
 							Topic : decodeURIComponent(data.SystemPrompts.Name),
 							Persona : decodeURIComponent(data.SystemPrompts.Persona),
+							Module : data.SystemPrompts.Module,
 							SessionID : data.SessionEvents.SessionID,
 							Event : data.SessionEvents.Event,
 							EventTimestamp : data.SessionEvents.CREATEDTIME.toString().slice(0,19)
@@ -2147,7 +2150,7 @@ app.get("/sessionfeedbacks", (req, res) => {
 	let query = "Select {} from SessionEvents left join SystemPrompts on SystemPrompts.ROWID=SessionEvents.SystemPromptROWID where SessionEvents.CREATEDTIME >='"+startDate+" 00:00:00' and SessionEvents.CREATEDTIME <= '"+endDate+" 23:59:59' "+
 				(req.query.mobile ? "and Mobile in ("+req.query.mobile.split(",")+")":"")+
 				"order by CREATEDTIME ASC"
-	getAllRows("Mobile, SessionID, Event, SystemPrompts.Name, SystemPrompts.Persona, SessionEvents.CREATEDTIME", query,zcql,dataLimit)
+	getAllRows("Mobile, SessionID, Event, SystemPrompts.Name, SystemPrompts.Persona, SystemPrompts.Module, SessionEvents.CREATEDTIME", query,zcql,dataLimit)
 	.then((sessions)=>{
 		let mobiles = sessions.map(data=>data.SessionEvents.Mobile).filter(unique)
 		query = "select {} from Users where Mobile in ("+mobiles.join(",")+")"
@@ -2174,6 +2177,7 @@ app.get("/sessionfeedbacks", (req, res) => {
 						Mobile : data.SessionEvents.Mobile,
 						Topic : decodeURIComponent(data.SystemPrompts.Name),
 						Persona : decodeURIComponent(data.SystemPrompts.Persona),
+						Module : data.SystemPrompts.Module,
 						SessionID : data.SessionEvents.SessionID,
 						Event : data.SessionEvents.Event,
 						EventTimestamp : data.SessionEvents.CREATEDTIME.toString().slice(0,19)
