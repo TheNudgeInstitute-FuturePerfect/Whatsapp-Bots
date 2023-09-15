@@ -1,43 +1,44 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
-module.exports = async (basicIO) => {
-    const catalystApp = catalyst.initialize();
+module.exports = (basicIO) => {
 
-    const executionID = Math.random().toString(36).slice(2)
+    return new Promise(async (resolve,reject)=>{
+    
+        const executionID = (typeof basicIO['SessionID'] !== 'undefined') ? basicIO['SessionID'] : Math.random().toString(36).slice(2)
 
-	//Prepare text to prepend with logs
-	const params = ["Convert Speech to Text",executionID,""]
-	const prependToLog = params.join(" | ")
-		
-	console.info((new Date()).toString()+"|"+prependToLog,"Execution Started")
+        //Prepare text to prepend with logs
+        const params = ["Convert Text to Speech",executionID,""]
+        const prependToLog = params.join(" | ")
+            
+        console.info((new Date()).toString()+"|"+prependToLog,"Execution Started")
 
 
-    let text = basicIO["text"];
-    var responseJSON = {
-        OperationStatus: "REQ_ERR",
-        StatusDescription: null,
-    };
-    if (typeof text === "undefined") {
-        responseJSON["StatusDescription"] = "text missing";
-        console.info((new Date()).toString()+"|"+prependToLog,"Returned: ", responseJSON);
-        return JSON.stringify(responseJSON);
-    } 
-    else {
-        let languageCode = basicIO["languageCode"];  
-        if (typeof languageCode === "undefined") {
-            responseJSON["StatusDescription"] = "languageCode missing";
+        let text = basicIO["text"];
+        var responseJSON = {
+            OperationStatus: "REQ_ERR",
+            StatusDescription: null,
+        };
+        if (typeof text === "undefined") {
+            responseJSON["StatusDescription"] = "text missing";
             console.info((new Date()).toString()+"|"+prependToLog,"Returned: ", responseJSON);
-            return JSON.stringify(responseJSON);
-        }
+            resolve(JSON.stringify(responseJSON));
+        } 
         else {
-            let fileName = basicIO["fileName"];
-            if (typeof fileName === "undefined") {
-                responseJSON["StatusDescription"] = "fileName missing";
+            let language = basicIO["language"];  
+            if (typeof language === "undefined") {
+                responseJSON["StatusDescription"] = "language missing";
                 console.info((new Date()).toString()+"|"+prependToLog,"Returned: ", responseJSON);
-                return JSON.stringify(responseJSON);
-            } 
+                resolve(JSON.stringify(responseJSON));
+            }
             else {
+                let fileName = basicIO["fileName"];
+                if (typeof fileName === "undefined") {
+                    responseJSON["StatusDescription"] = "fileName missing";
+                    console.info((new Date()).toString()+"|"+prependToLog,"Returned: ", responseJSON);
+                    resolve(JSON.stringify(responseJSON));
+                } 
+                else {
                     responseJSON["OperationStatus"] = "SUCCESS";
                     console.info((new Date()).toString()+"|"+prependToLog,"Converting Text to Speech");
                     const allConfig = require("./convertTextToSpeech-config.json");
@@ -55,7 +56,7 @@ module.exports = async (basicIO) => {
                     const request = {
                         input: {text: text},
                         // Select the language and SSML voice gender (optional)
-                        voice: {languageCode: languageCode, ssmlGender: config['ssmlGender']},
+                        voice: {languageCode: config["languageCode"][language], ssmlGender: config['ssmlGender']},
                         // select the type of audio encoding
                         audioConfig: config['audioConfig'],
                     };
@@ -81,22 +82,23 @@ module.exports = async (basicIO) => {
                                 await file.makePublic()
                                 responseJSON['PublicURL'] = config["publicURLPath"].replace("{{bucket}}",bucket).replace("{{filename}}",fileName)
                                 console.info((new Date()).toString()+"|"+prependToLog,"Stored the audio file")
-                                return JSON.stringify(responseJSON);
+                                resolve(JSON.stringify(responseJSON));
                             })
                             .catch(error =>{
                                 console.info((new Date()).toString()+"|"+prependToLog,"Error encountered in storing file: "+error)
                                 responseJSON["OperationStatus"] = "SUCCESS";
                                 responseJSON['StatusDescription'] = error                
-                                return JSON.stringify(responseJSON);
+                                reject(JSON.stringify(responseJSON));
                             })
                     })
                     .catch(error =>{
                         console.info((new Date()).toString()+"|"+prependToLog,"Error encountered in synthesizing speech "+error);
                         responseJSON["OperationStatus"] = "SUCCESS";
                         responseJSON['StatusDescription'] = error                
-                        return JSON.stringify(responseJSON);
+                        reject(JSON.stringify(responseJSON));
                     })
+                }
             }
         }
-    }
+    })
 };

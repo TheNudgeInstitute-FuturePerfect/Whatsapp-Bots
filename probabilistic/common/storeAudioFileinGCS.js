@@ -2,7 +2,13 @@
 const catalyst = require("zoho-catalyst-sdk");
 
 module.exports = async (basicIO) => {
-  const catalystApp = catalyst.initialize();
+  const executionID = (typeof basicIO['SessionID'] !== 'undefined') ? basicIO['SessionID'] : Math.random().toString(36).slice(2)
+
+  //Prepare text to prepend with logs
+  const params = ["Store File in GCS",executionID,""]
+  const prependToLog = params.join(" | ")
+      
+  console.info((new Date()).toString()+"|"+prependToLog,"Execution Started")
 
   let contentType = basicIO["contentType"];
   let fileData = basicIO["fileData"];
@@ -14,20 +20,20 @@ module.exports = async (basicIO) => {
   };
   if (typeof contentType === "undefined") {
     responseJSON["ErrorDescription"] = "contentType missing";
-    console.log("Returned: ", responseJSON);
+    console.info((new Date()).toString()+"|"+prependToLog,"Returned: ", responseJSON);
     return JSON.stringify(responseJSON);
   } else if (typeof fileData === "undefined") {
     responseJSON["ErrorDescription"] = "fileData missing";
-    console.log("Returned: ", responseJSON);
+    console.info((new Date()).toString()+"|"+prependToLog,"Returned: ", responseJSON);
     return JSON.stringify(responseJSON);
   } else if (typeof fileName === "undefined") {
     responseJSON["ErrorDescription"] = "fileName missing";
-    console.log("Returned: ", responseJSON);
+    console.info((new Date()).toString()+"|"+prependToLog,"Returned: ", responseJSON);
     return JSON.stringify(responseJSON);
   } else {
     fileType = typeof fileType === "undefined" ? contentType : fileType;
     responseJSON["OperationStatus"] = "SUCCESS";
-    console.log("Storing File in GCS");
+    console.info((new Date()).toString()+"|"+prependToLog,"Storing File in GCS");
 
     const getFileContent = (contentType, content) => {
       return new Promise((resolve, reject) => {
@@ -76,15 +82,15 @@ module.exports = async (basicIO) => {
         const publicURL = config["publicURLPath"]
           .replace("{{bucket}}", bucket)
           .replace("{{filename}}", fileName);
-        console.log("Stored the audio file");
+        console.info((new Date()).toString()+"|"+prependToLog,"Stored the audio file");
         responseJSON["OperationStatus"] = "SUCCESS";
         responseJSON["PublicURL"] = publicURL;
-        console.log("Returned: ", responseJSON);
+        console.info((new Date()).toString()+"|"+prependToLog,"Returned: ", responseJSON);
         return JSON.stringify(responseJSON);
       } catch (error) {
         responseJSON["OperationStatus"] = "GCS_ERR";
         responseJSON["ErrorDescription"] = error;
-        console.log(
+        console.info((new Date()).toString()+"|"+prependToLog,
           "Technical Error in storing file: " +
             error +
             "\n\n Returned error response: ",
@@ -95,7 +101,7 @@ module.exports = async (basicIO) => {
     } catch (error) {
       responseJSON["OperationStatus"] = "REST_API_ERR";
       responseJSON["ErrorDescription"] = error;
-      console.log(
+      console.info((new Date()).toString()+"|"+prependToLog,
         "Technical Error in HTTP Request: " +
           error +
           "\n\n Returned error response: ",

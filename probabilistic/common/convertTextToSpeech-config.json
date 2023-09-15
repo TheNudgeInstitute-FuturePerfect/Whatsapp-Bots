@@ -13,6 +13,12 @@
             "nospellerr":"https://storage.googleapis.com/nudgevoicebotbket/NoSpellOrGrmrErr.mp3",
             "nogrammarerr":"https://storage.googleapis.com/nudgevoicebotbket/NoGrmrErr.mp3",
             "nospellorgrammarerr":"https://storage.googleapis.com/nudgevoicebotbket/NoSpellOrGrmrErr.mp3"
+        },
+        "languageCode": {
+            "English": "en-IN",
+            "Hindi": "hi-IN",
+            "Kannada": "kn-IN",
+            "Tamil": "ta-IN"
         }
     },
     "gcsConfig":{

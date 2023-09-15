@@ -9,14 +9,15 @@ const catalyst = require("zoho-catalyst-sdk");
 const app = express.Router();
 var bodyParser = require("body-parser");
 var prependToLog = null
+var executionID
 app.use(bodyParser.urlencoded({ extended: false }));
 
-const transcribeAudio = async (audioURL) => {
+const transcribeAudio = async (audioURL,sessionID) => {
   let returnValue = null;
   try {
     const convertSpeechToText = require("./common/convertSpeechToText.js");
     const audioDetails = JSON.parse(
-      await convertSpeechToText({ responseAVURL: audioURL })
+      await convertSpeechToText({ responseAVURL: audioURL, SessionID:sessionID })
     );
     if (audioDetails.OperationStatus === "SUCCESS") {
       returnValue = [audioDetails.AudioTranscript, audioDetails.Confidence];
@@ -32,18 +33,20 @@ const transcribeAudio = async (audioURL) => {
   }
 };
 
-const saveContentInGCS = async (fileData, fileName, contentType) => {
+const saveContentInGCS = async (fileData, fileName, fileType, contentType, sessionID) => {
   let publicURL = null;
-  if (!["Text", "Audio", "Image", "Video"].includes(contentType)) {
+  if (!["Text", "Audio", "Image", "Video"].includes(fileType)) {
     return publicURL;
   }
   try {
     const storeAudioFileinGCS = require("./common/storeAudioFileinGCS.js");
     const gcsFile = JSON.parse(
       await storeAudioFileinGCS({
-        contentType,
-        fileData,
-        fileName,
+        contentType:contentType,
+        fileData:fileData,
+        fileName:fileName,
+        fileType:fileType,
+        SessionID:sessionID
       })
     );
 
@@ -83,7 +86,7 @@ const runQuery = async (query, zcql) => {
 app.post("/chatgpt", async (request, response) => {
   const app = catalyst.initialize(request, { type: catalyst.type.applogic });
 
-  const executionID = request.body.sessionId ? request.body.sessionId : Math.random().toString(36).slice(2)
+  executionID = request.body.sessionId ? request.body.sessionId : Math.random().toString(36).slice(2)
     
   //Prepare text to prepend with logs
   const params = ["glificChatGPTIntegrator",request.url,executionID,""]
@@ -112,7 +115,7 @@ app.post("/chatgpt", async (request, response) => {
   // if message type audio
   if (messageType === "Audio") {
     messageURL = message;
-    const messageAudioDetails = transcribeAudio(messageURL);
+    const messageAudioDetails = await transcribeAudio(messageURL,executionID);
     if (messageAudioDetails !== null) {
       message = messageAudioDetails[0];
       confidenceInterval = messageAudioDetails[1];
@@ -176,7 +179,8 @@ app.post("/chatgpt", async (request, response) => {
         "progressbarat",
         "feedback prompt", //Get the feedback prompt configured for the topic to return whether feedback prompt exists or not
         "serious mode prompt", //Get the serious mode prompt
-        "voice challenge prompt" //Get the voice challenge prompt
+        "voice challenge prompt", //Get the voice challenge prompt
+        "easy mode prompt" //Get the voice challenge prompt
       ],
     })
   );
@@ -305,7 +309,9 @@ app.post("/chatgpt", async (request, response) => {
     role: "system",
     content: commandMsg == 'feedback prompt' ? messagePrompt.Values['feedback prompt'] : 
       (sessionType == "Serious Mode" ?  messagePrompt.Values['serious mode prompt'] : 
-        (sessionType == "Voice Challenge" ?  messagePrompt.Values['voice challenge prompt'] : systemPrompt)
+        (sessionType == "Voice Challenge" ?  messagePrompt.Values['voice challenge prompt'] :
+          (sessionType == "Easy Mode" ?  messagePrompt.Values['easy mode prompt'] : systemPrompt)
+        )
       ), //queryOutput[j]['SystemPrompts']['Content']
   });
 
@@ -469,17 +475,18 @@ app.post("/chatgpt", async (request, response) => {
 
   // If responseType configuration == Audio or Text+Audio, then create audio else not
   if (responseType === "Audio" || responseType === "Text+Audio") {
-    let createAudioOfText = require("./common/createAudioOfText.js");
+    let createAudioOfText = require("./common/convertTextToSpeech.js");
     const audioDetails = JSON.parse(
       await createAudioOfText({
         text: reply,
-        filename: storedSessionRecord.ROWID,
+        fileName: 'R'+storedSessionRecord.ROWID, //R=>Reply of GPT
         language: "English",
+        SessionID: executionID
       })
     );
 
     if (audioDetails.OperationStatus === "SUCCESS") {
-      publicURL = audioDetails.URL;
+      publicURL = audioDetails.PublicURL;
     } else {
       console.info((new Date()).toString()+"|"+prependToLog,"Encountered error in creating audio of ChatGPT reply");
       console.error((new Date()).toString()+"|"+prependToLog,audioDetails);
@@ -602,16 +609,10 @@ app.post("/chatgpt", async (request, response) => {
   }
 
   // Store message audio file in GCS
-  let messagePublicURL = null;
   if (messageType === "Audio") {
-    const messageURL = message;
-    const messageAudioPublicURL = saveContentInGCS(
-      (fileData = messageURL),
-      (contentType = "Audio"),
-      (fileName = storedSessionRecord.ROWID)
-    );
+    const messageAudioPublicURL = await saveContentInGCS(messageURL,'M'+storedSessionRecord.ROWID,"Audio","URL",executionID);//M=>Message of User
     if (messageAudioPublicURL !== null) {
-      sessionsTable.update_row({
+      sessionsTable.updateRow({
         ROWID: storedSessionRecord.ROWID,
         MessageAudioURL: messageAudioPublicURL,
       });
