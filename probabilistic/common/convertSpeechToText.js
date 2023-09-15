@@ -65,7 +65,7 @@ module.exports = async (basicIO) => {
           const fileBuffer = await getFileBuffer()
           const config = require("./convertSpeechToText-config.json");
           console.info((new Date()).toString()+"|"+prependToLog,"TTSProvider:"+process.env.TTSProvider)
-          if(process.env.TTSProvider=='Bhashini'){
+          if(process.env.STTProvider=='Bhashini'){
               let bhashiniConfig = config['BhashiniConfig']
               const axios = require("axios")
               try{
