@@ -60,14 +60,13 @@ const sendResponse = (prependToLog,responseJSON,startTimeStamp,requestBody, res)
 app.post("/", (req, res) => {
     
     let startTimeStamp = new Date();
-    let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
     
     const requestBody = req.body;
 
     const executionID = req.body.SessionID ? req.body.SessionID : Math.random().toString(36).slice(2)
  
     //Prepare text to prepend with logs
-    const params = ["storeFlowQuestionAnswers",requestBody["UserFlowQuestionLogID"],executionID,""]
+    const params = ["storeFlowQuestionAnswers",req.url,requestBody["UserFlowQuestionLogID"],executionID,""]
     const prependToLog = params.join(" | ")
     
     console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
@@ -842,6 +841,99 @@ app.post("/", (req, res) => {
                     res.status(500).send(error);
                 })
                 
+            }
+        })
+        .catch(error=> {
+            console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error in Getting User Data");
+            console.error((new Date()).toString()+"|"+prependToLog,"End of Execution with Error: ",error);
+            res.status(500).send(error);
+        })
+    }
+
+});
+
+app.get("/qaingptformat", (req, res) => {
+    
+    let startTimeStamp = new Date();
+    
+    let requestBody = req.body;
+    requestBody['UserFlowQuestionLogID']=req.query["UserFlowQuestionLogID"]
+
+    const executionID = req.body.SessionID ? req.body.SessionID : Math.random().toString(36).slice(2)
+ 
+    //Prepare text to prepend with logs
+    const params = ["storeFlowQuestionAnswers",req.url,requestBody["UserFlowQuestionLogID"],executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+    
+    //Initialize Response Object
+    var responseJSON = {
+        "OperationStatus":"SUCCESS"
+    }
+
+    const missingParams = checkKey(["UserFlowQuestionLogID"],requestBody)
+
+    if(missingParams.length>0){
+        responseJSON['OperationStatus'] = "REQ_ERR"
+        responseJSON['StatusDescription'] = "Missing field - "+missingParams.join(",")
+        sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)
+    }
+    else {
+        console.debug((new Date()).toString()+"|"+prependToLog,"Get Log Details: "+requestBody["UserFlowQuestionLogID"]);
+        
+        let searchLogQuery = userFlowQuestionLogs.findById(requestBody["UserFlowQuestionLogID"])
+
+        searchLogQuery
+        .then((userFlowQuestionLog)=>{
+            if(userFlowQuestionLog==null){
+                responseJSON['OperationStatus']='FAILED_TO_GET_ASSMNTLOG'
+                responseJSON['StatusDescription']="Log "+requestBody["UserFlowQuestionLogID"]+" not found"
+                sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)
+            }
+            else{
+                let questionsAsked = userFlowQuestionLog['QuestionAnswers'].map(data=>data.QuestionID)
+                const topicID = userFlowQuestionLog['SystemPromptROWID']
+                console.info((new Date()).toString()+"|"+prependToLog,"Total Assessment Records: "+userFlowQuestionLog.length," | Questions Asked: ",questionsAsked," | SystemPrompt ID: "+topicID);
+                var previousResponses = userFlowQuestionLog['QuestionAnswers'].filter(data=>((typeof data.ErrorInResponse === "undefined") || (data.ErrorInResponse == '') || (data.ErrorInResponse == null))&&(data.QuestionID!=null))
+                responseJSON["Data"] = null
+                if(previousResponses.length==0)
+                    console.info((new Date()).toString()+"|"+prependToLog,"Either it's first question or no correct response could be captured at all")
+                else{
+                    responseJSON["Data"] = previousResponses.map(response=>response['ResponseText']).join("\n")
+                }
+                sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)   
+                /*console.info((new Date()).toString()+"|"+prependToLog,"Fetching questions configured for Category = "+userFlowQuestionLog['Category']);
+                
+                let questionQuery = flowQuestions.find({
+                    Category:userFlowQuestionLog['Category']
+                }).sort({AskingOrder:'asc'})
+
+                questionQuery
+                .then((questionBank)=>{
+                    if(questionBank==null){
+                        responseJSON['OperationStatus']='FAILED_TO_GET_QUEST'
+                        responseJSON['StatusDescription']=questionBank
+                        sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)
+                    }
+                    else{
+                        console.info((new Date()).toString()+"|"+prependToLog,"Fetched questions configured for Category = "+userFlowQuestionLog['Category']);
+                        //prepare response
+                        const questionAnswers = previousResponses.map(response=>{
+                            //Get the current question fields
+                            const currentQuestion = questionBank.filter(record=>record.id == response.QuestionID)
+                            return "assistant:"+decodeURI(currentQuestion[0]['Question'])+"\nuser:"+response['ResponseText']
+                        })
+                        responseJSON["Data"] = questionAnswers.join("\n")
+                        
+                        sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)   
+                    }
+                })
+                .catch(error=> {
+                    console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error in Getting Questions");
+                    console.error((new Date()).toString()+"|"+prependToLog,"End of Execution with Error: ",error)
+                    res.status(500).send(error);
+                })*/    
             }
         })
         .catch(error=> {

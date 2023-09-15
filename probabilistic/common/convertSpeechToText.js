@@ -2,9 +2,8 @@
 const catalyst = require("zoho-catalyst-sdk");
 
 module.exports = async (basicIO) => {
-    const catalystApp = catalyst.initialize();
-
-    const executionID = Math.random().toString(36).slice(2)
+    
+    const executionID = (typeof basicIO['SessionID'] !== 'undefined') ? basicIO['SessionID'] : Math.random().toString(36).slice(2)
 
     //Prepare text to prepend with logs
     const params = ["Convert Speech to Text",executionID,""]
