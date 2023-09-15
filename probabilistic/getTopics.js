@@ -111,11 +111,16 @@ app.post("/topiclist", (req, res) => {
   //Get table meta object without details.
   let getAssessmentContribution = require("./common/getAssessmentContribution.js");
 
+  
   getAssessmentContribution({ isactive: true, type: "Topic Prompt" })
     .then((promptsResult) => {
+      //console.log(promptsResult,"promptsResult+++++++++++++++++");
       const allPrompts = JSON.parse(promptsResult);
+     
       if (allPrompts["OperationStatus"] == "SUCCESS") {
+        console.log(allPrompts["Prompts"],"promptsResult+++++++++++++++++");
         var promptNames = allPrompts["Prompts"].filter(data=>data.Module==module).map((data) => data.Name);
+        //console.log(promptNames,"promptsResult+++++++++++++++++");
         promptNames = promptNames.filter(unique);
         for (var i = nextStartIndex; i < promptNames.length; i++) {
           responseJSON["Topic" + (i - nextStartIndex + 1)] = promptNames[i];
@@ -168,7 +173,7 @@ app.post("/allocatetopic", (req, res) => {
 	}
 	*/
 
-  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+  //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
   const executionID = Math.random().toString(36).slice(2)
     
@@ -195,22 +200,23 @@ app.post("/allocatetopic", (req, res) => {
   //   "select distinct SystemPrompts.ROWID, SystemPrompts.Sequence, SystemPrompts.SupportingText, SystemPrompts.SupportingImageURL, SystemPrompts.SupportingAVURL, SystemPrompts.ObjectiveMessage, SystemPrompts.IsPaid, SystemPrompts.ShowLearningContent, SystemPrompts.LearningObjective, SystemPrompts.Game from SystemPrompts where SystemPrompts.Name = '" +
   //   topic +
   //   "' and SystemPrompts.IsActive = true";
-  let query = SystemPrompts.distinct('ROWID', {
-    Name: topic,
-    IsActive: true,
-  })
+  let filterParams = {
+        Name: topic,
+        IsActive: true
+  };
   if (persona != null)
     // query = query + " and Persona = '" + persona.replace(/'/g, "''").replace(" 🔐","") + "'";
-       query = SystemPrompts.distinct('ROWID', {
+    filterParams = {
         Name: topic,
         IsActive: true,
         Persona : persona.replace(/'/g, "''").replace(" 🔐","")
-      })
+      }
   // let zcql = catalystApp.zcql();
   // zcql
   //   .executeZCQLQuery(query)
-  query
+  SystemPrompts.find(filterParams)
     .then((systemPrompts) => {
+      console.log("+++++++++++++",systemPrompts);
       if (!(systemPrompts != null && systemPrompts.length > 0)) {
         responseObject["OperationStatus"] = "NO_DATA";
         responseObject["StatusDescription"] =
@@ -284,8 +290,8 @@ app.post("/allocatetopic", (req, res) => {
                 else{
                   //Get the topic subscriptions initiated by the user
                   const unlockCourseAttemptsFilter = {
-                    UserROWID:user[0]['Users']['ROWID'],
-                    SystemPromptROWID:systemPrompts[0]["SystemPrompts"]["ROWID"]
+                    UserROWID:user[0]['_id'],
+                    SystemPromptROWID:systemPrompts[0]["_id"]
                   }
                   console.info((new Date()).toString()+"|"+prependToLog,'Fetching Topic Subscription Status of User for '+JSON.stringify(unlockCourseAttemptsFilter))
                   const unlockCourseAttempts = await userTopicSubscriptionMapper.find(unlockCourseAttemptsFilter)
@@ -362,12 +368,12 @@ app.post("/allocatetopic", (req, res) => {
 
         }
 
-        checkLockStatusForUser(systemPrompts[0]["SystemPrompts"]["IsPaid"],mobile,systemPrompts[0]["SystemPrompts"]["ROWID"])
+        checkLockStatusForUser(systemPrompts[0]["IsPaid"],mobile,systemPrompts[0]["ROWID"])
         .then((lockStatus)=>{
           if(lockStatus=='Locked'){
             responseObject["OperationStatus"] = "TPC_LOCKED";
             responseObject["StatusDescription"] = "User has not unlocked the topic"
-            responseObject["TopicID"] = systemPrompts[0]["SystemPrompts"]["ROWID"];
+            responseObject["TopicID"] = systemPrompts[0]["_id"];
             console.info((new Date()).toString()+"|"+prependToLog,"End of execution:", responseObject);
             res.status(200).json(responseObject);
           }
@@ -375,17 +381,17 @@ app.post("/allocatetopic", (req, res) => {
             if (persona != null) {
               //Prepare the data to be returned
               responseObject["TopicID"] =
-                systemPrompts[0]["SystemPrompts"]["ROWID"];
+                systemPrompts[0]["_id"];
               responseObject["SupportingText"] =
-                systemPrompts[0]["SystemPrompts"]["SupportingText"];
+                systemPrompts[0]["SupportingText"];
               responseObject["SupportingTextFlag"] =
                 responseObject["SupportingText"] != null;
               responseObject["SupportingImageURL"] =
-                systemPrompts[0]["SystemPrompts"]["SupportingImageURL"];
+                systemPrompts[0]["SupportingImageURL"];
               responseObject["SupportingImageURLFlag"] =
                 responseObject["SupportingImageURL"] != null;
               responseObject["SupportingAVURL"] =
-                systemPrompts[0]["SystemPrompts"]["SupportingAVURL"];
+                systemPrompts[0]["SupportingAVURL"];
               responseObject["SupportingAVURLFlag"] =
                 responseObject["SupportingAVURL"] != null;
               responseObject["SupportingFlag"] = 
@@ -393,18 +399,18 @@ app.post("/allocatetopic", (req, res) => {
                 responseObject["SupportingImageURLFlag"] ||
                 responseObject["SupportingAVURLFlag"];
               responseObject["ObjectiveMessage"] =
-                systemPrompts[0]["SystemPrompts"]["ObjectiveMessage"];
+                systemPrompts[0]["ObjectiveMessage"];
               responseObject["ObjectiveMessageFlag"] =
                 responseObject["ObjectiveMessage"] != null;
-              responseObject["ShowLearningContent"] = systemPrompts[0]["SystemPrompts"]["ShowLearningContent"] == true
+              responseObject["ShowLearningContent"] = systemPrompts[0]["ShowLearningContent"] == true
               
               //---- 2023-08-04 | GLOW 5.3 | ravi.bhushan@dhwaniris.com | Begin----
               responseObject["LearningObjective"] =
-                systemPrompts[0]["SystemPrompts"]["LearningObjective"];
+                systemPrompts[0]["LearningObjective"];
               responseObject["LearningObjectiveFlag"] =
                 responseObject["LearningObjective"] != null;
               responseObject["Game"] =
-                systemPrompts[0]["SystemPrompts"]["Game"];
+                systemPrompts[0]["Game"];
               responseObject["GameFlag"] =
                 responseObject["Game"] != null;
               if(lockStatus=='MaxSessionsReached'){
@@ -420,8 +426,8 @@ app.post("/allocatetopic", (req, res) => {
               //Prepare an object array of systemPrompt counts
               var sessionCounts = systemPrompts.map((record) => {
                 return {
-                  id: record["SystemPrompts"]["ROWID"],
-                  sequence: record["SystemPrompts"]["Sequence"],
+                  id: record["_id"],
+                  sequence: record["Sequence"],
                   count: 0,
                 };
               });
@@ -508,25 +514,25 @@ app.post("/allocatetopic", (req, res) => {
                     (data) => data.SystemPrompts.ROWID == responseObject["TopicID"]
                   );
                   responseObject["SupportingText"] =
-                    systemPrompt[0]["SystemPrompts"]["SupportingText"];
+                    systemPrompt[0]["SupportingText"];
                   responseObject["SupportingTextFlag"] =
                     responseObject["SupportingText"] != null;
                   responseObject["SupportingImageURL"] =
-                    systemPrompt[0]["SystemPrompts"]["SupportingImageURL"];
+                    systemPrompt[0]["SupportingImageURL"];
                   responseObject["SupportingImageURLFlag"] =
                     responseObject["SupportingImageURL"] != null;
                   responseObject["SupportingAVURL"] =
-                    systemPrompt[0]["SystemPrompts"]["SupportingAVURL"];
+                    systemPrompt[0]["SupportingAVURL"];
                   responseObject["SupportingAVURLFlag"] =
                     responseObject["SupportingAVURL"] != null;
                   responseObject["SupportingFlag"] =
                     responseObject["SupportingTextFlag"] ||
                     responseObject["SupportingImageURLFlag"] ||
                     responseObject["SupportingAVURLFlag"];
-                  responseObject["ShowLearningContent"] = systemPrompts[0]["SystemPrompts"]["ShowLearningContent"] == true
+                  responseObject["ShowLearningContent"] = systemPrompts[0]["ShowLearningContent"] == true
                   
                   //---- 2023-08-04 | GLOW 5.3 | ravi.bhushan@dhwaniris.com | Begin----
-                  responseObject["LearningObjective"] = systemPrompts[0]["SystemPrompts"]["LearningObjective"];
+                  responseObject["LearningObjective"] = systemPrompts[0]["LearningObjective"];
                   responseObject["LearningObjectiveFlag"] = responseObject["LearningObjective"] != null;
                   //---- 2023-08-04 | GLOW 5.3 | ravi.bhushan@dhwaniris.com | End----
 

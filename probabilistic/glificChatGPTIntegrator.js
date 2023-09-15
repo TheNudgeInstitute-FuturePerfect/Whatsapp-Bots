@@ -5,6 +5,8 @@ const express = require("express");
 const catalyst = require("zoho-catalyst-sdk");
 const Session = require("./models/Sessions.js");
 const SystemPrompt = require("./models/SystemPrompts.js");
+const mongoose = require('mongoose');
+const ObjectId = mongoose.Types.ObjectId;
 // const app = express();
 // app.use(express.json());
 const app = express.Router();
@@ -98,15 +100,15 @@ app.post("/chatgpt", async (request, response) => {
   const startTimeStamp = new Date();
 
   const requestBody = request.body;
-  console.debug((new Date()).toString()+"|"+prependToLog,"request body ......", requestBody);
-  console.info((new Date()).toString()+"|"+prependToLog,requestBody.sessionId);
+  //console.debug((new Date()).toString()+"|"+prependToLog,"request body ......", requestBody);
+  //console.info((new Date()).toString()+"|"+prependToLog,requestBody.sessionId);
   let mobile = parseInt(requestBody.mobile.slice(-10));
   
   const message = requestBody.message;
-  console.info((new Date()).toString()+"|"+prependToLog,"Message: " + message);
+ // console.info((new Date()).toString()+"|"+prependToLog,"Message: " + message);
 
   const messageType = requestBody.messageType;
-  console.info((new Date()).toString()+"|"+prependToLog,"Message Type: " + messageType);
+  //console.info((new Date()).toString()+"|"+prependToLog,"Message Type: " + messageType);
 
   let messageURL = null;
   let confidenceInterval = null;
@@ -139,24 +141,31 @@ app.post("/chatgpt", async (request, response) => {
   let systemPromptROWID = null;
   let systemPrompt = null;
   let query = null;
+  var filterParams = {}
   if ("topicId" in requestBody && !isNaN(requestBody.topicId)) {
-    systemPromptROWID = requestBody.topicId;
-    query =
-      "Select ROWID, Name, Content from SystemPrompts where IsActive = true and ROWID = '" +
-      systemPromptROWID +
-      "'";
+    console.log(requestBody.topicId,"_====================");
+    systemPromptROWID = new ObjectId(requestBody.topicId);
+    
+    // query =
+    //   "Select ROWID, Name, Content from SystemPrompts where IsActive = true and ROWID = '" +
+    //   systemPromptROWID +
+    //   "'";
+      filterParams = {IsActive:true,_id:systemPromptROWID};
   } else {
-    query =
-      "Select ROWID, Name, Content from SystemPrompts where IsActive = true and Name = '" +
-      requestBody.topic +
-      "'";
+    // query =
+    //   "Select ROWID, Name, Content from SystemPrompts where IsActive = true and Name = '" +
+    //   requestBody.topic +
+    //   "'";
+      filterParams = {IsActive:true,Name:requestBody.topic};
   }
 
-  const systemPromptsResult = await runQuery(query, zcql);
+  // const systemPromptsResult = await runQuery(query, zcql);
+  const systemPromptsResult = await SystemPrompt.find(filterParams,'_id Name Content')
   if (systemPromptsResult !== null) {
     console.info((new Date()).toString()+"|"+prependToLog,"systemPromptsResult", systemPromptsResult);
-    systemPromptROWID = systemPromptsResult[0].SystemPrompts.ROWID;
-    systemPrompt = systemPromptsResult[0].SystemPrompts.Content;
+    let tempId = systemPromptsResult[0]._id
+    systemPromptROWID = tempId;
+    systemPrompt = systemPromptsResult[0].Content;
   } else {
     response.status(500).json("Encountered error in executing query");
   }
@@ -266,7 +275,7 @@ app.post("/chatgpt", async (request, response) => {
 
   
   //for (let i = startIndex; i < maxRows; i += 300) {
-  query = "";
+   let queryOutput = [];
   if (sessionType === "SentenceFeedback") {
     // query =
     //   "select ROWID, Message, MessageType, Reply, CREATEDTIME, SystemPrompts.Content " +
@@ -275,7 +284,7 @@ app.post("/chatgpt", async (request, response) => {
     //   "where Sessions.ROWID='" +
     //   storedSessionRecord["ROWID"] +
     //   "'";
-    const queryOutput = await Session.findOne({ ROWID: storedSessionRecord["ROWID"] })
+     queryOutput = await Session.findOne({ ROWID: storedSessionRecord["ROWID"] })
                                   .populate({
                                     path: 'SystemPromptsROWID',
                                     model: SystemPrompt,
@@ -299,7 +308,7 @@ app.post("/chatgpt", async (request, response) => {
       ", 300"*/;
     //" and SystemPromptsROWID =" + systemPromptROWID +
 
-    const queryOutput = await Session.aggregate([
+     queryOutput = await Session.aggregate([
       {
         $match: {
           Mobile: mobile,
@@ -330,7 +339,8 @@ app.post("/chatgpt", async (request, response) => {
     ]);
   }
 
-  // console.debug((new Date()).toString()+"|"+prependToLog,"Query: " + query);
+   console.debug((new Date()).toString()+"|"+prependToLog,"queryOutput: " + queryOutput);
+   
   // const queryOutput = await zcql.executeZCQLQuery(query);
 
   const delimeterStartToken = process.env.DelimiterStartToken;

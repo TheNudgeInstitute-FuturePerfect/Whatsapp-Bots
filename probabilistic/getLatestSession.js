@@ -48,6 +48,7 @@ app.post("/latestsession", (req, res) => {
 		})
 		.sort({ CREATEDTIME: -1 })
 		.then((queryResult)=>{//On successful execution
+			//console.log("queryResult",queryResult);
 			if(queryResult==null){//If no data returned
 				responseBody['OperationStatus']='NO_DATA' //Send a non success status
 				responseBody['StatusDescription']='No session data for the user'
@@ -59,6 +60,7 @@ app.post("/latestsession", (req, res) => {
 				// zcql.executeZCQLQuery(query)
 				User.findOne({ Mobile: mobile }, 'OnboardingComplete OnboardingStep')
 				.then((users)=>{//On successful execution
+					
 					if(typeof users === 'undefined'){
 						responseBody['OperationStatus']='NO_USR' //Send a non success status
 						responseBody['StatusDescription']='No record for the user'
@@ -75,14 +77,16 @@ app.post("/latestsession", (req, res) => {
 						sendResponse()
 					}
 					else{
-						const activeOnboardingSessionData = queryResult.filter(data=>(data.Sessions.IsActive == true) && (!data.Sessions.SessionID.endsWith('ObjectiveFeedback')) && (!data.Sessions.SessionID.endsWith('Hint')) && (data.Sessions.SessionID.startsWith('Onboarding')))
-						if(users[0]['Users']['OnboardingComplete'] == null){
+						///console.log(users.OnboardingComplete);
+						const activeOnboardingSessionData = queryResult.filter(data=>(data.IsActive == true) && (!data.SessionID.endsWith('ObjectiveFeedback')) && (!data.SessionID.endsWith('Hint')) && (data.SessionID.startsWith('Onboarding')))
+						
+						if(users.OnboardingComplete == null){
 							if(activeOnboardingSessionData.length>0){
 								responseBody['OperationStatus']='LST_ONBRD_PNDNG' //Send a non success status
-								responseBody['SessionID']=activeOnboardingSessionData[0]['Sessions']['SessionID']
-								responseBody['LastReply']=activeOnboardingSessionData[0]['Sessions']['Reply'] == null ? "Let's continue our conversation." : decodeURIComponent(activeOnboardingSessionData[0]['Sessions']['Reply'])
-								responseBody['Topic']=activeOnboardingSessionData[0]['SystemPrompts']['Name']
-								responseBody['TopicID']=activeOnboardingSessionData[0]['Sessions']['SystemPromptsROWID']
+								responseBody['SessionID']=activeOnboardingSessionData[0]['SessionID']
+								responseBody['LastReply']=activeOnboardingSessionData[0]['Reply'] == null ? "Let's continue our conversation." : decodeURIComponent(activeOnboardingSessionData[0]['Reply'])
+								responseBody['Topic']=activeOnboardingSessionData[0]['SystemPromptsROWID']['Name']
+								responseBody['TopicID']=activeOnboardingSessionData[0]['SystemPromptsROWID']
 							}
 							else
 								responseBody['OperationStatus']='ONBRD_PNDNG' //Send a non success status
@@ -92,39 +96,40 @@ app.post("/latestsession", (req, res) => {
 							
 							sendResponse()
 						}
-						else if(users[0]['Users']['OnboardingComplete'] == false){
+						else if(users.OnboardingComplete == false){
 							if(activeOnboardingSessionData.length>0){
 								responseBody['OperationStatus']='LST_ONBRD_PNDNG' //Send a non success status
-								responseBody['SessionID']=activeOnboardingSessionData[0]['Sessions']['SessionID']
-								responseBody['LastReply']=activeOnboardingSessionData[0]['Sessions']['Reply'] == null ? "Let's continue our conversation." : decodeURIComponent(activeOnboardingSessionData[0]['Sessions']['Reply'])
-								responseBody['Topic']=activeOnboardingSessionData[0]['SystemPrompts']['Name']
-								responseBody['TopicID']=activeOnboardingSessionData[0]['Sessions']['SystemPromptsROWID']
+								responseBody['SessionID']=activeOnboardingSessionData[0]['SessionID']
+								responseBody['LastReply']=activeOnboardingSessionData[0]['Reply'] == null ? "Let's continue our conversation." : decodeURIComponent(activeOnboardingSessionData[0]['Reply'])
+								responseBody['Topic']=activeOnboardingSessionData[0]['SystemPromptsROWID']['Name']
+								responseBody['TopicID']=activeOnboardingSessionData[0]['SystemPromptsROWID']
 							}
 							else
 								responseBody['OperationStatus']='ONBRD_PNDNG' //Send a non success status
 							responseBody['StatusDescription']='Onboarding pending for user'
-							responseBody['OnboardingStep'] = users[0]['Users']['OnboardingStep']
+							responseBody['OnboardingStep'] = users.OnboardingStep
 							responseBody['NewSessionID'] = Math.random().toString(36).slice(2)
 							sendResponse()
 						}
 						else{
-							const activeQueryResult = queryResult.filter(data=>(data.Sessions.IsActive == true) && (!data.Sessions.SessionID.endsWith('ObjectiveFeedback')) && (!data.Sessions.SessionID.endsWith('Hint')) && (data.Sessions.SessionID!='Onboarding'))
+							const activeQueryResult = queryResult.filter(data=>(data.IsActive == true) && (!data.SessionID.endsWith('ObjectiveFeedback')) && (!data.SessionID.endsWith('Hint')) && (data.SessionID!='Onboarding'))
+							
 							if(activeQueryResult.length==0){//Or an empty object returned
 								responseBody['OperationStatus']='NO_DATA' //Send a non success status
 								responseBody['StatusDescription']='No session data for the user'
-								const lastReply = queryResult.filter(record=>((record.Sessions.Reply!=null))||(record.Sessions.ReplyAudioURL!=null))
-								responseBody['ReplyFormat'] = lastReply.length == 0 ? "Text" : lastReply[0]["Sessions"]["ReplyAudioURL"]!=null ? "Audio" : "Text"
+								const lastReply = queryResult.filter(record=>((record.Reply!=null))||(record.ReplyAudioURL!=null))
+								responseBody['ReplyFormat'] = lastReply.length == 0 ? "Text" : lastReply[0]["ReplyAudioURL"]!=null ? "Audio" : "Text"
 								responseBody['NewSessionID'] = Math.random().toString(36).slice(2)
 								sendResponse()
 							}
 							else{//Else
 								//Get the session ID from 1st record arranged in descending order of creation time
-								responseBody['SessionID']=activeQueryResult[0]['Sessions']['SessionID']
-								responseBody['LastReply']=activeQueryResult[0]['Sessions']['Reply'] == null ? "Let's continue our conversation." : decodeURIComponent(activeQueryResult[0]['Sessions']['Reply'])
-								responseBody['Topic']=activeQueryResult[0]['SystemPrompts']['Name']
-								responseBody['TopicID']=activeQueryResult[0]['Sessions']['SystemPromptsROWID']
-								const lastReply = activeQueryResult.filter(record=>((record.Sessions.Reply!=null))||(record.Sessions.ReplyAudioURL!=null))
-								responseBody['ReplyFormat'] = lastReply.length == 0 ? "Text" : lastReply[0]["Sessions"]["ReplyAudioURL"]!=null ? "Audio" : "Text"
+								responseBody['SessionID']=activeQueryResult[0]['SessionID']
+								responseBody['LastReply']=activeQueryResult[0]['Reply'] == null ? "Let's continue our conversation." : decodeURIComponent(activeQueryResult[0]['Reply'])
+								responseBody['Topic']=activeQueryResult[0]['SystemPromptsROWID']['Name']
+								responseBody['TopicID']=activeQueryResult[0]['SystemPromptsROWID']
+								const lastReply = activeQueryResult.filter(record=>((record.Reply!=null))||(record.ReplyAudioURL!=null))
+								responseBody['ReplyFormat'] = lastReply.length == 0 ? "Text" : lastReply[0]["ReplyAudioURL"]!=null ? "Audio" : "Text"
 								responseBody['NewSessionID'] = Math.random().toString(36).slice(2)
 								sendResponse()
 							}
@@ -132,7 +137,7 @@ app.post("/latestsession", (req, res) => {
 					}
 				})
 				.catch((err) => {//On error in execution
-					console.log("Error while executing select statement: ",query,"\nError: ",err);
+					//console.log("Error while executing select statement: ",query,"\nError: ",err);
 					res.status(500).send(err);//Return technical error
 				});
 			}

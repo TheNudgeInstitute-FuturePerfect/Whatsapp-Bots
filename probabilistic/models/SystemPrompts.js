@@ -17,7 +17,10 @@ const schema = new Schema({
   ObjectiveMessage: { type: String },
   Type: { type: String },
   ShowLearningContent: {type: Boolean,default: false},
-  IsPaid: {type: Boolean,default: false}
+  IsPaid: {type: Boolean,default: false},
+  Module: { type: String,require:false },
+  LearningObjective: { type: String,require:false },
+  Game: { type: String,require:false },
 });
 
 module.exports = model("SystemPrompts", schema);

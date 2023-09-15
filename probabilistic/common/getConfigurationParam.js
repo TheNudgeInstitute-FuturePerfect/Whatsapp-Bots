@@ -57,6 +57,7 @@ module.exports = async (basicIO) => {
     
     try {
       const searchQueryResult = await Configurations.find({ SystemPromptROWID:systemPromptROWID});
+     // console.log(searchQueryResult,"____________________________")
       result["OperationStatus"] = "SUCCESS";
       if(!Array.isArray(searchQueryResult))
         throw new Error(searchQueryResult)
@@ -64,13 +65,13 @@ module.exports = async (basicIO) => {
         var filteredValues = searchQueryResult;
         if (listOfParams.length > 0)
           filteredValues = searchQueryResult.filter((data) =>
-            listOfParams.includes(data.Configurations.Name)
+            listOfParams.includes(data.Name)
           );
         if (filteredValues != null && filteredValues.length > 0) {
           const values = filteredValues.map((data) => {
             var pair = {};
-            pair[decodeURI(data.Configurations.Name)] = decodeURI(
-              data.Configurations.Value
+            pair[decodeURI(data.Name)] = decodeURI(
+              data.Value
             );
             return pair;
           });
@@ -93,8 +94,7 @@ module.exports = async (basicIO) => {
       console.error((new Date()).toString()+"|"+prependToLog,
         "Error in execution of search query:",
         error,
-        "\nQuery:",
-        searchQuery
+        "\nQuery:"
       );
       return JSON.stringify(result);
     }

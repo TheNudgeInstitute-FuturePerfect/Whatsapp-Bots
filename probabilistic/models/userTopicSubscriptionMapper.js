@@ -4,9 +4,9 @@ const Schema = mongoose.Schema;
 
 const schema = new Schema(
   {
-    UserROWID           :{ type: String, required: true },
+    UserROWID           :{ type: Schema.Types.ObjectId, ref: 'Users' },
     SessionID           :{ type: String, required: true },
-    SystemPromptROWID   :{ type: String, required: true },
+    SystemPromptROWID   :{ type: Schema.Types.ObjectId, ref: 'SystemPrompts' },
     IsUnlocked          :{ type: Boolean, required: true, default: false},
     PaymentID           :{ type: String, required: true },
     PaymentTracker      :[]

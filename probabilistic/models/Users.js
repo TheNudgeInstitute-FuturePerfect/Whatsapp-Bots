@@ -23,7 +23,8 @@ const schema = new Schema({
   Excluded: { type: Boolean, default:false },
   SourcingChannel: { type: String },
   Tags: { type: String },
-  WordleLevel: { type: String }
+  WordleLevel: { type: String },
+  GoalInMinutes:{type:Number}
 });
 
 module.exports = model("Users", schema);

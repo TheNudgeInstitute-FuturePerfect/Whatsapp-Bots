@@ -76,7 +76,7 @@ app.post("/create", (req, res) => {
 });
 
 app.post("/update", async (req, res) => {
-  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+ // let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
   
   const executionID = Math.random().toString(36).slice(2)
     
@@ -87,7 +87,7 @@ app.post("/update", async (req, res) => {
   console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
   
   //Initialze ZCQL
-  let zcql = catalystApp.zcql();
+ // let zcql = catalystApp.zcql();
 
   const requestBody = req.body;
   var responseJSON = {};
@@ -296,10 +296,12 @@ app.post("/update", async (req, res) => {
     // let zcqlQuestions = zcql.executeZCQLQuery(query);
 
     // zcqlQuestions
-    User.updateMany(
+    User.findOneAndUpdate(
       { Mobile: mobile },
-      { $set: updateFields })
+      { $set: updateFields },
+      { new: true })
       .then((questionQueryResult) => {
+        console.log('questionQueryResult+++++++++',questionQueryResult);
         //If there is no record, then the mobile number does not exist in system. Return error
         if (questionQueryResult.length == 0) {
           //Send the response
@@ -315,7 +317,7 @@ app.post("/update", async (req, res) => {
           res.status(200).json(responseJSON);
         } else {
           responseJSON["OperationStatus"] = "SUCCESS";
-          responseJSON["UserROWID"] = questionQueryResult[0]["Users"]["ROWID"];
+          responseJSON["UserROWID"] = questionQueryResult._id;
           console.info((new Date()).toString()+"|"+prependToLog,
             "Updated User Record - " + JSON.stringify(questionQueryResult)
           );
@@ -360,6 +362,7 @@ app.post("/search", (req, res) => {
   var responseJSON = {};
   User.findOne({ Mobile: mobile, IsActive: true }).select('ROWID IsActive')
     .then((questionQueryResult) => {
+      console.log("+++++++++++++",questionQueryResult);
       //If there is no record, then the mobile number does not exist in system. Return error
       if (questionQueryResult.length == 0) {
         //Send the response

@@ -60,24 +60,15 @@ app.get("/migration",(req,res)=>{
 
 	const dataLimit = req.query.limit ? req.query.limit : null
 
-	let query = "select {} from UserAssessment"
+	let query = "select {} from SystemPrompts"
 	getAllRows("*",query,zcql,dataLimit)
 		.then(async (data)=>{
            const dataArray = [];
 		   for(var i=0;i<data.length;i++){
-			  console.log(data[i]['UserAssessment'].UserAssessmentLogROWID);
-			  if(data[i]['UserAssessment'].UserAssessmentLogROWID != null){
-			  const searchData = await UserAssessmentLogs.find({"ROWID":data[i]['UserAssessment'].UserAssessmentLogROWID})
-              data[i]['UserAssessment'].UserAssessmentLogROWID = searchData[0]['_id'];
-			  }
+			 
 
-			  if(data[i]['UserAssessment'].QuestionROWID != null){
-			  const searchData2 = await QuestionBank.find({"ROWID":data[i]['UserAssessment'].QuestionROWID})
-              data[i]['UserAssessment'].QuestionROWID = searchData2[0]['_id'];
-			  }
-
-			  UserAssessment.create(data[i]['UserAssessment']);
-			  dataArray.push(data[i]['UserAssessment']);
+			systemprompts.create(data[i]['SystemPrompts']);
+			  dataArray.push(data[i]['SystemPrompts']);
 			  
 		   }
 
@@ -2200,63 +2191,63 @@ app.get("/wordleattempts", (req, res) => {
   // 				(mobile !=null ? (" and Users.Mobile="+mobile+" "):"")+
   // 				"order by WordleAttempts.UserROWID, WordleAttempts.CREATEDTIME asc"
   // getAllRows("WordleConfiguration.ROWID, WordleConfiguration.MaxAttempts, WordleConfiguration.Word, WordleConfiguration.RecommendedTopic, Users.Mobile, WordleAttempts.ROWID, WordleAttempts.CREATEDTIME, WordleAttempts.IsCorrect, WordleAttempts.Answer, WordleAttempts.Source",query,zcql,dataLimit)
-	const aggregatePipeline = [
+  const condition = {
+	'WordleAttempts.CREATEDTIME': {
+	  $gte: new Date(startDate + ' 00:00:00'),
+	  $lte: new Date(endDate + ' 23:59:59'),
+	},
+  };
+  
+  if (mobile) {
+	condition['Users.Mobile'] = mobile;
+  }	
+  WordleAttempt.aggregate([
 	{
-	  $match: {
-	  CREATEDTIME: {
-		$gte: new Date(startDate + 'T00:00:00Z'),
-		$lte: new Date(endDate + 'T23:59:59Z')
-	  }
-	  }
+	  $match: condition,
 	},
 	{
 	  $lookup: {
-	  from: "Users", // Name of the collection to join with
-	  localField: 'UserROWID',
-	  foreignField: '_id',
-	  as: 'user'
-	  }
-	},
-	{
-	  $unwind: '$user'
+		from: 'Users', // Replace with the actual name of the Users collection
+		localField: 'UserROWID',
+		foreignField: '_id',
+		as: 'Users',
+	  },
 	},
 	{
 	  $lookup: {
-	  from: "WordleConfiguration", // Name of the collection to join with
-	  localField: 'WordleROWID',
-	  foreignField: '_id',
-	  as: 'wordleConfiguration'
-	  }
+		from: 'WordleConfiguration', // Replace with the actual name of the WordleConfiguration collection
+		localField: 'WordleROWID',
+		foreignField: '_id',
+		as: 'WordleConfiguration',
+	  },
+	},
+	{
+	  $unwind: '$Users',
+	},
+	{
+	  $unwind: '$WordleConfiguration',
 	},
 	{
 	  $project: {
-	  _id: 0,
-	  'WordleAttempts._id': 1,
-	  'WordleAttempts.UserROWID': 1,
-	  'WordleAttempts.CREATEDTIME': 1,
-	  'WordleAttempts.IsCorrect': 1,
-	  'WordleAttempts.Answer': 1,
-	  'WordleAttempts.Source': 1,
-	  'user.Mobile': 1,
-	  'wordleConfiguration._id': 1,
-	  'wordleConfiguration.MaxAttempts': 1,
-	  'wordleConfiguration.Word': 1,
-	  'wordleConfiguration.RecommendedTopic': 1
-	  }
+		'WordleConfiguration.ROWID': 1,
+		'WordleConfiguration.MaxAttempts': 1,
+		'WordleConfiguration.Word': 1,
+		'WordleConfiguration.RecommendedTopic': 1,
+		'Users.Mobile': 1,
+		'WordleAttempts.ROWID': 1,
+		'WordleAttempts.CREATEDTIME': 1,
+		'WordleAttempts.IsCorrect': 1,
+		'WordleAttempts.Answer': 1,
+		'WordleAttempts.Source': 1,
+	  },
 	},
 	{
 	  $sort: {
-	  'WordleAttempts.UserROWID': 1,
-	  'WordleAttempts.CREATEDTIME': 1
-	  }
-	}
-	];
-  
-	if (mobile) {
-	aggregatePipeline[2].$match['user.Mobile'] = mobile;
-	}
-  
-	WordleAttempt.aggregate(aggregatePipeline)
+		'WordleAttempts.UserROWID': 1,
+		'WordleAttempts.CREATEDTIME': 1,
+	  },
+	},
+  ])
   .then((cfuAttempts)=>{
 	if(cfuAttempts.length>0){
 	  const mobiles = cfuAttempts.map(data=>data.Mobile).filter(unique)

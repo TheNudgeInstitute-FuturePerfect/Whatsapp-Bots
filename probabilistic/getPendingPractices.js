@@ -42,7 +42,7 @@ const getAllRows = (fields,query,zcql,prependToLog,dataLimit) => {
 }
 
 app.post("/pendingpractices", (req, res) => {
-  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+ // let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
   let startTimeStamp = new Date();
 
   const executionID = Math.random().toString(36).slice(2)
@@ -77,6 +77,7 @@ app.post("/pendingpractices", (req, res) => {
     //   )
     User.distinct('ROWID', { IsActive: true, Mobile: mobile })
       .then((users) => {
+        console.log("+++++++++++++++++",users[0])
         if (users.length == 0) {
           responseObject["OperationStatus"] = "USR_NT_FND";
           responseObject["StatusDescription"] =
@@ -254,6 +255,7 @@ app.post("/pendingpractices", (req, res) => {
       });
   }
 });
+
 
 app.all("/", (req, res) => {
   res.status(403).send("Resource not found.");

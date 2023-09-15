@@ -12,6 +12,7 @@ const UserAssessment = require("./models/UserAssessment.js");
 const UserAssessmentLog = require("./models/UserAssessmentLogs.js");
 const WordleAttempt = require("./models/WordleAttempts.js");
 
+
 // const app = express();
 // app.use(express.json());
 const app = express.Router();
@@ -377,7 +378,7 @@ app.post("/getoverallperformancereport", (req, res) => {
 });
 
 app.post("/goalachievementcalendar", (req, res) => {
-  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+ // let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
   const startTimeStamp = new Date();
 
@@ -404,17 +405,17 @@ app.post("/goalachievementcalendar", (req, res) => {
   } else {
     mobile = mobile.toString().slice(-10);
     
-    let zcql = catalystApp.zcql();
+   // let zcql = catalystApp.zcql();
     //get the user's goal 
     // let query = "Select {} from Users where Mobile = "+mobile
     // getAllRows("ROWID, RegisteredTime, GoalInMinutes",query,zcql,prependToLog)
-    User.findOne({ Mobile: mobile }, 'ROWID RegisteredTime GoalInMinutes')
+    User.findOne({ Mobile: mobile }, '_id RegisteredTime GoalInMinutes')
     .then((users)=>{
-      if(!Array.isArray(users))
+      if(!users)
         throw new Error(users)
       else{
       
-        const goal = users[0]['Users']['GoalInMinutes']
+        const goal = users['GoalInMinutes']
         console.info((new Date()).toString()+"|"+prependToLog,"User's Goal:",goal)
 
         if(goal == null){
@@ -472,7 +473,7 @@ app.post("/goalachievementcalendar", (req, res) => {
           // const runAssessmentQuery = getAllRows("UserAssessmentLogs.ROWID, UserAssessmentLogs.MODIFIEDTIME",assessmentQuery,zcql,prependToLog)
           
           const runAssessmentQuery = UserAssessmentLog.find({
-            UserROWID: users[0]['Users']['ROWID'],
+            UserROWID: users['_id'],
             IsAssessmentComplete: true
           }, 'ROWID MODIFIEDTIME')
           const axios = require("axios");
@@ -485,22 +486,22 @@ app.post("/goalachievementcalendar", (req, res) => {
             else if(!Array.isArray(userassessment))
               throw new Error(userassessment)
             else{
-              const openSessions = allsessions.filter(data=>data.Sessions.IsActive==true).map(data=>data.Sessions.SessionID)
-              const sessions = allsessions.filter(data=>openSessions.includes(data.Sessions.SessionID)==false).filter(
+              const openSessions = allsessions.filter(data=>data.IsActive==true).map(data=>data.SessionID)
+              const sessions = allsessions.filter(data=>openSessions.includes(data.SessionID)==false).filter(
                 (data) =>
                   !(
-                    data.Sessions.SessionID.endsWith("Hint") ||
-                    data.Sessions.SessionID.endsWith("Translation") ||
-                    data.Sessions.SessionID.endsWith("ObjectiveFeedback") ||
-                    data.Sessions.SessionID.startsWith("Onboarding") ||
-                    data.Sessions.SessionID.endsWith("Onboarding") ||
-                    data.Sessions.SessionID.startsWith("onboarding") ||
-                    data.Sessions.SessionID.endsWith("onboarding")
+                    data.SessionID.endsWith("Hint") ||
+                    data.SessionID.endsWith("Translation") ||
+                    data.SessionID.endsWith("ObjectiveFeedback") ||
+                    data.SessionID.startsWith("Onboarding") ||
+                    data.SessionID.endsWith("Onboarding") ||
+                    data.SessionID.startsWith("onboarding") ||
+                    data.SessionID.endsWith("onboarding")
                   )
               );
-              let practiceDates = sessions.map(data=>data.Sessions.CREATEDTIME)
+              let practiceDates = sessions.map(data=>data.CREATEDTIME)
               console.info((new Date()).toString()+"|"+prependToLog,"Fetched Conversation TimeStamps:",practiceDates)                
-              practiceDates =  practiceDates.concat(userassessment.map(data=>data.UserAssessmentLogs.MODIFIEDTIME))
+              practiceDates =  practiceDates.concat(userassessment.map(data=>data.MODIFIEDTIME))
               console.info((new Date()).toString()+"|"+prependToLog,"Fetched Learning TimeStamps:",practiceDates)
               practiceDates = practiceDates.concat(wordleAttempts.data.map(data=>data.SessionEndTime))
               console.info((new Date()).toString()+"|"+prependToLog,"Fetched Wordle TimeStamps:",practiceDates)
@@ -536,11 +537,11 @@ app.post("/goalachievementcalendar", (req, res) => {
                 }
                 if(dateOfMonth.getDate() == dateToday.getDate()){
                   //Get total sessions completed today
-                  const todaysSessionCount = sessions.filter(data=>data.Sessions.CREATEDTIME.toString().slice(0,10)==toDay).map(data=>data.Sessions.SessionID).filter(unique).length
+                  const todaysSessionCount = sessions.filter(data=>data.CREATEDTIME.toString().slice(0,10)==toDay).map(data=>data.SessionID).filter(unique).length
                   //Whether more than one conversation session has been completed
                   //responseObject['MultipleConversationToday']=todaysSessionCount>1
                   //Get total assessments completed today
-                  const todaysAssessmentCount = userassessment.filter(data=>data.UserAssessmentLogs.MODIFIEDTIME.toString().slice(0,10)==toDay).map(data=>data.UserAssessmentLogs.ROWID).filter(unique).length
+                  const todaysAssessmentCount = userassessment.filter(data=>data.MODIFIEDTIME.toString().slice(0,10)==toDay).map(data=>data._id).filter(unique).length
                   //Whether more than one assessment has been completed
                   //responseObject['MultipleLearningToday']=todaysAssessmentCount>1
                   //Get total games completed today
@@ -602,7 +603,7 @@ app.post("/goalachievementcalendar", (req, res) => {
 });
 
 app.post("/dailygoalprogress", (req, res) => {
-  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+  // let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
   const startTimeStamp = new Date();
 
@@ -629,17 +630,18 @@ app.post("/dailygoalprogress", (req, res) => {
   } else {
     mobile = mobile.toString().slice(-10);
     
-    let zcql = catalystApp.zcql();
+    // let zcql = catalystApp.zcql();
     //get the user's goal 
     // let query = "Select {} from Users where Mobile = "+mobile
     // getAllRows("ROWID, GoalInMinutes",query,zcql,prependToLog)
-    User.findOne({ Mobile: mobile }, 'ROWID GoalInMinutes')
+    User.findOne({ Mobile: mobile }, '_id GoalInMinutes')
     .then((users)=>{
-      if(!Array.isArray(users))
+      console.log("+++++++++",users)
+      if(!users)
         throw new Error(users)
       else{
       
-        const goal = users[0]['Users']['GoalInMinutes']
+        const goal = users['GoalInMinutes']
 
         console.info((new Date()).toString()+"|"+prependToLog,"Goal of User :",goal)
 
@@ -697,7 +699,7 @@ app.post("/dailygoalprogress", (req, res) => {
             },
             {
               $match: {
-                'assessmentLog.UserROWID': users[0]['Users']['ROWID'],
+                'assessmentLog.UserROWID': users['_id'],
                 CREATEDTIME: {
                   $gte: fromDate,
                   $lte: toDate
@@ -722,7 +724,7 @@ app.post("/dailygoalprogress", (req, res) => {
           //         " order by WordleAttempts.CREATEDTIME ASC";
           // const runGameAttemptQuery = getAllRows("WordleAttempts.WordleROWID, WordleAttempts.CREATEDTIME",gameAttemptQuery,zcql,prependToLog)
           const runGameAttemptQuery = WordleAttempt.find({
-            UserROWID: users[0]['Users']['ROWID'],
+            UserROWID: users['_id'],
             CREATEDTIME: {
               $gte: fromDate,
               $lte: toDate

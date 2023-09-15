@@ -44,8 +44,7 @@ const checkType = (keyTypePair, obj) => {
 
 app.post("/userstatus", (req, res) => {
     let startTimeStamp = new Date();
-    let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
-    
+
     const requestBody = req.body;
  
     const executionID = Math.random().toString(36).slice(2)
@@ -81,52 +80,50 @@ app.post("/userstatus", (req, res) => {
         wordleDate = currentDate.getFullYear()+"-"+('0'+(currentDate.getMonth()+1)).slice(-2)+"-"+('0'+currentDate.getDate()).slice(-2)
 
         console.info((new Date()).toString()+"|"+prependToLog,"Wordle Date="+wordleDate)
-        // let zcql = catalystApp.zcql()
+
         // let query = "select Users.ROWID, Users.WordleLevel, WordleAttempts.ROWID, WordleAttempts.WordleROWID, WordleAttempts.Answer, WordleAttempts.IsCorrect "+
         // "from Users left join WordleAttempts on Users.ROWID = WordleAttempts.UserROWID"+
         // " where Mobile = "+requestBody['Mobile'].slice(-10)+
         // " order by WordleAttempts.CREATEDTIME ASC"
         // zcql.executeZCQLQuery(query)
-        const aggregatePipeline = [
+        const mobileSuffix = requestBody['Mobile'].slice(-10);
+
+        User.aggregate([
             {
-              $match: {
-                Mobile: requestBody['Mobile'].slice(-10)
-              }
+              $match: { Mobile: mobileSuffix },
             },
             {
               $lookup: {
-                from: "WordleAttempts", // Name of the collection to join with
-                localField: 'ROWID',
+                from: 'WordleAttempts', // Replace with the actual name of the WordleAttempts collection
+                localField: '_id',
                 foreignField: 'UserROWID',
-                as: 'wordleAttempts'
-              }
+                as: 'WordleAttempts',
+              },
             },
             {
               $unwind: {
-                path: '$wordleAttempts',
-                preserveNullAndEmptyArrays: true
-              }
-            },
-            {
-              $sort: {
-                'wordleAttempts.CREATEDTIME': 1
-              }
+                path: '$WordleAttempts',
+                preserveNullAndEmptyArrays: true,
+              },
             },
             {
               $project: {
-                'Users.ROWID': 1,
-                'Users.WordleLevel': 1,
-                'wordleAttempts.ROWID': 1,
-                'wordleAttempts.WordleROWID': 1,
-                'wordleAttempts.Answer': 1,
-                'wordleAttempts.IsCorrect': 1
-              }
-            }
-          ];
-          
-          User.aggregate(aggregatePipeline)
+                '_id': 1,
+                'WordleLevel': 1,
+                'WordleAttempts._id': 1,
+                'WordleAttempts.WordleROWID': 1,
+                'WordleAttempts.Answer': 1,
+                'WordleAttempts.IsCorrect': 1,
+              },
+            },
+            {
+              $sort: {
+                'WordleAttempts.CREATEDTIME': 1,
+              },
+            },
+          ])
         .then(async (allWordleAttempts)=>{
-            console.debug((new Date()).toString()+"|"+prependToLog,"Query=",query)
+            console.debug((new Date()).toString()+"|"+prependToLog,"QueryResult=",allWordleAttempts)
             if(allWordleAttempts.length==0){
                 responseObject['OperationStatus'] = "USR_NT_FND"
                 responseObject['StatusDescription'] = "User not present in database"
@@ -163,11 +160,10 @@ app.post("/userstatus", (req, res) => {
                         console.debug((new Date()).toString()+"|"+prependToLog,"Total Correct Wordles in 1st two = "+totalCorrectWordles)   
                         console.info((new Date()).toString()+"|"+prependToLog,"Updating User's Wordle Level")   
                         const updateData= {
-                            ROWID:allWordleAttempts[0]['Users']['ROWID'],
                             WordleLevel:totalCorrectWordles == 2? 'C':totalCorrectWordles == 1 ? 'B' : 'A'
                         }
-                        let table = catalystApp.datastore().table('Users')
-                        await table.updateRow(updateData)
+
+                        await User.updateOne({"_id":allWordleAttempts[0]._id},updateData);
                         console.info((new Date()).toString()+"|"+prependToLog,"Updated User's Wordle Level") 
                         userWordleLevel =  updateData['WordleLevel'] 
                     }
@@ -272,7 +268,7 @@ app.post("/userstatus", (req, res) => {
             }
         })
         .catch((error)=>{
-            console.error((new Date()).toString()+"|"+prependToLog,"Error in getting wordle attempts of user: \n",query,"\n",error)
+            console.error((new Date()).toString()+"|"+prependToLog,"Error in getting wordle attempts of user: \n","\n",error)
             res.status(500).send(error)
         })
     }
@@ -280,7 +276,7 @@ app.post("/userstatus", (req, res) => {
 
 app.post("/storeuserresponse", (req, res) => {
     let startTimeStamp = new Date();
-    let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+    // let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
     
     const requestBody = req.body;
  
@@ -307,48 +303,51 @@ app.post("/storeuserresponse", (req, res) => {
     }
     else {
         //Getting ROWID of Student
-        let zcql = catalystApp.zcql()
+        // let zcql = catalystApp.zcql()
         // let query = "Select ROWID, WordleLevel from Users where Mobile = "+requestBody['Mobile'].slice(-10)
         // zcql.executeZCQLQuery(query)
+        console.log("requestBody['Mobile'].slice(-10)",requestBody['Mobile'].slice(-10));
         User.findOne(
-            { Mobile: mobile }, // Condition to match
-            'ROWID WordleLevel')
+            { Mobile: requestBody['Mobile'].slice(-10) }, // Condition to match
+            '_id WordleLevel')
         .then((user)=>{
-            console.debug((new Date()).toString()+"|"+prependToLog,"Query=",query)
-            if(user.length>0){
+
+            console.debug((new Date()).toString()+"|"+prependToLog,"Query=",user)
+            if(user){
                 console.info((new Date()).toString()+"|"+prependToLog,"Got Student Record")
                 // query = "Select Word from WordleConfiguration where ROWID = "+requestBody['WordleROWID']
                 // zcql.executeZCQLQuery(query)
                 WordleConfiguration.findOne(
-                    { ROWID: requestBody['WordleROWID'] }, // Condition to match
+                    { _id: requestBody['WordleROWID'] }, // Condition to match
                     'Word')
                 .then((wordleofday)=>{
-                    console.debug((new Date()).toString()+"|"+prependToLog,"Query=",query)
+                    console.debug((new Date()).toString()+"|"+prependToLog,"Query=")
                     if(wordleofday.length>0){
                         //------27/07/2023:rbhushan@dhwaniris.com : Skipped world length check on CR from sahana.madlapur
                         if(1==0){//wordleofday[0]['WordleConfiguration']['Word'].length!=requestBody['Response'].length){
                             responseObject['OperationStatus'] = "WRD_LNGTH_ERR"
-                            responseObject['StatusDescription'] = "The word must be of "+wordleofday[0]['WordleConfiguration']['Word'].length+" characters only"
+                            responseObject['StatusDescription'] = "The word must be of "+wordleofday[0]['Word'].length+" characters only"
                         }
                         else{
                             const insertData = {
-                                UserROWID : user[0]['Users']['ROWID'],
+                                UserROWID : user[0]['_id'],
                                 WordleROWID : requestBody['WordleROWID'],
                                 Answer : requestBody['Response'],
-                                IsCorrect : requestBody['Response'].toLowerCase()==wordleofday[0]['WordleConfiguration']['Word'].toLowerCase(),
+                                IsCorrect : requestBody['Response'].toLowerCase()==wordleofday[0]['Word'].toLowerCase(),
                                 Source : requestBody['WordleSource'].startsWith("@result") ? "Wordle Reminder" : requestBody['WordleSource'],
                                 SystemPromptROWID : requestBody['TopicID'] ? (requestBody['TopicID'].startsWith("@result") ? null:requestBody['TopicID']):null
                             }
-                            let table = catalystApp.datastore().table('WordleAttempts')
-                            table.insertRow(insertData)
+                           // let table = catalystApp.datastore().table('WordleAttempts')
+                           WordleAttempts.create(insertData)
                             .then(async (row)=>{
-                                if(typeof row['ROWID'] !== 'undefined'){
-                                    responseObject['IsCorrectResponse'] = insertData['IsCorrect']  
-                                }
-                                else{
-                                    responseObject['OperationStatus'] = "APP_ERR"
-                                    responseObject['StatusDescription'] = row
-                                }
+                                // if(typeof row['ROWID'] !== 'undefined'){
+                                //     responseObject['IsCorrectResponse'] = insertData['IsCorrect']  
+                                // }
+                                // else{
+                                //     responseObject['OperationStatus'] = "APP_ERR"
+                                //     responseObject['StatusDescription'] = row
+                                // }
+                                console.info((new Date()).toString()+"|"+prependToLog,"Row data",row)
                             })
                         }
                         console.info((new Date()).toString()+"|"+prependToLog,"End of Execution")
@@ -378,7 +377,7 @@ app.post("/storeuserresponse", (req, res) => {
                     }
                 })
                 .catch((error)=>{
-                    console.error((new Date()).toString()+"|"+prependToLog,"Error in getting wordle of day: \n",query,"\n",error)
+                    console.error((new Date()).toString()+"|"+prependToLog,"Error in getting wordle of day: \n","\n",error)
                     res.status(500).send(error)
                 })
             }

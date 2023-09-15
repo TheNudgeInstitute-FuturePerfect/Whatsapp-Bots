@@ -62,7 +62,7 @@ module.exports = async (basicIO) => {
 	try{
 		console.log("---------------",filterParams);
         const queryOutput = await SystemPrompts.find(filterParams)
-		  .select('Game Module LearningObjective ROWID Name Content IsActive SupportingText SupportingAVURL SupportingImageURL Sequence Persona ObjectiveMessage Type ShowLearningContent IsPaid')
+		  .select('Game Module LearningObjective _id Name Content IsActive SupportingText SupportingAVURL SupportingImageURL Sequence Persona ObjectiveMessage Type ShowLearningContent IsPaid')
 		  .sort({ CREATEDTIME: 1 });
 
 		if(queryOutput.length == 0){

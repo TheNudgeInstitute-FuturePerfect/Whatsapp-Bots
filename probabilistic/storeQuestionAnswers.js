@@ -9,6 +9,8 @@ const sendResponseToGlific = require("./common/sendResponseToGlific.js");
 const UserAssessmentLog = require("./models/UserAssessmentLogs.js");
 const UserAssessment = require("./models/UserAssessment.js");
 const Question = require("./models/questionBank.js");
+const mongoose = require('mongoose');
+const ObjectId = mongoose.Types.ObjectId;
 // const app = express();
 // app.use(express.json());
 const bodyParser = require('body-parser')
@@ -60,7 +62,7 @@ const sendResponse = (prependToLog,responseJSON,startTimeStamp,requestBody, res)
 app.post("/", (req, res) => {
     
     let startTimeStamp = new Date();
-    let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+   // let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
     
     const requestBody = req.body;
  
@@ -86,8 +88,10 @@ app.post("/", (req, res) => {
 
         const contactName = requestBody["contact"] ? requestBody["contact"]["name"] : ""
 	    const wrongAnswers = parseInt(requestBody["Attempt"])
+        requestBody['UserAssessmentLogID'] = new ObjectId(requestBody['UserAssessmentLogID']);
+        requestBody['QuestionIdentifier'] = new ObjectId(requestBody['QuestionIdentifier']);
 
-        let zcql = catalystApp.zcql()
+       // let zcql = catalystApp.zcql()
 
 
         // let query = "SELECT UserAssessmentLogs.UserROWID, UserAssessmentLogs.SystemPromptROWID, UserAssessmentLogs.QuestionsAsked, "
@@ -98,38 +102,51 @@ app.post("/", (req, res) => {
 
         // console.debug((new Date()).toString()+"|"+prependToLog,"Get Assessment Details: "+query);
 
-        // zcql.executeZCQLQuery(query)
+        // zcql.executeZCQLQuery(query)\
+      
         UserAssessmentLog.aggregate([
             {
               $match: {
                 IsAssessmentComplete: false,
-                ROWID: requestBody["UserAssessmentLogID"]
-              }
+                _id: requestBody['UserAssessmentLogID'],
+              },
             },
             {
               $lookup: {
-                from: "UserAssessment",
-                localField: 'ROWID',
+                from: 'UserAssessment',
+                localField: '_id',
                 foreignField: 'UserAssessmentLogROWID',
-                as: 'assessment'
-              }
+                as: 'UserAssessment',
+              },
             },
             {
-              $unwind: '$assessment'
-            }
+              $unwind: '$UserAssessment', // If necessary
+            },
+            {
+              $project: {
+                UserROWID: '$UserAssessmentLogs.UserROWID',
+                SystemPromptROWID: '$UserAssessmentLogs.SystemPromptROWID',
+                QuestionsAsked: '$UserAssessmentLogs.QuestionsAsked',
+                QuestionROWID: '$UserAssessment.QuestionROWID',
+                ErrorInResponse: '$UserAssessment.ErrorInResponse',
+                ResponseText: '$UserAssessment.ResponseText',
+              },
+            },
           ])
+          
         .then((userAssessmentLog)=>{
-            if(!Array.isArray(userAssessmentLog) && (userAssessmentLog!=null)){
+            console.log("userAssessmentLog",requestBody['UserAssessmentLogID'],userAssessmentLog);
+            if(Object.keys(userAssessmentLog).length === 0){
                 responseJSON['OperationStatus']='FAILED_TO_GET_ASSMNTLOG'
                 responseJSON['StatusDescription']=userAssessmentLog
                 sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)
             }
             else{
-                let questionsAsked = userAssessmentLog[0]['UserAssessmentLogs']['QuestionsAsked'] == null ? []:userAssessmentLog[0]['UserAssessmentLogs']['QuestionsAsked'].split(",")
-                const userROWID = userAssessmentLog[0]["UserAssessmentLogs"]['UserROWID']
-                const topicID = userAssessmentLog[0]["UserAssessmentLogs"]['SystemPromptROWID']
+                let questionsAsked = userAssessmentLog[0]['QuestionsAsked'] == null ? []:userAssessmentLog[0]['QuestionsAsked'].split(",")
+                const userROWID = userAssessmentLog[0]['UserROWID']
+                const topicID = userAssessmentLog[0]['SystemPromptROWID']
                 console.info((new Date()).toString()+"|"+prependToLog,"Total Assessment Records: "+userAssessmentLog.length," | Questions Asked: ",questionsAsked," | User ID: "+userROWID," | SystemPrompt ID: "+topicID);
-                var previousResponses = userAssessmentLog.filter(data=>((data.UserAssessment.ErrorInResponse == '') || (data.UserAssessment.ErrorInResponse == null))&&(data.UserAssessment.QuestionROWID!=null))
+                var previousResponses = userAssessmentLog.filter(data=>((data.ErrorInResponse == '') || (data.ErrorInResponse == null))&&(data.QuestionROWID!=null))
                 if(previousResponses.length==0)
                     console.info((new Date()).toString()+"|"+prependToLog,"Either it's first question or no correct response could be captured at all")
                 
@@ -150,18 +167,18 @@ app.post("/", (req, res) => {
                     else{
                         console.info((new Date()).toString()+"|"+prependToLog,"Fetched questions configured for SystemPromptROWID = "+topicID);
                         //Get the current question fields
-                        const currentQuestion = questionBank.filter(record=>record.QuestionBank.ROWID == requestBody['QuestionIdentifier'])
-                        const currentQuestionAskingOrder = currentQuestion[0]['QuestionBank']['AskingOrder']                                                
-                        const skipLogic = JSON.parse((currentQuestion[0].QuestionBank)['SkipLogic'])
-                        const validations = JSON.parse((currentQuestion[0].QuestionBank)['ResponseValidations'])
-                        const responseFormat = (currentQuestion[0].QuestionBank)['ResponseFormat']
-                        const question = decodeURI((currentQuestion[0].QuestionBank)['Question'])
-                        const answers = (currentQuestion[0].QuestionBank)['Answers']==null?'':decodeURI((currentQuestion[0].QuestionBank)['Answers'])
-                        const buttonOptions = (currentQuestion[0].QuestionBank)['Options']==null?'':decodeURI((currentQuestion[0].QuestionBank)['Options'])
+                        const currentQuestion = questionBank.filter(record=>record.ROWID == requestBody['QuestionIdentifier'])
+                        const currentQuestionAskingOrder = currentQuestion[0]['AskingOrder']                                                
+                        const skipLogic = JSON.parse((currentQuestion[0])['SkipLogic'])
+                        const validations = JSON.parse((currentQuestion[0])['ResponseValidations'])
+                        const responseFormat = (currentQuestion[0])['ResponseFormat']
+                        const question = decodeURI((currentQuestion[0])['Question'])
+                        const answers = (currentQuestion[0])['Answers']==null?'':decodeURI((currentQuestion[0])['Answers'])
+                        const buttonOptions = (currentQuestion[0])['Options']==null?'':decodeURI((currentQuestion[0])['Options'])
                         const responseAudioURL = (typeof requestBody['ResponseAVURL']==='undefined') ? "":requestBody['ResponseAVURL']
                         const responseText = (typeof requestBody['ResponseText']==='undefined') ? "":requestBody['ResponseText']
                         const typeOfResponse = responseAudioURL.length != 0 ? 'Audio':(responseText.length != 0 ? (requestBody['ResponseFormat'] == "None" ? "Text" : requestBody['ResponseFormat']) : null)
-                        var feedback = (((currentQuestion[0].QuestionBank)['Feedback']==null) || ((currentQuestion[0].QuestionBank)['Feedback'].length==0)) ?'None':((currentQuestion[0].QuestionBank)['Feedback'].length>0 ? JSON.parse((currentQuestion[0].QuestionBank)['Feedback']):null)
+                        var feedback = (((currentQuestion[0])['Feedback']==null) || ((currentQuestion[0])['Feedback'].length==0)) ?'None':((currentQuestion[0])['Feedback'].length>0 ? JSON.parse((currentQuestion[0])['Feedback']):null)
                         
                         
                         console.debug((new Date()).toString()+"|"+prependToLog,"Feedback:",feedback)
