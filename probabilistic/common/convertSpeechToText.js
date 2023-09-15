@@ -64,7 +64,97 @@ module.exports = async (basicIO) => {
       try{
           const fileBuffer = await getFileBuffer()
           const config = require("./convertSpeechToText-config.json");
-
+          console.info((new Date()).toString()+"|"+prependToLog,"TTSProvider:"+process.env.TTSProvider)
+          if(process.env.TTSProvider=='Bhashini'){
+              let bhashiniConfig = config['BhashiniConfig']
+              const axios = require("axios")
+              try{
+                let data = JSON.stringify({
+                    "pipelineTasks": [
+                        {
+                            "taskType": "asr",
+                            "config": {
+                                "language": {
+                                    "sourceLanguage": bhashiniConfig["languageCode"]["English"]
+                                }
+                            }
+                        }
+                    ],
+                    "pipelineRequestConfig": {
+                        "pipelineId": process.env.BhashiniPipelineID
+                    }
+                })
+                //Create pipeline config
+                console.info((new Date()).toString()+"|"+prependToLog,"Sending request to create Bhashini pipeline config")
+                const response = await axios.request({
+                    method: 'post',
+                    maxBodyLength: Infinity,
+                    url: bhashiniConfig["configURL"],
+                    headers: { 
+                      'userID': process.env.BhashiniUserID, 
+                      'ulcaApiKey': process.env.BhashiniAPIKey, 
+                      'Content-Type': 'application/json'
+                    },
+                    data : data
+                })
+                console.info((new Date()).toString()+"|"+prependToLog,"Received Pipeline Config Response from Bhashini")
+                var jsonRes=response.data;
+                const callbackURL = jsonRes.pipelineInferenceAPIEndPoint.callbackUrl;
+                const computeCallAuthorizationKey = jsonRes.pipelineInferenceAPIEndPoint.inferenceApiKey.name;
+                const computeCallAuthorizationValue = jsonRes.pipelineInferenceAPIEndPoint.inferenceApiKey.value;
+                const serviceID = jsonRes.pipelineResponseConfig[0].config[0].serviceId;
+                console.info((new Date()).toString()+"|"+prependToLog,"Retrieved Bhashini Config Params")
+                const fileBuferBase64 = Buffer.from(fileBuffer,'binary').toString('base64')
+                const computeData = JSON.stringify({
+                    "pipelineTasks": [       
+                        {
+                            "taskType": "asr",
+                            "config": {
+                                "language": {
+                                    "sourceLanguage": bhashiniConfig["languageCode"]["English"]
+                                },
+                                "serviceId": serviceID,
+                                "audioFormat": bhashiniConfig['audioConfig']['audioEncoding'],
+                                "samplingRate": bhashiniConfig['audioConfig']['sampleRateHertz']
+                            }
+                        }
+                    ],
+                    "inputData": {
+                        "audio": [
+                            {
+                                "audioContent": fileBuferBase64
+                            }
+                        ]
+                    }
+                })
+                console.info((new Date()).toString()+"|"+prependToLog,"Sending request to compute Bhashini config")
+                let headers = {
+                    'Content-Type': 'application/json'
+                }
+                headers[computeCallAuthorizationKey]=computeCallAuthorizationValue
+                const computeResponse = await axios.request({
+                    method: 'post',
+                    maxBodyLength: Infinity,
+                    url: callbackURL,
+                    headers: headers,
+                    data : computeData
+                })
+                console.info((new Date()).toString()+"|"+prependToLog,"Received Pipeline Compute Response from Bhashini")
+                responseJSON["OperationStatus"] = "SUCCESS";
+                responseJSON["AudioTranscript"] = computeResponse['data']['pipelineResponse'][0]['output'][0]['source']
+                responseJSON["Confidence"] = null;
+                console.info((new Date()).toString()+"|"+prependToLog,"Returned: ", responseJSON);
+                return JSON.stringify(responseJSON);
+            }
+            catch(error){
+                console.info((new Date()).toString()+"|"+prependToLog,"Error encountered in Bhashini Pipeline Configuration");
+                console.error((new Date()).toString()+"|"+prependToLog,"Error encountered in Bhashini Pipeline Configuration",error);
+                responseJSON["OperationStatus"] = "APP_ERR";
+                responseJSON['StatusDescription'] = error                
+                return JSON.stringify(responseJSON);
+            }
+          }
+          else{
           const gSTTrequest = {
             config: {
               encoding: config["audioEncoding"],
@@ -120,6 +210,7 @@ module.exports = async (basicIO) => {
             console.info((new Date()).toString()+"|"+prependToLog,'Error from S2T API: '+ err);
             reject(err)
           })*/
+        }
       } 
       catch(error){
           responseJSON["OperationStatus"] = "REST_API_ERR";

@@ -12,5 +12,20 @@
       "phrases": [],
       "boost": 0
     }
-  ]
+  ],
+  "BhashiniConfig":{
+    "languageCode": {
+        "English": "en",
+        "Hindi": "hi",
+        "Kannada": "kn",
+        "Tamil": "ta"
+    },
+    "configURL":"https://meity-auth.ulcacontrib.org/ulca/apis/v0/model/getModelsPipeline",
+    "ssmlGender":"female",
+    "audioConfig":{
+        "audioEncoding":"ogg",
+        "sampleRateHertz": 16000,
+        "speakingRate": 0.90
+    }
+  }
 }
