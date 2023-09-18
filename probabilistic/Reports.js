@@ -581,7 +581,7 @@ app.get("/usertopicattemptreport", (req, res) => {
 				FlowRating:(data.UserSessionAttemptReport.FlowRating == null) || (data.UserSessionAttemptReport.FlowRating.length == 0) ? ((data.UserSessionAttemptReport.GPTRating == null) || (data.UserSessionAttemptReport.GPTRating.length == 0) ? "" : data.UserSessionAttemptReport.GPTRating.toString()) : data.UserSessionAttemptReport.FlowRating.toString(),
 				Feedback:(data.UserSessionAttemptReport.Feedback == null) || (data.UserSessionAttemptReport.Feedback.length == 0) ? ((data.UserSessionAttemptReport.GPTFeedback == null) || (data.UserSessionAttemptReport.GPTFeedback.length == 0) ? "" : data.UserSessionAttemptReport.GPTFeedback.toString()) : data.UserSessionAttemptReport.Feedback.toString(),
 				//FeedbackURL:data.UserSessionAttemptReport.FeedbackURL == null ? "" : data.UserSessionAttemptReport.FeedbackURL.toString(),
-				//TotalWords:data.UserSessionAttemptReport.TotalWords == null ? "" : data.UserSessionAttemptReport.TotalWords.toString(),
+				TotalWords:data.UserSessionAttemptReport.TotalWords == null ? "" : data.UserSessionAttemptReport.TotalWords.toString(),
 				CompletionTokens:data.UserSessionAttemptReport.CompletionTokens == null ? "" : data.UserSessionAttemptReport.CompletionTokens.toString(),
 				PromptTokens:data.UserSessionAttemptReport.PromptTokens == null ? "" : data.UserSessionAttemptReport.PromptTokens.toString(),
 				SLFCompletionTokens:data.UserSessionAttemptReport.SLFCompletionTokens == null ? "" : data.UserSessionAttemptReport.SLFCompletionTokens.toString(),
@@ -2635,8 +2635,18 @@ app.get("/flowquestionanswers", (req, res) => {
 						SessionID: record.SessionID,
 						Category: record.Category,
 						LogID: record.id,
-						StartTime: record.createdAt.toString().slice(0,19),
-						EndTime: record.updatedAt.toString().slice(0,19),
+						StartTime: record.createdAt.getFullYear()+"-"+
+							('0'+(record.createdAt.getMonth()+1)).slice(-2)+"-"+
+							('0'+record.createdAt.getDate()).slice(-2)+" "+
+							('0'+record.createdAt.getHours()).slice(-2)+":"+
+							('0'+record.createdAt.getMinutes()).slice(-2)+":"+
+							('0'+record.createdAt.getSeconds()).slice(-2),
+						EndTime: record.updatedAt.getFullYear()+"-"+
+							('0'+(record.updatedAt.getMonth()+1)).slice(-2)+"-"+
+							('0'+record.updatedAt.getDate()).slice(-2)+" "+
+							('0'+record.updatedAt.getHours()).slice(-2)+":"+
+							('0'+record.updatedAt.getMinutes()).slice(-2)+":"+
+							('0'+record.updatedAt.getSeconds()).slice(-2),
 						IsComplete: record.IsComplete,
 						CompletionReason: record.CompletionReason
 					}

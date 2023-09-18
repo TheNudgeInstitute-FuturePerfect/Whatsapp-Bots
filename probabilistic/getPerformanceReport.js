@@ -5,6 +5,7 @@ const express = require("express");
 const catalyst = require("zoho-catalyst-sdk");
 const emojiRegex = require("emoji-regex");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
+const userFlowQuestionLogs = require("./models/userFlowQuestionLogs.js");
 // const app = express();
 // app.use(express.json());
 const app = express.Router();
@@ -405,9 +406,16 @@ app.post("/goalachievementcalendar", (req, res) => {
           const runAssessmentQuery = getAllRows("UserAssessmentLogs.ROWID, UserAssessmentLogs.MODIFIEDTIME",assessmentQuery,zcql,prependToLog)
           const axios = require("axios");
           const runGameAttemptQuery = axios.get(process.env.WordleReportURL+mobile)          
+          const runFlowQuestionAnswerQuery = userFlowQuestionLogs.find({
+            Mobile:mobile,
+            updatedAt:{
+              "$gte":monthStart,
+              "$lt":nextMonthStartDate
+            }
+          })
           
-          Promise.all([runSessionQuery,runAssessmentQuery,runGameAttemptQuery])
-          .then(([allsessions,userassessment,wordleAttempts]) => {
+          Promise.all([runSessionQuery,runAssessmentQuery,runGameAttemptQuery,runFlowQuestionAnswerQuery])
+          .then(([allsessions,userassessment,wordleAttempts,userFlowQuestionLog]) => {
             if(!Array.isArray(allsessions))
               throw new Error(allsessions) 
             else if(!Array.isArray(userassessment))
@@ -432,6 +440,17 @@ app.post("/goalachievementcalendar", (req, res) => {
               console.info((new Date()).toString()+"|"+prependToLog,"Fetched Learning TimeStamps:",practiceDates)
               practiceDates = practiceDates.concat(wordleAttempts.data.map(data=>data.SessionEndTime))
               console.info((new Date()).toString()+"|"+prependToLog,"Fetched Wordle TimeStamps:",practiceDates)
+              for(var i=0; i<userFlowQuestionLog.length; i++){
+                const record = userFlowQuestionLog[i]
+                practiceDates = practiceDates.concat(record.QuestionAnswers.map(data=>
+                  data.CreatedTime.getFullYear()+"-"+
+                  ('0'+(data.CreatedTime.getMonth()+1)).slice(-2)+"-"+
+                  ('0'+data.CreatedTime.getDate()).slice(-2)+" "+
+                  ('0'+data.CreatedTime.getHours()).slice(-2)+":"+
+                  ('0'+data.CreatedTime.getMinutes()).slice(-2)+":"+
+                  ('0'+data.CreatedTime.getSeconds()).slice(-2)))
+              }
+              console.info((new Date()).toString()+"|"+prependToLog,"Fetched Flow QuestionAnswer TimeStamps:",practiceDates)
 
               practiceDates.sort()
                 
@@ -603,9 +622,16 @@ app.post("/dailygoalprogress", (req, res) => {
                   " and WordleAttempts.CREATEDTIME>='"+toDay+" 00:00:00' and WordleAttempts.CREATEDTIME<='"+toDay+" 23:59:59'"+
                   " order by WordleAttempts.CREATEDTIME ASC";
           const runGameAttemptQuery = getAllRows("WordleAttempts.WordleROWID, WordleAttempts.CREATEDTIME",gameAttemptQuery,zcql,prependToLog)
+          const runFlowQuestionAnswerQuery = userFlowQuestionLogs.find({
+            Mobile:mobile,
+            updatedAt:{
+              "$gte":toDay+" 00:00:00",
+              "$lte":toDay+" 23:59:59"
+            }
+          })
 
-          Promise.all([runSessionQuery,runAssessmentQuery,runGameAttemptQuery])
-          .then(([allsessions,userassessment,wordleAttempts]) => {
+          Promise.all([runSessionQuery,runAssessmentQuery,runGameAttemptQuery,runFlowQuestionAnswerQuery])
+          .then(([allsessions,userassessment,wordleAttempts,userFlowQuestionLog]) => {
             if(!Array.isArray(allsessions))
               throw new Error(allsessions)
             else if(!Array.isArray(userassessment))
@@ -622,7 +648,10 @@ app.post("/dailygoalprogress", (req, res) => {
                     data.Sessions.SessionID.startsWith("Onboarding") ||
                     data.Sessions.SessionID.endsWith("Onboarding") ||
                     data.Sessions.SessionID.startsWith("onboarding") ||
-                    data.Sessions.SessionID.endsWith("onboarding")
+                    data.Sessions.SessionID.endsWith("onboarding") ||
+                    //Exclude Serious Mode and Voice Challenge Sessions
+                    data.Sessions.SessionID.endsWith("Serious Mode") ||
+                    data.Sessions.SessionID.endsWith("Voice Challenge")
                   )
               );
               let dateSessionDurations = []
@@ -677,7 +706,37 @@ app.post("/dailygoalprogress", (req, res) => {
                     return 0
                 }))
               }
-              console.info((new Date()).toString()+"|"+prependToLog,"Got Wordle Data:",practiceDates)                              
+              console.info((new Date()).toString()+"|"+prependToLog,"Got Wordle Data:",practiceDates)
+              
+              for(var i=0; i<userFlowQuestionLog.length; i++){
+                const record = userFlowQuestionLog[i]
+                practiceDates = record.QuestionAnswers.map(data=>
+                  data.CreatedTime.getFullYear()+"-"+
+                  ('0'+(data.CreatedTime.getMonth()+1)).slice(-2)+"-"+
+                  ('0'+data.CreatedTime.getDate()).slice(-2)+" "+
+                  ('0'+data.CreatedTime.getHours()).slice(-2)+":"+
+                  ('0'+data.CreatedTime.getMinutes()).slice(-2)+":"+
+                  ('0'+data.CreatedTime.getSeconds()).slice(-2)
+                )
+                //Get the Session Data associated withe User Flow Question Log
+                const logSessionData = sessions.filter(data=>data.Sessions.SessionID==(record.SessionID+" -"+(record.Category.split("-"))[1]))
+                //Merge in practice Dates as actual interaction ends when the request is sent to GPT
+                practiceDates = practiceDates.concat(logSessionData.map(data=>data.Sessions.CREATEDTIME))
+                practiceDates.sort()
+                dateSessionDurations = dateSessionDurations.concat(practiceDates.map((data,i)=>{
+                  if(i<(practiceDates.length-1)){
+                    const duration = (new Date(practiceDates[i+1]) - new Date(data))/1000/60
+                    if(duration>10)
+                      return 0
+                    else 
+                      return duration
+                  }
+                  else
+                    return 0
+                }))
+              }
+              console.info((new Date()).toString()+"|"+prependToLog,"Got Flow QuestionAnswer Data:",practiceDates)
+                              
               const totalDuration=dateSessionDurations.length == 0 ? 0 : Math.round(dateSessionDurations.reduce((a,b)=>a=a+b))
               console.info((new Date()).toString()+"|"+prependToLog,"Total Duration:",totalDuration)
               const pctCompletion = totalDuration/goal
