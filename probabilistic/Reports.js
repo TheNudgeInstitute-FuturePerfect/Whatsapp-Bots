@@ -2635,8 +2635,18 @@ app.get("/flowquestionanswers", (req, res) => {
 						SessionID: record.SessionID,
 						Category: record.Category,
 						LogID: record.id,
-						StartTime: record.createdAt.toString().slice(0,19),
-						EndTime: record.updatedAt.toString().slice(0,19),
+						StartTime: record.createdAt.getFullYear()+"-"+
+							('0'+(record.createdAt.getMonth()+1)).slice(-2)+"-"+
+							('0'+record.createdAt.getDate()).slice(-2)+" "+
+							('0'+record.createdAt.getHours()).slice(-2)+":"+
+							('0'+record.createdAt.getMinutes()).slice(-2)+":"+
+							('0'+record.createdAt.getSeconds()).slice(-2),
+						EndTime: record.updatedAt.getFullYear()+"-"+
+							('0'+(record.updatedAt.getMonth()+1)).slice(-2)+"-"+
+							('0'+record.updatedAt.getDate()).slice(-2)+" "+
+							('0'+record.updatedAt.getHours()).slice(-2)+":"+
+							('0'+record.updatedAt.getMinutes()).slice(-2)+":"+
+							('0'+record.updatedAt.getSeconds()).slice(-2),
 						IsComplete: record.IsComplete,
 						CompletionReason: record.CompletionReason
 					}

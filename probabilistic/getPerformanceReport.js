@@ -442,7 +442,13 @@ app.post("/goalachievementcalendar", (req, res) => {
               console.info((new Date()).toString()+"|"+prependToLog,"Fetched Wordle TimeStamps:",practiceDates)
               for(var i=0; i<userFlowQuestionLog.length; i++){
                 const record = userFlowQuestionLog[i]
-                practiceDates = practiceDates.concat(record.QuestionAnswers.map(data=>data.CreatedTime))
+                practiceDates = practiceDates.concat(record.QuestionAnswers.map(data=>
+                  data.CreatedTime.getFullYear()+"-"+
+                  ('0'+(data.CreatedTime.getMonth()+1)).slice(-2)+"-"+
+                  ('0'+data.CreatedTime.getDate()).slice(-2)+" "+
+                  ('0'+data.CreatedTime.getHours()).slice(-2)+":"+
+                  ('0'+data.CreatedTime.getMinutes()).slice(-2)+":"+
+                  ('0'+data.CreatedTime.getSeconds()).slice(-2)))
               }
               console.info((new Date()).toString()+"|"+prependToLog,"Fetched Flow QuestionAnswer TimeStamps:",practiceDates)
 
@@ -704,9 +710,16 @@ app.post("/dailygoalprogress", (req, res) => {
               
               for(var i=0; i<userFlowQuestionLog.length; i++){
                 const record = userFlowQuestionLog[i]
-                practiceDates = record.QuestionAnswers.map(data=>data.CreatedTime)
+                practiceDates = record.QuestionAnswers.map(data=>
+                  data.CreatedTime.getFullYear()+"-"+
+                  ('0'+(data.CreatedTime.getMonth()+1)).slice(-2)+"-"+
+                  ('0'+data.CreatedTime.getDate()).slice(-2)+" "+
+                  ('0'+data.CreatedTime.getHours()).slice(-2)+":"+
+                  ('0'+data.CreatedTime.getMinutes()).slice(-2)+":"+
+                  ('0'+data.CreatedTime.getSeconds()).slice(-2)
+                )
                 //Get the Session Data associated withe User Flow Question Log
-                const logSessionData = sessions.filter(data=>data.Sessions.SessionID==record.SessionID)
+                const logSessionData = sessions.filter(data=>data.Sessions.SessionID==(record.SessionID+" -"+(record.Category.split("-"))[1]))
                 //Merge in practice Dates as actual interaction ends when the request is sent to GPT
                 practiceDates = practiceDates.concat(logSessionData.map(data=>data.Sessions.CREATEDTIME))
                 practiceDates.sort()
