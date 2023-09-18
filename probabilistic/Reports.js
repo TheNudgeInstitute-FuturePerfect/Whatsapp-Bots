@@ -581,7 +581,7 @@ app.get("/usertopicattemptreport", (req, res) => {
 				FlowRating:(data.UserSessionAttemptReport.FlowRating == null) || (data.UserSessionAttemptReport.FlowRating.length == 0) ? ((data.UserSessionAttemptReport.GPTRating == null) || (data.UserSessionAttemptReport.GPTRating.length == 0) ? "" : data.UserSessionAttemptReport.GPTRating.toString()) : data.UserSessionAttemptReport.FlowRating.toString(),
 				Feedback:(data.UserSessionAttemptReport.Feedback == null) || (data.UserSessionAttemptReport.Feedback.length == 0) ? ((data.UserSessionAttemptReport.GPTFeedback == null) || (data.UserSessionAttemptReport.GPTFeedback.length == 0) ? "" : data.UserSessionAttemptReport.GPTFeedback.toString()) : data.UserSessionAttemptReport.Feedback.toString(),
 				//FeedbackURL:data.UserSessionAttemptReport.FeedbackURL == null ? "" : data.UserSessionAttemptReport.FeedbackURL.toString(),
-				//TotalWords:data.UserSessionAttemptReport.TotalWords == null ? "" : data.UserSessionAttemptReport.TotalWords.toString(),
+				TotalWords:data.UserSessionAttemptReport.TotalWords == null ? "" : data.UserSessionAttemptReport.TotalWords.toString(),
 				CompletionTokens:data.UserSessionAttemptReport.CompletionTokens == null ? "" : data.UserSessionAttemptReport.CompletionTokens.toString(),
 				PromptTokens:data.UserSessionAttemptReport.PromptTokens == null ? "" : data.UserSessionAttemptReport.PromptTokens.toString(),
 				SLFCompletionTokens:data.UserSessionAttemptReport.SLFCompletionTokens == null ? "" : data.UserSessionAttemptReport.SLFCompletionTokens.toString(),
