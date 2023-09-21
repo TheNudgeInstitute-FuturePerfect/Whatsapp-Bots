@@ -31,6 +31,7 @@ const doubtsession = require("./DoubtSessionCRUD.js")
 const flowQuestions = require("./FlowQuestionsCRUD.js");
 const getFlowQuestion = require("./getFlowQuestions.js");
 const storeFlowQuestionAnswer = require("./storeFlowQuestionAnswer.js");
+const applicationConfig = require("./ApplicationConfigCRUD.js");
 
 // Basic I/O const
 const addUserData = require("./common/addUserData.js");
@@ -83,6 +84,7 @@ app.use("/doubtsessions",doubtsession);
 app.use("/flowQuestions",flowQuestions);
 app.use("/getflowquestion",getFlowQuestion);
 app.use("/storeflowanswer",storeFlowQuestionAnswer);
+app.use("/appconfig",applicationConfig);
 
 // Basic I/O  routes
 app.use("/addUserData",addUserData);
