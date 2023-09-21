@@ -1,5 +1,6 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
+const applicationConfig = require("./../models/applicationConfigs.js")
 
 module.exports = (basicIO) => {
 
@@ -40,10 +41,15 @@ module.exports = (basicIO) => {
                 } 
                 else {
                     responseJSON["OperationStatus"] = "SUCCESS";
-                    console.info((new Date()).toString()+"|"+prependToLog,"TTSProvider:"+process.env.TTSProvider)
-                    const allConfig = require("./convertTextToSpeech-config.json");
-                    if(process.env.TTSProvider=='Bhashini'){
-                        let config = allConfig['BhashiniConfig']
+                    ///const allConfig = require("./convertTextToSpeech-config.json");
+                    const appConfig = await applicationConfig.find({AppName:"TTSConfig"}).sort({"id":'descending'})
+                    const allConfig = appConfig[0]["Config"]
+
+                    console.info((new Date()).toString()+"|"+prependToLog,"TTSProvider:"+allConfig.Provider)
+                    
+        
+                    if(allConfig.Provider=='Bhashini'){
+                        let config = allConfig['Bhashini']
                         const axios = require("axios")
                         let data = JSON.stringify({
                             "pipelineTasks": [
@@ -162,7 +168,7 @@ module.exports = (basicIO) => {
                     }
                     else{
                         console.info((new Date()).toString()+"|"+prependToLog,"Converting Text to Speech");
-                        let config = allConfig['gTTSConfig']
+                        let config = allConfig['GCP']
 
                         // Imports the Google Cloud client library
                         const textToSpeech = require('@google-cloud/text-to-speech');
