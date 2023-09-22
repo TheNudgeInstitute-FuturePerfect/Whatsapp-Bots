@@ -214,7 +214,7 @@ app.post("/allocatetopic", (req, res) => {
               })
               .then((topicConfigResult)=>{
                 const topicConfig = JSON.parse(topicConfigResult);
-                if (topicConfig.OperationStatus != "SUCCESS")
+                if ((topicConfig.OperationStatus != "SUCCESS")&&(topicConfig.OperationStatus != "NO_PARAM_CFG"))
                   reject(topicConfig)
                 else{
                   if(topicConfig.Values==null){
