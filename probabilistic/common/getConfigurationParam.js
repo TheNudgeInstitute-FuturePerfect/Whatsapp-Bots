@@ -76,7 +76,12 @@ module.exports = async (basicIO) => {
             return pair;
           });
           result["Values"] = values.reduce((r, c) => Object.assign(r, c), {});
-        } else result["Values"] = null;
+        } else {
+          result["OperationStatus"] = "NO_PARAM_CFG";
+          result["StatusDescription"] =
+          "There is no such param for the given topic id";
+          result["Values"] = null;
+        }
       } else {
         result["OperationStatus"] = "NO_TOPIC_CFG";
         result["StatusDescription"] =

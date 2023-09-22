@@ -9,14 +9,18 @@ const catalyst = require("zoho-catalyst-sdk");
 const app = express.Router();
 var bodyParser = require("body-parser");
 var prependToLog = null;
+var executionID;
 app.use(bodyParser.urlencoded({ extended: false }));
 
-const transcribeAudio = async (audioURL) => {
+const transcribeAudio = async (audioURL, sessionID) => {
   let returnValue = null;
   try {
     const convertSpeechToText = require("./common/convertSpeechToText.js");
     const audioDetails = JSON.parse(
-      await convertSpeechToText({ responseAVURL: audioURL })
+      await convertSpeechToText({
+        responseAVURL: audioURL,
+        SessionID: sessionID,
+      })
     );
     if (audioDetails.OperationStatus === "SUCCESS") {
       returnValue = [audioDetails.AudioTranscript, audioDetails.Confidence];
@@ -38,18 +42,26 @@ const transcribeAudio = async (audioURL) => {
   }
 };
 
-const saveContentInGCS = async (fileData, fileName, contentType) => {
+const saveContentInGCS = async (
+  fileData,
+  fileName,
+  fileType,
+  contentType,
+  sessionID
+) => {
   let publicURL = null;
-  if (!["Text", "Audio", "Image", "Video"].includes(contentType)) {
+  if (!["Text", "Audio", "Image", "Video"].includes(fileType)) {
     return publicURL;
   }
   try {
     const storeAudioFileinGCS = require("./common/storeAudioFileinGCS.js");
     const gcsFile = JSON.parse(
       await storeAudioFileinGCS({
-        contentType,
-        fileData,
-        fileName,
+        contentType: contentType,
+        fileData: fileData,
+        fileName: fileName,
+        fileType: fileType,
+        SessionID: sessionID,
       })
     );
 
@@ -107,25 +119,40 @@ const runQuery = async (query, zcql) => {
 app.post("/chatgpt", async (request, response) => {
   const app = catalyst.initialize(request, { type: catalyst.type.applogic });
 
-  const executionID = request.body.sessionId ? request.body.sessionId : Math.random().toString(36).slice(2)
-    
+  executionID = request.body.sessionId
+    ? request.body.sessionId
+    : Math.random().toString(36).slice(2);
+
   //Prepare text to prepend with logs
-  const params = ["glificChatGPTIntegrator",request.url,executionID,""]
-  prependToLog = params.join(" | ")
-  
-  console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  const params = ["glificChatGPTIntegrator", request.url, executionID, ""];
+  prependToLog = params.join(" | ");
+
+  console.info(
+    new Date().toString() + "|" + prependToLog,
+    "Start of Execution"
+  );
 
   const zcql = app.zcql();
 
   const startTimeStamp = new Date();
 
   const requestBody = request.body;
-  console.debug((new Date()).toString()+"|"+prependToLog,"request body ......", requestBody);
-  console.info((new Date()).toString()+"|"+prependToLog,requestBody.sessionId);
+  console.debug(
+    new Date().toString() + "|" + prependToLog,
+    "request body ......",
+    requestBody
+  );
+  console.info(
+    new Date().toString() + "|" + prependToLog,
+    requestBody.sessionId
+  );
   let mobile = parseInt(requestBody.mobile.slice(-10));
-  
+
   let message = requestBody.message;
-  console.info((new Date()).toString()+"|"+prependToLog,"Message: " + message);
+  console.info(
+    new Date().toString() + "|" + prependToLog,
+    "Message: " + message
+  );
 
   const messageType = requestBody.messageType;
   console.info(
@@ -138,7 +165,7 @@ app.post("/chatgpt", async (request, response) => {
   // if message type audio
   if (messageType === "Audio") {
     messageURL = message;
-    const messageAudioDetails = transcribeAudio(messageURL);
+    const messageAudioDetails = await transcribeAudio(messageURL, executionID);
     if (messageAudioDetails !== null) {
       message = messageAudioDetails[0];
       confidenceInterval = messageAudioDetails[1];
@@ -161,8 +188,11 @@ app.post("/chatgpt", async (request, response) => {
   );
   const requestSessionIDTokens = requestBody.sessionId.split(" - ");
   const sessionId = requestSessionIDTokens[0];
-  console.info((new Date()).toString()+"|"+prependToLog,"Session ID: " + sessionId);
-  
+  console.info(
+    new Date().toString() + "|" + prependToLog,
+    "Session ID: " + sessionId
+  );
+
   //Split Session ID to distinguish whether its relateed to normal conversation in a session on specific triggers like Hint, Translation, Doubt, Objective Message etc.
   const sessionType =
     requestSessionIDTokens.length > 1
@@ -219,14 +249,17 @@ app.post("/chatgpt", async (request, response) => {
         "responsetype",
         "performance template",
         "progressbarat",
-        "feedback prompt" //Get the feedback prompt configured for the topic to return whether feedback prompt exists or not
+        "feedback prompt", //Get the feedback prompt configured for the topic to return whether feedback prompt exists or not
+        "serious mode prompt", //Get the serious mode prompt
+        "voice challenge prompt", //Get the voice challenge prompt
+        "easy mode prompt", //Get the voice challenge prompt
       ],
     })
   );
 
   let isConfigMsg = false;
   let commandMsg = null;
-  let feedbackPromptFlag = false
+  let feedbackPromptFlag = false;
 
   //Determine the input type
   let inputType = "SystemMessage";
@@ -242,7 +275,10 @@ app.post("/chatgpt", async (request, response) => {
   if (messagePrompt.OperationStatus == "SUCCESS") {
     if ("Values" in messagePrompt) {
       //Check whether the message received in input is a command message
-      if (typeof messagePrompt.Values[message.toLowerCase().trim()] !== 'undefined') {
+      if (
+        typeof messagePrompt.Values[message.toLowerCase().trim()] !==
+        "undefined"
+      ) {
         isConfigMsg = true;
         commandMsg = message;
         inputType = commandMsg;
@@ -250,8 +286,8 @@ app.post("/chatgpt", async (request, response) => {
         //console.info((new Date()).toString()+"|"+prependToLog,"Message Prompt: " + message);
       }
       //If feedback prompt exists for the topic, feedbackPromptFlag to True
-      if(typeof messagePrompt.Values['feedback prompt'] !== 'undefined')
-        feedbackPromptFlag = true
+      if (typeof messagePrompt.Values["feedback prompt"] !== "undefined")
+        feedbackPromptFlag = true;
     }
   } else {
     console.info(
@@ -340,7 +376,9 @@ app.post("/chatgpt", async (request, response) => {
       "where Mobile = " +
       mobile +
       " and SessionID = '" +
-      sessionId +
+      (["Serious Mode", "Voice Challenge"].includes(sessionType)
+        ? requestBody.sessionId
+        : sessionId) +
       "'" +
       " order by CREATEDTIME ASC" /*+
       " limit " +
@@ -359,7 +397,16 @@ app.post("/chatgpt", async (request, response) => {
 
   sessionRecords.push({
     role: "system",
-    content: commandMsg == 'feedback prompt' ? messagePrompt.Values['feedback prompt'] : systemPrompt, //queryOutput[j]['SystemPrompts']['Content']
+    content:
+      commandMsg == "feedback prompt"
+        ? messagePrompt.Values["feedback prompt"]
+        : sessionType == "Serious Mode"
+        ? messagePrompt.Values["serious mode prompt"]
+        : sessionType == "Voice Challenge"
+        ? messagePrompt.Values["voice challenge prompt"]
+        : sessionType == "Easy Mode"
+        ? messagePrompt.Values["easy mode prompt"]
+        : systemPrompt, //queryOutput[j]['SystemPrompts']['Content']
   });
 
   // Prepare a request from active session
@@ -381,7 +428,11 @@ app.post("/chatgpt", async (request, response) => {
     let content = queryOutput[j]["Sessions"]["Message"];
     content = decodeURIComponent(content);
 
-    if (sessionType === "SentenceFeedback") {
+    if (
+      ["SentenceFeedback", "Serious Mode", "Voice Challenge"].includes(
+        sessionType
+      )
+    ) {
       content = delimeterStartToken + content + delimeterEndToken;
     }
 
@@ -389,7 +440,13 @@ app.post("/chatgpt", async (request, response) => {
     if (
       j === queryOutput.length - 1 &&
       queryOutput.length >= maxlinesofchat &&
-      !["ObjectiveFeedback", "SentenceFeedback", "Hint"].includes(sessionType)
+      ![
+        "ObjectiveFeedback",
+        "SentenceFeedback",
+        "Hint",
+        "Serious Mode",
+        "Voice Challenge",
+      ].includes(sessionType)
     ) {
       content = content + "\n" + messagePrompt["Values"]["terminationprompt"];
       operationStatus = "END_OF_CNVRSSN";
@@ -399,9 +456,13 @@ app.post("/chatgpt", async (request, response) => {
     //Add prompt to keep conversation on track, in the last message
     if (
       !isConfigMsg &&
-      !["ObjectiveFeedback", "SentenceFeedback", "Hint"].includes(
-        sessionType
-      ) &&
+      ![
+        "ObjectiveFeedback",
+        "SentenceFeedback",
+        "Hint",
+        "Serious Mode",
+        "Voice Challenge",
+      ].includes(sessionType) &&
       !message.includes("I want to continue our last conversation") &&
       j === queryOutput.length - 1
     ) {
@@ -411,7 +472,7 @@ app.post("/chatgpt", async (request, response) => {
         "If my statement is not in the context of the topic that we are discussing, please redirect our conversation as per the context.";
     }
 
-    if(commandMsg != 'feedback prompt'){
+    if (commandMsg != "feedback prompt") {
       sessionRecords.push({
         role: "user",
         content: content,
@@ -446,19 +507,20 @@ app.post("/chatgpt", async (request, response) => {
   }
 
   //If it's a doubt session
-  if(sessionType=="Doubt"){
+  if (sessionType == "Doubt") {
     //Collate the conversation of actucal session
-    const conversation = sessionRecords.map((data,index)=>{
-      if(index==0)
-        return ""
-      else
-        return data.role +": "+data.content
-      })
+    const conversation = sessionRecords.map((data, index) => {
+      if (index == 0) return "";
+      else return data.role + ": " + data.content;
+    });
     //Substitute in System Prompt
-    sessionRecords[0]['content'] = sessionRecords[0]['content'].replace("{{\n}}","{{"+conversation.join("\n")+"}}")
+    sessionRecords[0]["content"] = sessionRecords[0]["content"].replace(
+      "{{\n}}",
+      "{{" + conversation.join("\n") + "}}"
+    );
     //Append the doubt message as user message
-    sessionRecords[1]['content'] = message
-    sessionRecords.splice(2)
+    sessionRecords[1]["content"] = message;
+    sessionRecords.splice(2);
   }
 
   // Send request to ChatGPT
@@ -543,17 +605,18 @@ app.post("/chatgpt", async (request, response) => {
 
   // If responseType configuration == Audio or Text+Audio, then create audio else not
   if (responseType === "Audio" || responseType === "Text+Audio") {
-    let createAudioOfText = require("./common/createAudioOfText.js");
+    let createAudioOfText = require("./common/convertTextToSpeech.js");
     const audioDetails = JSON.parse(
       await createAudioOfText({
         text: reply,
-        filename: storedSessionRecord.ROWID,
+        fileName: "R" + storedSessionRecord.ROWID, //R=>Reply of GPT
         language: "English",
+        SessionID: executionID,
       })
     );
 
     if (audioDetails.OperationStatus === "SUCCESS") {
-      publicURL = audioDetails.URL;
+      publicURL = audioDetails.PublicURL;
     } else {
       console.info(
         new Date().toString() + "|" + prependToLog,
@@ -671,7 +734,7 @@ app.post("/chatgpt", async (request, response) => {
     SessionROWID: storedSessionRecord.ROWID,
     LinesOfChatConsumed: totalUserMessages,
     LinesOfChatPending: maxlinesofchat - 1 - totalUserMessages,
-    FeedbackPromptFlag: feedbackPromptFlag
+    FeedbackPromptFlag: feedbackPromptFlag,
   };
 
   // Send Response
@@ -686,7 +749,11 @@ app.post("/chatgpt", async (request, response) => {
 
   let sendResponseToGlific = require("./common/sendResponseToGlific.js");
 
-  if (secondsDiff > 2 && requestBody.flowId && sessionType!='SentenceFeedback') {
+  if (
+    secondsDiff > 2 &&
+    requestBody.flowId &&
+    sessionType != "SentenceFeedback"
+  ) {
     await new Promise((resolve) => setTimeout(resolve, 3000));
     sendResponseToGlific({
       flowID: requestBody.flowId,
@@ -698,16 +765,16 @@ app.post("/chatgpt", async (request, response) => {
   }
 
   // Store message audio file in GCS
-  let messagePublicURL = null;
   if (messageType === "Audio") {
-    const messageURL = message;
-    const messageAudioPublicURL = saveContentInGCS(
-      (fileData = messageURL),
-      (contentType = "Audio"),
-      (fileName = storedSessionRecord.ROWID)
-    );
+    const messageAudioPublicURL = await saveContentInGCS(
+      messageURL,
+      "M" + storedSessionRecord.ROWID,
+      "Audio",
+      "URL",
+      executionID
+    ); //M=>Message of User
     if (messageAudioPublicURL !== null) {
-      sessionsTable.update_row({
+      sessionsTable.updateRow({
         ROWID: storedSessionRecord.ROWID,
         MessageAudioURL: messageAudioPublicURL,
       });
@@ -721,7 +788,11 @@ app.post("/chatgpt", async (request, response) => {
 
   // Sentence Level Feedback
 
-  if (inputType.startsWith("UserMessage") && sessionId !== "Onboarding" && sessionType!=='Doubt') {
+  if (
+    inputType.startsWith("UserMessage") &&
+    sessionId !== "Onboarding" &&
+    sessionType !== "Doubt"
+  ) {
     const newRequestBody = {
       ...requestBody,
       sessionROWID: storedSessionRecord.ROWID,

@@ -1,5 +1,10 @@
 const catalyst = require("zoho-catalyst-sdk");
 const emojiRegex = require("emoji-regex");
+const mongoose = require("mongoose");
+const userFlowQuestionLogs = require("./../models/userFlowQuestionLogs.js");
+mongoose.connect(process.env.MongoDBConnStrng + "whatsapp-bots", {
+  useNewUrlParser: true,
+});
 
 const catalystApp = catalyst.initialize();
 
@@ -140,12 +145,25 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                   zcql
                 )
                   .then((allfeedbacks) => {
-                    const feedbacks = allfeedbacks.filter((data) =>
-                      sessionIDs.includes(data.SessionFeedback.SessionID)
-                      && (data.SessionFeedback.Feedback == null ? true : (data.SessionFeedback.Feedback.startsWith("Overall Game Sessions")==false)
-                        && (data.SessionFeedback.Feedback.startsWith("Learnings Started")==false))
-                      && (data.SessionFeedback.GPTFeedback ==null ? true : (data.SessionFeedback.GPTFeedback.startsWith("Overall Game Sessions")==false)
-                        && (data.SessionFeedback.GPTFeedback.startsWith("Learnings Started")==false))
+                    const feedbacks = allfeedbacks.filter(
+                      (data) =>
+                        sessionIDs.includes(data.SessionFeedback.SessionID) &&
+                        (data.SessionFeedback.Feedback == null
+                          ? true
+                          : data.SessionFeedback.Feedback.startsWith(
+                              "Overall Game Sessions"
+                            ) == false &&
+                            data.SessionFeedback.Feedback.startsWith(
+                              "Learnings Started"
+                            ) == false) &&
+                        (data.SessionFeedback.GPTFeedback == null
+                          ? true
+                          : data.SessionFeedback.GPTFeedback.startsWith(
+                              "Overall Game Sessions"
+                            ) == false &&
+                            data.SessionFeedback.GPTFeedback.startsWith(
+                              "Learnings Started"
+                            ) == false)
                     );
                     zcql
                       .executeZCQLQuery(
@@ -174,8 +192,32 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                           });
                         query =
                           "Select {} from SessionEvents where Event in ('Progress Message - 1','Progress Message - 2','Progress Message - 3','Progress Message - 4','Progress Message - 5','Progress Message - 6','Progress Message - 7','Progress Message - 8')";
-                        getAllRows("distinct SessionID", query, zcql)
-                          .then(async (allevents) => {
+
+                        const seriousModeVoiceChallengeSessionIDs = sessions
+                          .filter(
+                            (data) =>
+                              data.Sessions.SessionID.endsWith(
+                                "Serious Mode"
+                              ) ||
+                              data.Sessions.SessionID.endsWith(
+                                "Voice Challenge"
+                              )
+                          )
+                          .map(
+                            (data) => data.Sessions.SessionID.split(" - ")[0]
+                          )
+                          .filter(unique);
+                        const runUserFlowQuestionLog =
+                          userFlowQuestionLogs.find({
+                            SessionID: {
+                              $in: seriousModeVoiceChallengeSessionIDs,
+                            },
+                          });
+                        Promise.all([
+                          getAllRows("distinct SessionID", query, zcql),
+                          runUserFlowQuestionLog,
+                        ])
+                          .then(async ([allevents, userFlowQuestionLog]) => {
                             const events = allevents.filter((data) =>
                               sessionIDs.includes(data.SessionEvents.SessionID)
                             );
@@ -217,7 +259,7 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                               );
                               const uniqueTopics =
                                 userSessionsTopics.filter(unique);
-                              if (uniqueTopics.length == 0) {                                    
+                              if (uniqueTopics.length == 0) {
                                 var userReport = {};
                                 userReport["Mobile"] =
                                   users[i]["UsersReport"]["Mobile"];
@@ -285,8 +327,12 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                       uniqueTopics[j] == null
                                         ? ""
                                         : uniqueTopics[j].split("-")[0];
-                                    userReport["Module"] = userReport["Module"]==null ? "" : userReport["Module"]
-                                    userReport["Topic"] = userReport["Topic"]==null ? "" : userReport["Topic"]
+                                    userReport["Module"] =
+                                      topicSessionsData[0].SystemPrompts.Persona;
+                                    userReport["Topic"] =
+                                      userReport["Topic"] == null
+                                        ? ""
+                                        : userReport["Topic"];
                                     userReport["Persona"] =
                                       topicSessionsData[0].SystemPrompts.Persona;
                                     userReport["SessionID"] =
@@ -388,6 +434,53 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                     var sessionTimeStamps = sessionRecord.map(
                                       (record) => record.Sessions.CREATEDTIME
                                     );
+                                    if (
+                                      userReport["SessionID"].endsWith(
+                                        "Serious Mode"
+                                      ) ||
+                                      userReport["SessionID"].endsWith(
+                                        "Voice Challenge"
+                                      )
+                                    ) {
+                                      sessionTimeStamps =
+                                        sessionTimeStamps.concat(
+                                          userFlowQuestionLog
+                                            .filter(
+                                              (log) =>
+                                                log.SessionID ==
+                                                userReport["SessionID"].split(
+                                                  " - "
+                                                )[0]
+                                            )
+                                            .map(
+                                              (log) =>
+                                                log.createdAt.getFullYear() +
+                                                "-" +
+                                                (
+                                                  "0" +
+                                                  (log.createdAt.getMonth() + 1)
+                                                ).slice(-2) +
+                                                "-" +
+                                                (
+                                                  "0" + log.createdAt.getDate()
+                                                ).slice(-2) +
+                                                " " +
+                                                (
+                                                  "0" + log.createdAt.getHours()
+                                                ).slice(-2) +
+                                                ":" +
+                                                (
+                                                  "0" +
+                                                  log.createdAt.getMinutes()
+                                                ).slice(-2) +
+                                                ":" +
+                                                (
+                                                  "0" +
+                                                  log.createdAt.getSeconds()
+                                                ).slice(-2)
+                                            )
+                                        );
+                                    }
                                     sessionTimeStamps =
                                       sessionTimeStamps.sort();
                                     userReport["SessionStartTime"] = new String(
@@ -396,10 +489,10 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                     const sessionTimeStampVersion =
                                       versions.filter((data) => {
                                         /*console.debug((new Date()).toString()+"|"+prependToLog,new Date(data.Versions.StartDate), "|",
-														new Date(sessionTimeStamps[0]), "|",
-														new Date(data.Versions.EndDate), " = ",
-														(((new Date(data.Versions.StartDate)) <= (new Date(sessionTimeStamps[0]))) && ((new Date(data.Versions.EndDate)) > (new Date(sessionTimeStamps[0]))))
-													)*/
+                              new Date(sessionTimeStamps[0]), "|",
+                              new Date(data.Versions.EndDate), " = ",
+                              (((new Date(data.Versions.StartDate)) <= (new Date(sessionTimeStamps[0]))) && ((new Date(data.Versions.EndDate)) > (new Date(sessionTimeStamps[0]))))
+                            )*/
                                         return (
                                           new Date(data.Versions.StartDate) <=
                                             new Date(sessionTimeStamps[0]) &&
@@ -614,36 +707,38 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                             }
                             //var uniqueUserSessionsTopics = [...new Map(userSessionsTopics.map(item => [item.SessionID, item])).values()]
                             report = report.filter(
-                              (data) => (data.SessionID != "")// && (data.Topic != "") && (data.Topic != null) && (data.Topic != 'null')
+                              (data) => data.SessionID != "" // && (data.Topic != "") && (data.Topic != null) && (data.Topic != 'null')
                             );
-                            report = report.sort((a, b) => {
-                              if (a["Mobile"] == b["Mobile"]) {
+                            report = report
+                              .sort((a, b) => {
+                                if (a["Mobile"] == b["Mobile"]) {
+                                  return 0;
+                                }
+                                if (a["Mobile"] < b["Mobile"]) {
+                                  return -1;
+                                }
+                                if (a["Mobile"] > b["Mobile"]) {
+                                  return 1;
+                                }
+                                // a must be equal to b
                                 return 0;
-                              }
-                              if (a["Mobile"] < b["Mobile"]) {
-                                return -1;
-                              }
-                              if (a["Mobile"] > b["Mobile"]) {
-                                return 1;
-                              }
-                              // a must be equal to b
-                              return 0;
-                            }).sort((a, b) => {
-                              if (
-                                a["Mobile"] == b["Mobile"] &&
-                                a.SessionStartTime < b.SessionStartTime
-                              ) {
-                                return -1;
-                              }
-                              if (
-                                a["Mobile"] == b["Mobile"] &&
-                                a.SessionStartTime > b.SessionStartTime
-                              ) {
-                                return 1;
-                              }
-                              // a must be equal to b
-                              return 0;
-                            });
+                              })
+                              .sort((a, b) => {
+                                if (
+                                  a["Mobile"] == b["Mobile"] &&
+                                  a.SessionStartTime < b.SessionStartTime
+                                ) {
+                                  return -1;
+                                }
+                                if (
+                                  a["Mobile"] == b["Mobile"] &&
+                                  a.SessionStartTime > b.SessionStartTime
+                                ) {
+                                  return 1;
+                                }
+                                // a must be equal to b
+                                return 0;
+                              });
                             var attempted = 0,
                               completed = 0;
                             for (var m = 0; m < report.length; m++) {

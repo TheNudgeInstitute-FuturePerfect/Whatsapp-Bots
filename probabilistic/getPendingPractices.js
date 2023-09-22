@@ -90,15 +90,20 @@ app.post("/pendingpractices", (req, res) => {
           const axios = require("axios");
           const gameQuery = axios.get(process.env.WordleReportURL+mobile)
           const userReportQuery = getAllRows("LastActiveDate, DeadlineDate","select {} from UsersReport where Mobile = "+mobile,zcql,prependToLog)
-
-          Promise.all([sessionQuery,userAssessmentQuery,gameQuery,userReportQuery])
-          .then(([userSessions,userAssessmentLogs,wordleAttempts,userReport])=>{
+          const learningStartQuery = "Select {} from SessionEvents where Event = 'Learn Session Start' and Mobile = "+mobile
+          const runLearningStartQuery = getAllRows("distinct ROWID, CREATEDTIME",learningStartQuery,zcql,prependToLog)
+    
+          
+          Promise.all([sessionQuery,userAssessmentQuery,gameQuery,userReportQuery,runLearningStartQuery])
+          .then(([userSessions,userAssessmentLogs,wordleAttempts,userReport,learningStart])=>{
               if(!Array.isArray(userSessions))
                 throw new Error(userSessions)
               else if(!Array.isArray(userAssessmentLogs))
                 throw new Error(userAssessmentLogs)
               else if(!Array.isArray(userReport))
                 throw new Error(userReport)
+              else if(!Array.isArray(learningStart))
+                throw new Error(learningStart)
               else{
                 const wordleAttemptsReport = wordleAttempts.data
                 const openSessions = userSessions.filter(data=>data.Sessions.IsActive==true).map(data=>data.Sessions.SessionID)
@@ -115,11 +120,17 @@ app.post("/pendingpractices", (req, res) => {
                     )
                 );
                 let practiceDates = sessions.map(data=>data.Sessions.CREATEDTIME)
+                responseObject["ConversationCompletionDays"] = practiceDates.map(data=>data.toString().slice(0,10)).filter(unique).length
+                responseObject["ConversationAttemptDays"] = userSessions.map(data=>data.Sessions.CREATEDTIME.toString().slice(0,10)).filter(unique).length
                 console.info((new Date()).toString()+"|"+prependToLog,"Fetched Conversation TimeStamps:",practiceDates)
+                responseObject["LearningAttemptDays"] = learningStart.map(data=>data.SessionEvents.CREATEDTIME.toString().slice(0,10)).filter(unique).length
+                responseObject["LearningCompletionDays"] = userAssessmentLogs.map(data=>data.UserAssessmentLogs.MODIFIEDTIME.toString().slice(0,10)).filter(unique).length
                 practiceDates =  practiceDates.concat(userAssessmentLogs.map(data=>data.UserAssessmentLogs.MODIFIEDTIME))
                 console.info((new Date()).toString()+"|"+prependToLog,"Fetched Learning TimeStamps:",practiceDates)
+                responseObject["GameCompletionDays"] = wordleAttemptsReport.filter(data=>data.CompletedWordle=="Yes").map(data=>data.SessionEndTime.toString().slice(0,10)).filter(unique).length
+                responseObject["GameAttemptDays"] = wordleAttemptsReport.map(data=>data.SessionEndTime.toString().slice(0,10)).filter(unique).length
                 practiceDates =  practiceDates.concat(wordleAttemptsReport.filter(data=>data.CompletedWordle=="Yes").map(data=>data.SessionEndTime))
-                console.info((new Date()).toString()+"|"+prependToLog,"Fetched Gamme TimeStamps:",practiceDates)
+                console.info((new Date()).toString()+"|"+prependToLog,"Fetched Game TimeStamps:",practiceDates)
 
                 if(userReport.length > 0)
                   responseObject["DeadlineDate"] = userReport[0]['UsersReport']['DeadlineDate'].toString().slice(0,10)
@@ -181,15 +192,16 @@ app.post("/pendingpractices", (req, res) => {
                     let endTimeStamp = new Date();
                     let executionDuration = (endTimeStamp - startTimeStamp) / 1000;
                     if (executionDuration > 3) {
-                      sendResponseToGlific({
-                        flowID: requestBody["FlowID"],
-                        contactID: requestBody["contact"]["id"],
-                        resultJSON: JSON.stringify({
-                          practices: responseObject,
-                        }),
-                      })
-                        .then((glificResponse) => {})
-                        .catch((err) => console.info((new Date()).toString()+"|"+prependToLog,"Error returned from Glific: ", err));
+                      if((typeof requestBody["FlowID"] !== 'undefined')&&(typeof requestBody["contact"] !== 'undefined'))
+                        sendResponseToGlific({
+                          flowID: requestBody["FlowID"],
+                          contactID: requestBody["contact"]["id"],
+                          resultJSON: JSON.stringify({
+                            practices: responseObject,
+                          }),
+                        })
+                          .then((glificResponse) => {})
+                          .catch((err) => console.info((new Date()).toString()+"|"+prependToLog,"Error returned from Glific: ", err));
                     }
                   }
                 }

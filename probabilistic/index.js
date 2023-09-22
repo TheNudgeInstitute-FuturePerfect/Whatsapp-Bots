@@ -28,6 +28,10 @@ const getRandomQuestions = require("./getRandomQuestions.js");
 const storeQuestionAnswers = require("./storeQuestionAnswers.js");
 const payment = require("./PaymentCRUD.js");
 const doubtsession = require("./DoubtSessionCRUD.js")
+const flowQuestions = require("./FlowQuestionsCRUD.js");
+const getFlowQuestion = require("./getFlowQuestions.js");
+const storeFlowQuestionAnswer = require("./storeFlowQuestionAnswer.js");
+const applicationConfig = require("./ApplicationConfigCRUD.js");
 
 // Basic I/O const
 const addUserData = require("./common/addUserData.js");
@@ -40,7 +44,7 @@ const setConfigurationParam = require("./common/setConfigurationParam.js");
 const updateConfigurationParam = require("./common/updateConfigurationParam.js");
 const getConfigurationParam = require("./common/getConfigurationParam.js");
 const deleteSystemPrompt = require("./common/deleteSystemPrompt.js");
-const createAudioOfText = require("./common/createAudioOfText.js");
+const createAudioOfText = require("./common/convertTextToSpeech.js");
 const convertSpeechToText = require("./common/convertSpeechToText.js");
 const storeAudioFileinGCS = require("./common/storeAudioFileinGCS.js");
 const writeTextOnImage = require("./common/writeTextOnImage.js");
@@ -77,6 +81,10 @@ app.use("/getquestion",getRandomQuestions);
 app.use("/storeanswer",storeQuestionAnswers);
 app.use("/payment",payment);
 app.use("/doubtsessions",doubtsession);
+app.use("/flowQuestions",flowQuestions);
+app.use("/getflowquestion",getFlowQuestion);
+app.use("/storeflowanswer",storeFlowQuestionAnswer);
+app.use("/appconfig",applicationConfig);
 
 // Basic I/O  routes
 app.use("/addUserData",addUserData);

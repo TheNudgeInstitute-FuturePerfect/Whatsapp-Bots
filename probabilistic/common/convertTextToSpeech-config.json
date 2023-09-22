@@ -1,4 +1,19 @@
 {
+    "BhashiniConfig":{
+        "languageCode": {
+            "English": "en",
+            "Hindi": "hi",
+            "Kannada": "kn",
+            "Tamil": "ta"
+        },
+        "configURL":"https://meity-auth.ulcacontrib.org/ulca/apis/v0/model/getModelsPipeline",
+        "ssmlGender":"female",
+        "audioConfig":{
+            "audioEncoding":"MP3",
+            "sampleRateHertz": 8000,
+            "speakingRate": 0.90
+        }
+    },
     "gTTSConfig":{
         "options":{"keyFilename":"./probabilistic/fluted-karma-340707-166017125675.json"},
         "projectId":"fluted-karma-340707",
@@ -13,6 +28,12 @@
             "nospellerr":"https://storage.googleapis.com/nudgevoicebotbket/NoSpellOrGrmrErr.mp3",
             "nogrammarerr":"https://storage.googleapis.com/nudgevoicebotbket/NoGrmrErr.mp3",
             "nospellorgrammarerr":"https://storage.googleapis.com/nudgevoicebotbket/NoSpellOrGrmrErr.mp3"
+        },
+        "languageCode": {
+            "English": "en-IN",
+            "Hindi": "hi-IN",
+            "Kannada": "kn-IN",
+            "Tamil": "ta-IN"
         }
     },
     "gcsConfig":{
