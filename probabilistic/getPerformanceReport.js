@@ -402,7 +402,8 @@ app.post("/goalachievementcalendar", (req, res) => {
           const assessmentQuery = "Select {} " +
             "from UserAssessmentLogs " +
             "where UserAssessmentLogs.UserROWID = '" +users[0]['Users']['ROWID']+"'"+
-            " and UserAssessmentLogs.IsAssessmentComplete = true"
+            " and UserAssessmentLogs.IsAssessmentComplete = true"+
+            " and UserAssessmentLogs.MODIFIEDTIME >= '"+monthStart+"' and UserAssessmentLogs.MODIFIEDTIME < '"+nextMonthStartDate+"'"
           const runAssessmentQuery = getAllRows("UserAssessmentLogs.ROWID, UserAssessmentLogs.MODIFIEDTIME",assessmentQuery,zcql,prependToLog)
           const axios = require("axios");
           const runGameAttemptQuery = axios.get(process.env.WordleReportURL+mobile)          
@@ -438,17 +439,18 @@ app.post("/goalachievementcalendar", (req, res) => {
               console.info((new Date()).toString()+"|"+prependToLog,"Fetched Conversation TimeStamps:",practiceDates)                
               practiceDates =  practiceDates.concat(userassessment.map(data=>data.UserAssessmentLogs.MODIFIEDTIME))
               console.info((new Date()).toString()+"|"+prependToLog,"Fetched Learning TimeStamps:",practiceDates)
-              practiceDates = practiceDates.concat(wordleAttempts.data.map(data=>data.SessionEndTime))
+              practiceDates = practiceDates.concat(wordleAttempts.data.filter(data=>(data.SessionEndTime>=monthStart)&&(data.SessionEndTime<nextMonthStartDate)).map(data=>data.SessionEndTime))
               console.info((new Date()).toString()+"|"+prependToLog,"Fetched Wordle TimeStamps:",practiceDates)
               for(var i=0; i<userFlowQuestionLog.length; i++){
                 const record = userFlowQuestionLog[i]
-                practiceDates = practiceDates.concat(record.QuestionAnswers.map(data=>
+                const qaDates = record.QuestionAnswers.map(data=>
                   data.CreatedTime.getFullYear()+"-"+
                   ('0'+(data.CreatedTime.getMonth()+1)).slice(-2)+"-"+
                   ('0'+data.CreatedTime.getDate()).slice(-2)+" "+
                   ('0'+data.CreatedTime.getHours()).slice(-2)+":"+
                   ('0'+data.CreatedTime.getMinutes()).slice(-2)+":"+
-                  ('0'+data.CreatedTime.getSeconds()).slice(-2)))
+                  ('0'+data.CreatedTime.getSeconds()).slice(-2))
+                practiceDates = practiceDates.concat(qaDates.filter(data=>(data>=monthStart)&&(data<nextMonthStartDate)))
               }
               console.info((new Date()).toString()+"|"+prependToLog,"Fetched Flow QuestionAnswer TimeStamps:",practiceDates)
 
@@ -710,7 +712,7 @@ app.post("/dailygoalprogress", (req, res) => {
               
               for(var i=0; i<userFlowQuestionLog.length; i++){
                 const record = userFlowQuestionLog[i]
-                practiceDates = record.QuestionAnswers.map(data=>
+                const qaDates = record.QuestionAnswers.map(data=>
                   data.CreatedTime.getFullYear()+"-"+
                   ('0'+(data.CreatedTime.getMonth()+1)).slice(-2)+"-"+
                   ('0'+data.CreatedTime.getDate()).slice(-2)+" "+
@@ -718,6 +720,7 @@ app.post("/dailygoalprogress", (req, res) => {
                   ('0'+data.CreatedTime.getMinutes()).slice(-2)+":"+
                   ('0'+data.CreatedTime.getSeconds()).slice(-2)
                 )
+                practiceDates = qaDates.filter(data=>(data>=(toDay+" 00:00:00"))&&(data<=(toDay+" 23:59:59")))
                 //Get the Session Data associated withe User Flow Question Log
                 const logSessionData = sessions.filter(data=>data.Sessions.SessionID==(record.SessionID+" -"+(record.Category.split("-"))[1]))
                 //Merge in practice Dates as actual interaction ends when the request is sent to GPT
