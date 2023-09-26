@@ -36,8 +36,16 @@ app.post("/latestsession", (req, res) => {
 					"order by Sessions.CREATEDTIME DESC"
 		//Execute Query
 		zcql.executeZCQLQuery(query)
-		.then((queryResult)=>{//On successful execution
+		.then((queryResultAll)=>{//On successful execution
+			//Filter Ask Any Doubt Sessions if the module is not present in request
+			const queryResult = module != null ? queryResultAll : queryResultAll.filter(data=>!data.Sessions.SessionID.endsWith("AskAnyDoubt"))
 			if(queryResult==null){//If no data returned
+				responseBody['OperationStatus']='NO_DATA' //Send a non success status
+				responseBody['StatusDescription']='No session data for the user'
+				responseBody['NewSessionID'] = Math.random().toString(36).slice(2)
+				sendResponse()
+			}
+			else if(queryResult.length==0){//If no data returned
 				responseBody['OperationStatus']='NO_DATA' //Send a non success status
 				responseBody['StatusDescription']='No session data for the user'
 				responseBody['NewSessionID'] = Math.random().toString(36).slice(2)
