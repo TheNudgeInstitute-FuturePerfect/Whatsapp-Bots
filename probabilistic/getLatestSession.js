@@ -11,6 +11,17 @@ const app = express.Router();
 app.post("/latestsession", (req, res) => {
 	//Initialize catalyst app
     let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+
+	const startTimeStamp = new Date();
+
+	const executionID = Math.random().toString(36).slice(2)
+		
+	//Prepare text to prepend with logs
+	const params = ["getLatestSession",req.url,executionID,""]
+	const prependToLog = params.join(" | ")
+	
+	console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
 	//Get the request mbody
 	const requestBody = req.body;
 	//Initialize response object
@@ -21,7 +32,7 @@ app.post("/latestsession", (req, res) => {
 	if(typeof requestBody['Mobile']==='undefined'){
 		responseBody['OperationStatus']='REQ_ERR'
 		responseBody['StatusDescription']='Mising mandatory field in request: Mobile'
-		console.log("End of Execution. Response: ",responseBody)
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Response: ",responseBody)
 		res.status(200).json(responseBody);//Return a request err
 	}
 	else{//If Present
@@ -37,6 +48,19 @@ app.post("/latestsession", (req, res) => {
 		//Execute Query
 		zcql.executeZCQLQuery(query)
 		.then((queryResultAll)=>{//On successful execution
+			const sendResponse = () => {
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Response: ",responseBody)
+				res.status(200).json(responseBody);//Send the response
+				let sendResponseToGlific = require("./common/sendResponseToGlific.js");
+				sendResponseToGlific({
+						"flowID":requestBody["FlowId"],
+						"contactID": requestBody["contact"]["id"],
+						"resultJSON": JSON.stringify({
+							"activesession":responseBody
+						})
+					}).then(glificResponse=>{})
+				.catch(err=>console.info((new Date()).toString()+"|"+prependToLog,"Error returned from Glific: ",err))
+			}
 			//Filter Ask Any Doubt Sessions if the module is not present in request
 			const queryResult = module != null ? queryResultAll : queryResultAll.filter(data=>!data.Sessions.SessionID.endsWith("AskAnyDoubt"))
 			if(queryResult==null){//If no data returned
@@ -128,26 +152,13 @@ app.post("/latestsession", (req, res) => {
 					}
 				})
 				.catch((err) => {//On error in execution
-					console.log("Error while executing select statement: ",query,"\nError: ",err);
+					console.info((new Date()).toString()+"|"+prependToLog,"Error while executing select statement: ",query,"\nError: ",err);
 					res.status(500).send(err);//Return technical error
 				});
 			}
-			const sendResponse = () => {
-				console.log("End of Execution. Response: ",responseBody)
-				res.status(200).json(responseBody);//Send the response
-				let sendResponseToGlific = require("./common/sendResponseToGlific.js");
-				sendResponseToGlific({
-						"flowID":requestBody["FlowId"],
-						"contactID": requestBody["contact"]["id"],
-						"resultJSON": JSON.stringify({
-							"activesession":responseBody
-						})
-					}).then(glificResponse=>{})
-				.catch(err=>console.log("Error returned from Glific: ",err))
-			}
 		})
 		.catch((err) => {//On error in execution
-			console.log("Error while executing select statement: ",query,"\nError: ",err);
+			console.info((new Date()).toString()+"|"+prependToLog,"Error while executing select statement: ",query,"\nError: ",err);
 			res.status(500).send(err);//Return technical error
 		});
 	}
