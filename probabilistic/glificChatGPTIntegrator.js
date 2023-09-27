@@ -320,7 +320,10 @@ app.post("/chatgpt", async (request, response) => {
   });
 
   // Prepare a request from active session
-  for (let j = 0; j < queryOutput.length; j++) {
+  //For Ask Any Doubt, only send last two messages before current one
+  let j = (["AskAnyDoubt"].includes(sessionType)) ? Math.max(queryOutput.length-3,0) : 0
+
+  for (; j < queryOutput.length; j++) {
     /*if (i === startIndex && j === 0) {
       sessionRecords.push({
         role: "system",
@@ -331,10 +334,6 @@ app.post("/chatgpt", async (request, response) => {
     //If it's an empty response from ChatGPT in the record and it's not current record, don't include it in the session records
     if(j !== queryOutput.length-1 && queryOutput[j]["Sessions"]["Reply"]==null)
       continue
-
-    //For Ask Any Doubt, if number of messages is more than two, break
-    if((j>1)&&(["AskAnyDoubt"].includes(sessionType)))
-      break
 
     //If maxlinesofchat = -1 and its more than 20 messages, break
     if((j>=20)&&(maxlinesofchat == -1))
