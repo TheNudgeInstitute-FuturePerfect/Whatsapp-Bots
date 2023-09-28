@@ -79,29 +79,30 @@ const validateRequest = (data,method) => {
                     error.push('Options missing for button')
         
         if(typeof row['options'] !== 'undefined'){
-            if((row['options']!=null)&&(Array.isArray(row['options']) == false))//but options are missing
-                error.push('Options should be a list')
-            else if(row['options'].length == 0 )//but options are missing
-                error.push('Options missing for button')
-            else{
-                if(typeof row['responseType'] === 'undefined')
-                    error.push('responseType missing.')
-                else
-                    if(row['responseType'] == 'Button'){
-                        if(row['options'].length > 3 )//but more than 3 options proided
-                            error.push('More than three options provided for Button')
-                        if(row['options'].some(option=>option.length>20))
-                            error.push('One of the options is exceeding 20 character size limit')
-                    }
-                    else if(row['responseType'] == 'List'){
-                        if(row['options'].length > 10 )//but more than 3 options proided
-                            error.push('More than 10 options provided for List')
-                        if(row['options'].some(option=>option.length>20))
-                            error.push('One of the options is exceeding 20 character size limit')
-                    }
+            if((row['responseType'] == 'Button')||(row['responseType'] == 'List'))
+                if((row['options']!=null)&&(Array.isArray(row['options']) == false))//but options are missing
+                    error.push('Options should be a list')
+                else if(row['options'].length == 0 )//but options are missing
+                    error.push('Options missing for button')
+                else{
+                    if(typeof row['responseType'] === 'undefined')
+                        error.push('responseType missing.')
                     else
-                        error.push('responseType can only be one of the following : Button/List')
-            }
+                        if(row['responseType'] == 'Button'){
+                            if(row['options'].length > 3 )//but more than 3 options proided
+                                error.push('More than three options provided for Button')
+                            if(row['options'].some(option=>option.length>20))
+                                error.push('One of the options is exceeding 20 character size limit')
+                        }
+                        else if(row['responseType'] == 'List'){
+                            if(row['options'].length > 10 )//but more than 3 options proided
+                                error.push('More than 10 options provided for List')
+                            if(row['options'].some(option=>option.length>20))
+                                error.push('One of the options is exceeding 20 character size limit')
+                        }
+                        else
+                            error.push('responseType can only be one of the following : Button/List')
+                }
         }
         
         if(typeof row['answers'] !== 'undefined')//button options are missing
