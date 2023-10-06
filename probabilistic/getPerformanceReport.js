@@ -44,7 +44,7 @@ app.post("/getperformancereport", (req, res) => {
   const executionID = Math.random().toString(36).slice(2)
     
   //Prepare text to prepend with logs
-  const params = ["StudentCRUD",req.url,executionID,""]
+  const params = ["getPerformanceReport",req.url,executionID,""]
   const prependToLog = params.join(" | ")
   
   console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
@@ -171,7 +171,7 @@ app.post("/getoverallperformancereport", (req, res) => {
   const executionID = Math.random().toString(36).slice(2)
     
   //Prepare text to prepend with logs
-  const params = ["StudentCRUD",req.url,executionID,""]
+  const params = ["getPerformanceReport",req.url,executionID,""]
   const prependToLog = params.join(" | ")
   
   console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
@@ -345,7 +345,7 @@ app.post("/goalachievementcalendar", (req, res) => {
   const executionID = Math.random().toString(36).slice(2)
     
   //Prepare text to prepend with logs
-  const params = ["StudentCRUD",req.url,executionID,""]
+  const params = ["getPerformanceReport",req.url,executionID,""]
   const prependToLog = params.join(" | ")
   
   console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
@@ -558,7 +558,7 @@ app.post("/dailygoalprogress", (req, res) => {
   const executionID = Math.random().toString(36).slice(2)
     
   //Prepare text to prepend with logs
-  const params = ["StudentCRUD",req.url,executionID,""]
+  const params = ["getPerformanceReport",req.url,executionID,""]
   const prependToLog = params.join(" | ")
   
   console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")

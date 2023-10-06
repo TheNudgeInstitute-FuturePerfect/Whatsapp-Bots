@@ -352,7 +352,14 @@ app.post("/chatgpt", async (request, response) => {
 
   const sessionRecords = [];
 
-  const maxlinesofchat = parseInt(messagePrompt["Values"]["maxlinesofchat"]);
+  //If there is no maxlinesofchat, set it to -1
+  const maxlinesofchat =
+    typeof messagePrompt["Values"]["maxlinesofchat"] !== "undefined"
+      ? messagePrompt["Values"]["maxlinesofchat"] != null
+        ? parseInt(messagePrompt["Values"]["maxlinesofchat"])
+        : -1
+      : -1;
+
   //const startIndex = Math.max(maxRows - maxlinesofchat, 0);
 
   let operationStatus = "SUCCESS";
@@ -376,7 +383,7 @@ app.post("/chatgpt", async (request, response) => {
       "where Mobile = " +
       mobile +
       " and SessionID = '" +
-      (["Serious Mode", "Voice Challenge"].includes(sessionType)
+      (["Serious Mode", "Voice Challenge", "AskAnyDoubt"].includes(sessionType)
         ? requestBody.sessionId
         : sessionId) +
       "'" +
@@ -410,7 +417,12 @@ app.post("/chatgpt", async (request, response) => {
   });
 
   // Prepare a request from active session
-  for (let j = 0; j < queryOutput.length; j++) {
+  //For Ask Any Doubt, only send last two messages before current one
+  let j = ["AskAnyDoubt"].includes(sessionType)
+    ? Math.max(queryOutput.length - 3, 0)
+    : 0;
+
+  for (; j < queryOutput.length; j++) {
     /*if (i === startIndex && j === 0) {
       sessionRecords.push({
         role: "system",
@@ -424,6 +436,9 @@ app.post("/chatgpt", async (request, response) => {
       queryOutput[j]["Sessions"]["Reply"] == null
     )
       continue;
+
+    //If maxlinesofchat = -1 and its more than 20 messages, break
+    if (j >= 20 && maxlinesofchat == -1) break;
 
     let content = queryOutput[j]["Sessions"]["Message"];
     content = decodeURIComponent(content);
@@ -446,6 +461,7 @@ app.post("/chatgpt", async (request, response) => {
         "Hint",
         "Serious Mode",
         "Voice Challenge",
+        "AskAnyDoubt",
       ].includes(sessionType)
     ) {
       content = content + "\n" + messagePrompt["Values"]["terminationprompt"];
@@ -462,6 +478,7 @@ app.post("/chatgpt", async (request, response) => {
         "Hint",
         "Serious Mode",
         "Voice Challenge",
+        "AskAnyDoubt",
       ].includes(sessionType) &&
       !message.includes("I want to continue our last conversation") &&
       j === queryOutput.length - 1
@@ -733,7 +750,8 @@ app.post("/chatgpt", async (request, response) => {
     AudioURL: publicURL,
     SessionROWID: storedSessionRecord.ROWID,
     LinesOfChatConsumed: totalUserMessages,
-    LinesOfChatPending: maxlinesofchat - 1 - totalUserMessages,
+    LinesOfChatPending:
+      maxlinesofchat > -1 ? maxlinesofchat - 1 - totalUserMessages : -1,
     FeedbackPromptFlag: feedbackPromptFlag,
   };
 
