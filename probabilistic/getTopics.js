@@ -49,13 +49,18 @@ app.post("/modulelist", (req, res) => {
         for (; i < promptNames.length; i++) {
           responseJSON["Module" + (i - nextStartIndex + 1)] = promptNames[i];
         }
-        responseJSON["Module" + (i - nextStartIndex + 1)] = "Other Topics";
-        i++;
+        const npModulePromptNames = allPrompts["Prompts"].filter(data=>data.Module==null);
+        let addToTotal = 1
+        if(npModulePromptNames.length>0){
+          responseJSON["Module" + (i - nextStartIndex + 1)] = "Other Topics";
+          i++;
+          addToTotal++
+        }
         responseJSON["Module" + (i - nextStartIndex + 1)] = "My Performance";
 
         if (promptNames.length+2 > nextStartIndex) {
-          responseJSON["TotalModules"] = promptNames.length+2 - nextStartIndex;
-          responseJSON["MaxModules"] = promptNames.length+2;
+          responseJSON["TotalModules"] = promptNames.length+addToTotal - nextStartIndex;
+          responseJSON["MaxModules"] = promptNames.length+addToTotal;
         } else {
           responseJSON["OperationStatus"] = "NO_MR_MODS";
           responseJSON["StatusDescription"] = "No more Modules";
