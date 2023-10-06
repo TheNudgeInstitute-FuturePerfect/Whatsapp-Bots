@@ -555,14 +555,14 @@ app.patch("/", (req, res) => {
 				if(Array.isArray(row['options']))
 				{
 					const optionValues = row['options'].filter(option=>option.length>0)
-					finalData['Options']= optionValues.length==0?null:optionValues
+					finalData['Options']= optionValues.length==0?null:encodeURI(optionValues.join('\n'))
 				}
 
 			if(typeof row['answers'] !== 'undefined')
 				if(Array.isArray(row['answers']))
 				{
 					const answerValues = row['answers'].filter(answer=>answer.length>0)
-					finalData['Answers']= answerValues.length==0?null:answerValues
+					finalData['Answers']= answerValues.length==0?null:encodeURI(answerValues.join("\n"))
 				}
 
 			if(typeof row['tags'] !== 'undefined')
