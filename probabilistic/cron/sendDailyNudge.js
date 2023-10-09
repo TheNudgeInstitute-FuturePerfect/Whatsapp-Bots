@@ -47,8 +47,8 @@ zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"))
 				var i = 1
 				while(true){
 					query = dataQuery+" LIMIT "+i+", "+lmt
-					console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+300-1)+
-								'\nQuery: '+query)
+					console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+300-1))/*+
+								'\nQuery: '+query)*/
 					const queryResult = await zcql.executeZCQLQuery(query)
 					console.info((new Date()).toString()+"|"+prependToLog,queryResult.length)
 					if((queryResult.length == 0)||(!Array.isArray(queryResult))){
@@ -62,6 +62,7 @@ zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"))
 				resolve(jsonReport)
 			})
 		}		
+		console.info((new Date()).toString()+"|"+prependToLog,"Getting Users Data")
 		getAllRows("Mobile, GlificID, RegisteredTime, NudgeTime",query,zcql,prependToLog)
 		.then(async (users) =>	{
 			console.info((new Date()).toString()+"|"+prependToLog,"Fetched Records")
@@ -111,6 +112,7 @@ zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"))
 				query = "select {} from UsersReport where (OnboardingDate is null) or (OnboardingDate < '"+currentDt+" 00:00:00') and Mobile in ("+mobiles.join(",")+") group by Mobile"
 				maxRows = parseInt(users.length)
 				console.info((new Date()).toString()+"|"+prependToLog,'Total UsersReport Data: '+maxRows)
+				console.info((new Date()).toString()+"|"+prependToLog,"Getting UsersReport Data")
 				getAllRows("Mobile, OnboardingDate",query,zcql,prependToLog)
 				.then((usersReport)=>{
 					if(!Array.isArray(usersReport))
@@ -146,7 +148,8 @@ zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"))
           			const userAssessmentQuery = getAllRows("Users.Mobile, max(UserAssessment.CREATEDTIME)",learningQuery,zcql,prependToLog)
 					const gameQuery = "Select {} from WordleAttempts left join Users on Users.ROWID = WordleAttempts.UserROWID where Users.Mobile in ("+mobiles.join(",")+") group by Users.Mobile "
           			const userGameQuery = getAllRows("Users.Mobile, max(WordleAttempts.CREATEDTIME)",gameQuery,zcql,prependToLog)
-
+					
+					console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions + Learning + Game Data")
 					Promise.all([userSessionQuery,userAssessmentQuery,userGameQuery])				
 					.then(async ([sessions,userAssessments,gameSessions]) =>	{
 						console.info((new Date()).toString()+"|"+prependToLog,"Fetched Sessions Records")

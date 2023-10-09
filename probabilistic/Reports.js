@@ -24,8 +24,8 @@ const getAllRows = (fields,query,zcql,dataLimit) => {
 		var i = 1
 		while(true){
 			query = dataQuery+" LIMIT "+i+", "+lmt
-			console.log('Fetching records from '+i+" to "+(i+300-1)+
-						'\nQuery: '+query)
+			console.log('Fetching records from '+i+" to "+(i+300-1))/*+
+						'\nQuery: '+query)*/
 			const queryResult = await zcql.executeZCQLQuery(query)
 			console.log(queryResult.length)
 			if((queryResult.length == 0)||(!Array.isArray(queryResult))){
@@ -65,6 +65,7 @@ app.get("/userreport", (req, res) => {
 
 	let query = "select {} from UsersReport "+
 				"where UsersReport.OnboardingDate >='"+startDate+" 00:00:00' and UsersReport.OnboardingDate <= '"+endDate+" 23:59:59' "
+	console.info((new Date()).toString()+"|"+prependToLog,"Getting UsersReport Data")
 	getAllRows("*",query,zcql,dataLimit)
 	.then((reportData)=>{
 		const report = reportData.map(data=>{
@@ -293,7 +294,7 @@ app.get("/useronboardingreport", (req, res) => {
 	let zcql = catalystApp.zcql()
 		
 	let query = "Select {} from UserData"
-	
+	console.info((new Date()).toString()+"|"+prependToLog,"Getting Onboarding Questions")
 	getAllRows("distinct Segment, Question",query,zcql,dataLimit)
 	.then((segmentQuestions)=>{
 		let questions = segmentQuestions.map(data=>data.UserData.Segment+" "+data.UserData.Question)
@@ -304,6 +305,7 @@ app.get("/useronboardingreport", (req, res) => {
 					"left join UserData on UserData.UserROWID = Users.ROWID "+
 					"where UserData.CREATEDTIME  >='"+startDate+" 00:00:00' and UserData.CREATEDTIME <= '"+endDate+" 23:59:59' "+
 					"order by Users.Mobile asc, UserData.CREATEDTIME desc"
+		console.info((new Date()).toString()+"|"+prependToLog,"Getting Users Onboarding Data")
 		getAllRows("Users.Name, Users.Excluded, Users.Mobile, Users.RegisteredTime, Users.NudgeTime, Users.EnglishProficiency, UserData.CREATEDTIME, UserData.Segment, UserData.Question, UserData.Answer",query,zcql)
 		.then((users)=>{
 			var report = []
@@ -313,6 +315,7 @@ app.get("/useronboardingreport", (req, res) => {
 			query = "Select {} "+
 			"from Sessions "+
 			"where SessionID != 'Onboarding' and Sessions.Mobile in ("+mobiles.join(",")+") group by Mobile, SessionID"
+			console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
 			getAllRows("Mobile, SessionID, max(CREATEDTIME)",query,zcql)
 			.then((sessions)=>{
 				for(var i=0; i<mobiles.length;i++){
@@ -404,6 +407,7 @@ app.get("/usertopicreport", (req, res) => {
 	const dataLimit = req.query.limit ? req.query.limit : null
 
 	let query = "select {} from Users"
+	console.info((new Date()).toString()+"|"+prependToLog,"Getting Users Data")
 	getAllRows("Mobile, Excluded",query,zcql,dataLimit)
 	.then((users)=>{
 		if(users.length>0){
@@ -414,6 +418,7 @@ app.get("/usertopicreport", (req, res) => {
 					"where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59'"
 					"and ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) and Mobile in ("+mobiles.join(",")+") "+
 					"order by Sessions.CREATEDTIME desc"
+			console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
 			getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name, SystemPrompts.Persona, Sessions.Message, Sessions.MessageType",query,zcql)
 			.then((allSessions)=>{
 				const sessions = allSessions.filter(data=>!(data.Sessions.SessionID.endsWith(' - Translation')||data.Sessions.SessionID.endsWith(' - Hints')||data.Sessions.SessionID.endsWith(' - ObjectiveFeedback')))
@@ -555,6 +560,7 @@ app.get("/usertopicattemptreport", (req, res) => {
 
 	let query = "select {} from UserSessionAttemptReport "+
 				"where UserSessionAttemptReport.SessionStartTime >='"+startDate+" 00:00:00' and UserSessionAttemptReport.SessionStartTime <= '"+endDate+" 23:59:59' "
+	console.info((new Date()).toString()+"|"+prependToLog,"Getting UserSessionAttemptReport Data")
 	getAllRows("*",query,zcql,dataLimit)
 	.then((reportData)=>{
 		const report = reportData.map(data=>{
@@ -600,6 +606,7 @@ app.get("/usertopicattemptreport", (req, res) => {
 	});
 
 	/*let query = "select {} from Users"
+	console.info((new Date()).toString()+"|"+prependToLog,"Getting Users Data")
 	getAllRows("Mobile",query,zcql,dataLimit)
 	.then((users)=>{
 		if(users.length>0){
@@ -610,6 +617,7 @@ app.get("/usertopicattemptreport", (req, res) => {
 					"where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59' "+
 					"and ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) and Mobile in ("+mobiles.join(",")+") "+
 					"order by Sessions.CREATEDTIME desc"
+			console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
 			getAllRows("Sessions.PerformanceReportURL, Sessions.EndOfSession, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name, SystemPrompts.Persona, Sessions.Message, Sessions.MessageType",query,zcql)
 			.then((allSessions)=>{
 				const sessions = allSessions.filter(data=>!(data.Sessions.SessionID.endsWith(' - Translation')||data.Sessions.SessionID.endsWith(' - Hints')||data.Sessions.SessionID.endsWith(' - ObjectiveFeedback')))
@@ -619,6 +627,7 @@ app.get("/usertopicattemptreport", (req, res) => {
 							"from SessionFeedback "+
 							"where SessionID in ('"+sessionIDs.join("','")+"') "+
 							"order by SessionFeedback.CREATEDTIME desc"
+					console.info((new Date()).toString()+"|"+prependToLog,"Getting Session Feedback Data")
 					getAllRows("SessionID, Rating, Feedback, FeedbackType, FeedbackURL, GPTRating, GPTFeedback, GPTFeedbackType, GPTFeedbackURL",query,zcql)
 					.then((feedbacks)=>{
 						zcql.executeZCQLQuery("Select Version,StartDate from Versions order by StartDate")
@@ -876,6 +885,7 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 	const dataLimit = req.query.limit ? req.query.limit : null
 
 	let query = "select {} from Users where RegisteredTime >= '2023-06-15 19:00:00'"
+	console.info((new Date()).toString()+"|"+prependToLog,"Getting Users Data")
 	getAllRows("Name, Mobile, EnglishProficiency",query,zcql,dataLimit)
 	.then((users)=>{
 		if(users.length>0){
@@ -886,7 +896,8 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 					"where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59' "+
 					"and SystemPrompts.Name = 'Self Introduction' and Mobile in ("+mobiles.join(",")+") "+
 					"order by Sessions.CREATEDTIME desc"
-			console.debug((new Date()).toString()+"|"+prependToLog,query)
+			//console.debug((new Date()).toString()+"|"+prependToLog,query)
+			console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
 			getAllRows("Sessions.PerformanceReportURL, Sessions.EndOfSession, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name, SystemPrompts.Persona, Sessions.Message, Sessions.MessageType, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens",query,zcql)
 			.then((allSessions)=>{
 				const sessions = allSessions.filter(data=>!(data.Sessions.SessionID.endsWith(' - Translation')||data.Sessions.SessionID.endsWith(' - Hints')||data.Sessions.SessionID.endsWith(' - ObjectiveFeedback')))
@@ -896,6 +907,7 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 							"from SessionFeedback "+
 							"where SessionID in ('"+sessionIDs.join("','")+"') "+
 							"order by SessionFeedback.CREATEDTIME desc"
+					console.info((new Date()).toString()+"|"+prependToLog,"Getting Session Feedback Data")
 					getAllRows("SessionID, Rating, Feedback, FeedbackType, FeedbackURL, GPTRating, GPTFeedback, GPTFeedbackType, GPTFeedbackURL",query,zcql)
 					.then((feedbacks)=>{
 						zcql.executeZCQLQuery("Select Version,StartDate from Versions order by StartDate")
@@ -915,6 +927,7 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 									return d
 								})
 							query = "Select {} from SessionEvents where SessionID in ('"+sessionIDs.join("','")+"') and Event in ('Progress Message - 1','Progress Message - 2','Progress Message - 3','Progress Message - 4','Progress Message - 5','Progress Message - 6','Progress Message - 7','Progress Message - 8')"
+							console.info((new Date()).toString()+"|"+prependToLog,"Getting Session Events Data")
 							getAllRows("distinct SessionID",query,zcql)
 							.then(async (events)=>{	
 								var report = []
@@ -1205,6 +1218,7 @@ app.get("/usertopicmsgs", (req, res) => {
 					"where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59' "+
 					"and (((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) or ((SystemPrompts.Type = 'Backend Prompt') and ((SystemPrompts.Name = 'Self Introduction') or (SystemPrompts.Name = 'SLF Doubts'))))"+
 					"order by Sessions.SessionID, Sessions.CREATEDTIME asc"
+	console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
 	getAllRows("IsActive, MessageType, Classification, Improvement, UserFeedback, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name,SystemPrompts.Module,SystemPrompts.Persona, Sessions.Message, MessageAudioURL, Sessions.Reply, ReplyAudioURL, Sessions.PerformanceReportURL, Sessions.SentenceLevelFeedback, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens	",query,zcql,dataLimit)
 	.then((allSessions)=>{
 		const sessions = allSessions.filter(data=>!(data.Sessions.SessionID.endsWith(' - Translation')||data.Sessions.SessionID.endsWith(' - Hints')||data.Sessions.SessionID.endsWith(' - ObjectiveFeedback')))
@@ -1334,10 +1348,12 @@ app.get("/sessionevents", (req, res) => {
 	const event = req.query.event ? req.query.event.split(",") : null
 
 	let query = "Select {} from SessionEvents left join SystemPrompts on SystemPrompts.ROWID=SessionEvents.SystemPromptROWID where SessionEvents.CREATEDTIME >='"+startDate+" 00:00:00' and SessionEvents.CREATEDTIME <= '"+endDate+" 23:59:59' order by CREATEDTIME ASC"
+	console.info((new Date()).toString()+"|"+prependToLog,"Getting Session Events Data")
 	getAllRows("Mobile, SessionID, Event, SystemPrompts.Name, SystemPrompts.Persona, SystemPrompts.Module, SessionEvents.CREATEDTIME", query,zcql,dataLimit)
 			.then((sessions)=>{
 				let mobiles = sessions.map(data=>data.SessionEvents.Mobile).filter(unique)
 				query = "select {} from Users where Mobile in ("+mobiles.join(",")+")"
+				console.info((new Date()).toString()+"|"+prependToLog,"Getting Users Data")
 				getAllRows("Mobile, GoalInMinutes", query,zcql,dataLimit)
 				.then((users)=>{
 					var eventData = sessions.filter(data=> event == null ? true : (event.includes(data.SessionEvents.Event)) || (data.SessionEvents.Event.includes(event)))
@@ -1408,14 +1424,15 @@ app.get("/sessionhints", (req, res) => {
 					const dataQuery = query.replace("{}",fields)
 					for(var i = startingRow; i <= maxRows ; i=i+recordsToFetch){
 						query = dataQuery+" LIMIT "+i+", "+recordsToFetch
-						console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+recordsToFetch-1)+
-									'\nQuery: '+query)
+						console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+recordsToFetch-1))/*+
+									'\nQuery: '+query)*/
 						const queryResult = await zcql.executeZCQLQuery(query)
 							jsonReport = jsonReport.concat(queryResult)
 					}
 					resolve(jsonReport)
 				})
 			}
+			console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
 			getAllRows("SessionID, Message, Reply, CreatedTime, CompletionTokens, PromptTokens, SLFCompletionTokens, SLFPromptTokens")
 			.then((sessions)=>{
 				var report = sessions.map((data,index)=>{
@@ -1549,8 +1566,8 @@ app.get("/sessiontranslations", (req, res) => {
 					const dataQuery = query.replace("{}",fields)
 					for(var i = startingRow; i <= maxRows ; i=i+recordsToFetch){
 						query = dataQuery+" LIMIT "+i+", "+recordsToFetch
-						console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+recordsToFetch-1)+
-									'\nQuery: '+query)
+						console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+recordsToFetch-1))/*+
+									'\nQuery: '+query)*/
 						const queryResult = await zcql.executeZCQLQuery(query)
 							jsonReport = jsonReport.concat(queryResult)
 					}
@@ -1558,6 +1575,7 @@ app.get("/sessiontranslations", (req, res) => {
 				})
 			}
 			getAllRows("SessionID, Message, Reply, CreatedTime")
+			console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
 			.then((sessions)=>{
 				var report = sessions.map((data,index)=>{
 					if(data.Sessions.SessionID.endsWith(" - Translation")){
@@ -1668,14 +1686,15 @@ app.get("/sessiontecherrors", (req, res) => {
 					const dataQuery = query.replace("{}",fields)
 					for(var i = startingRow; i <= maxRows ; i=i+recordsToFetch){
 						query = dataQuery+" LIMIT "+i+", "+recordsToFetch
-						console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+recordsToFetch-1)+
-									'\nQuery: '+query)
+						console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+recordsToFetch-1))/*+
+									'\nQuery: '+query)*/
 						const queryResult = await zcql.executeZCQLQuery(query)
 							jsonReport = jsonReport.concat(queryResult)
 					}
 					resolve(jsonReport)
 				})
 			}
+			console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
 			getAllRows("SessionID, Message, Reply, CreatedTime")
 			.then((sessions)=>{
 				var report = sessions.map((data,index)=>{
@@ -1780,14 +1799,15 @@ app.get("/sessionabandoned", (req, res) => {
 					const dataQuery = query.replace("{}",fields)
 					for(var i = startingRow; i <= maxRows ; i=i+recordsToFetch){
 						query = dataQuery+" LIMIT "+i+", "+recordsToFetch
-						console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+recordsToFetch-1)+
-									'\nQuery: '+query)
+						console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+recordsToFetch-1))/*+
+									'\nQuery: '+query)*/
 						const queryResult = await zcql.executeZCQLQuery(query)
 							jsonReport = jsonReport.concat(queryResult)
 					}
 					resolve(jsonReport)
 				})
 			}
+			console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
 			getAllRows("SessionID, Message, Reply, CreatedTime")
 			.then((sessions)=>{
 				var report = sessions.map((data,index)=>{
@@ -1904,15 +1924,18 @@ app.get("/wordleattempts", (req, res) => {
 					"where WordleAttempts.CREATEDTIME >='"+startDate+" 00:00:00' and WordleAttempts.CREATEDTIME <= '"+endDate+" 23:59:59' "+
 					(mobile !=null ? (" and Users.Mobile="+mobile+" "):"")+
 					"order by WordleAttempts.UserROWID, WordleAttempts.CREATEDTIME asc"
+	console.info((new Date()).toString()+"|"+prependToLog,"Getting Wordle Attempts Data")
 	getAllRows("WordleConfiguration.ROWID, WordleConfiguration.MaxAttempts, WordleConfiguration.Word, WordleConfiguration.RecommendedTopic, Users.Mobile, WordleAttempts.ROWID, WordleAttempts.CREATEDTIME, WordleAttempts.IsCorrect, WordleAttempts.Answer, WordleAttempts.Source",query,zcql,dataLimit)
 	.then((cfuAttempts)=>{
 		if(cfuAttempts.length>0){
 			const mobiles = cfuAttempts.map(data=>data.Users.Mobile).filter(unique)
 			query = "Select {} from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID where Sessions.Mobile in ("+mobiles.join(",")+")"
+			console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
 			getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, SystemPrompts.Name, SystemPrompts.Persona",query,zcql,dataLimit)
 			.then((sessions)=>{
 				const wordleROWIDs = cfuAttempts.map(data=>data.WordleConfiguration.ROWID).filter(unique)
 				query = "Select {} from SessionEvents where SessionID in ('"+wordleROWIDs.join("','")+"') and Mobile in ("+mobiles.join(",")+")"
+				console.info((new Date()).toString()+"|"+prependToLog,"Getting Session Events Data")
 				getAllRows("Mobile, SessionID, CREATEDTIME, Event",query,zcql,dataLimit)
 				.then((events)=>{
 					var report = []
@@ -2052,7 +2075,7 @@ app.get("/cfuattempts", (req, res) => {
 				"UserAssessmentLogs.CREATEDTIME >='"+startDate+" 00:00:00' and "+
 				"UserAssessmentLogs.CREATEDTIME <= '"+endDate+" 23:59:59' "+
 				"order by Users.Mobile, UserAssessmentLogs.ROWID, UserAssessmentLogs.CREATEDTIME, QuestionBank.AskingOrder ASC "
-
+	console.info((new Date()).toString()+"|"+prependToLog,"Getting Users Assessment Data")
 	getAllRows("Name, Mobile,UserAssessmentLogs.SessionID, "+
 			"UserAssessmentLogs.ROWID, UserAssessmentLogs.IsAssessmentComplete, "+
 			"UserAssessmentLogs.AssessmentCompletionReason, UserAssessmentLogs.CREATEDTIME, "+
@@ -2150,10 +2173,12 @@ app.get("/sessionfeedbacks", (req, res) => {
 	let query = "Select {} from SessionEvents left join SystemPrompts on SystemPrompts.ROWID=SessionEvents.SystemPromptROWID where SessionEvents.CREATEDTIME >='"+startDate+" 00:00:00' and SessionEvents.CREATEDTIME <= '"+endDate+" 23:59:59' "+
 				(req.query.mobile ? "and Mobile in ("+req.query.mobile.split(",")+")":"")+
 				"order by CREATEDTIME ASC"
+	console.info((new Date()).toString()+"|"+prependToLog,"Getting Session Events Data")
 	getAllRows("Mobile, SessionID, Event, SystemPrompts.Name, SystemPrompts.Persona, SystemPrompts.Module, SessionEvents.CREATEDTIME", query,zcql,dataLimit)
 	.then((sessions)=>{
 		let mobiles = sessions.map(data=>data.SessionEvents.Mobile).filter(unique)
 		query = "select {} from Users where Mobile in ("+mobiles.join(",")+")"
+		console.info((new Date()).toString()+"|"+prependToLog,"Getting Users Data")
 		getAllRows("Mobile, GoalInMinutes", query,zcql,dataLimit)
 		.then((users)=>{
 			let eventData = []
@@ -2170,6 +2195,7 @@ app.get("/sessionfeedbacks", (req, res) => {
 		
 			query = "Select {} from SessionFeedback where SessionID in ('"+allSessions.join("','")+"')"+
 					" order by CREATEDTIME ASC"
+			console.info((new Date()).toString()+"|"+prependToLog,"Getting Session Feedback Data")
 			getAllRows("Mobile, SessionID, CREATEDTIME, Rating, Feedback, FeedbackType, FeedbackURL, GPTRating, GPTFeedback, GPTFeedbackType, GPTFeedbackURL", query,zcql,dataLimit)
 			.then((feedbacks)=>{			
 				var report = learningEventData.map(data=>{
@@ -2304,7 +2330,7 @@ app.get("/userlifecycle", (req, res) => {
 				"where Users.CREATEDTIME >='"+startDate+" 00:00:00' and "+
 				"Users.CREATEDTIME <= '"+endDate+" 23:59:59' "+
 				(req.query.mobile ? ("and Mobile in ("+req.query.mobile+")"):"")
-	
+	console.info((new Date()).toString()+"|"+prependToLog,"Getting Users Data")
 	getAllRows("Mobile, RegisteredTime, OnboardingComplete",query,zcql)
 	.then(async  (users)=>{
 		const mobiles = users.map(user=>user.Users.Mobile)
@@ -2356,7 +2382,7 @@ app.get("/userlifecycle", (req, res) => {
 				"where Users.Mobile in (" +mobiles.join(",")+")"+
 				" order by Users.Mobile, WordleAttempts.WordleROWID, WordleAttempts.CREATEDTIME ASC";
 		const runGameAttemptQuery = getAllRows("Users.Mobile, WordleAttempts.WordleROWID, WordleAttempts.CREATEDTIME",gameAttemptQuery,zcql)
-
+		console.info((new Date()).toString()+"|"+prependToLog,"Getting Conversation Data + Learning Data + Wordle Attempt Data")
 		Promise.all([runSessionQuery,runLearningQuery,runGameAttemptQuery])
 		.then(([allsessions,learning,wordleAttempts]) => {
 			if(!Array.isArray(allsessions))
