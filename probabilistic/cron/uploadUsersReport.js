@@ -30,8 +30,8 @@ const getAllRows = (fields,query,zcql,dataLimit) => {
 		var i = 1
 		while(true){
 			query = dataQuery+" LIMIT "+i+", "+lmt
-			console.debug((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+300-1)+
-						'\nQuery: '+query)
+			console.debug((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+300-1))/*+
+						'\nQuery: '+query)*/
 			const queryResult = await zcql.executeZCQLQuery(query)
 			if((queryResult.length == 0)||(typeof queryResult[0] === 'undefined')){
 				if((queryResult.length > 0)&&(typeof queryResult[0] === 'undefined'))
@@ -48,9 +48,11 @@ const getAllRows = (fields,query,zcql,dataLimit) => {
 let zcql = catalystApp.zcql()
 
 let query = "select {} from UsersReport"
+console.info((new Date()).toString()+"|"+prependToLog,"Getting UserReport Data")
 getAllRows("ROWID, Mobile",query,zcql)
 .then((currentReport)=>{
 	query = "select {} from Users"
+	console.info((new Date()).toString()+"|"+prependToLog,"Getting Users Data")
 	getAllRows("Name, Mobile, Consent, RegisteredTime, NudgeTime, Excluded, EnglishProficiency, SourcingChannel, CREATEDTIME",query,zcql)
 	.then(async  (users)=>{
 		const mobiles = users.map(user=>user.Users.Mobile)
@@ -67,7 +69,8 @@ getAllRows("ROWID, Mobile",query,zcql)
                 "where flow = 'inbound' and ((body = 'Chat with Ramya Bot') or (flow_name like 'Probabilistic%')) "+ //and inserted_at >=  (CURRENT_DATE('Asia/Kolkata')- 4) "+
                 "and contact_phone in ('91"+mobiles.join("','91")+"') "+
                 "group by 1"
-        console.info((new Date()).toString()+"|"+prependToLog,`BQ Query: `,query)
+        //console.info((new Date()).toString()+"|"+prependToLog,`BQ Query: `,query)
+		console.info((new Date()).toString()+"|"+prependToLog,"Getting Users Data from BQ")
         var bqUsers = null
         try{  
             // Run the query as a job
@@ -90,6 +93,7 @@ getAllRows("ROWID, Mobile",query,zcql)
 				"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
 				"where ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) and  Mobile in ("+mobiles.join(",")+") "+
 				"order by Sessions.CREATEDTIME desc"
+		console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
 		getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name, Sessions.IsActive",query,zcql)
 		.then((allSessions)=>{
 			const sessions = allSessions.filter(data=>!(data.Sessions.SessionID.endsWith(' - Translation')||data.Sessions.SessionID.endsWith(' - Hints')||data.Sessions.SessionID.endsWith(' - ObjectiveFeedback')))
@@ -98,8 +102,10 @@ getAllRows("ROWID, Mobile",query,zcql)
 					"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
 					"where SystemPrompts.Name = 'Self Introduction' and  Mobile in ("+mobiles.join(",")+") "+
 				"order by Sessions.CREATEDTIME desc"
+			console.info((new Date()).toString()+"|"+prependToLog,"Getting Onboarding Data")
 			getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.EndOfSession",query,zcql)
 			.then((obdSessions)=>{
+				console.info((new Date()).toString()+"|"+prependToLog,"Getting Versions")
 				zcql.executeZCQLQuery("Select Version,StartDate from Versions order by StartDate")
 				.then(async (versionRecords)=>{
 					var versions = []

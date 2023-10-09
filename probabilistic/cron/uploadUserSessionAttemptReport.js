@@ -40,10 +40,10 @@ const getAllRows = (fields, query, zcql, dataLimit) => {
         "Fetching records from " +
           i +
           " to " +
-          (i + 300 - 1) +
+          (i + 300 - 1))/* +
           "\nQuery: " +
           query
-      );
+      );*/
       var queryResult = [];
       try {
         queryResult = await zcql.executeZCQLQuery(query);
@@ -74,6 +74,7 @@ const getAllRows = (fields, query, zcql, dataLimit) => {
 let zcql = catalystApp.zcql();
 
 let query = "select {} from UserSessionAttemptReport"; // where IsActive = true or IsActive is null"
+console.info((new Date()).toString()+"|"+prependToLog,"Getting UserSessionAttemptReport Data")
 getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
   .then((usersAttemptReport) => {
     console.info(
@@ -107,6 +108,7 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
       "Total Closed Sessions = " + closedSessions.length
     );
     query = "select {} from UsersReport";
+    console.info((new Date()).toString()+"|"+prependToLog,"Getting UsersReport Data")
     getAllRows("Name, Mobile, OnboardingDate", query, zcql)
       .then((users) => {
         if (users.length > 0) {
@@ -117,6 +119,7 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
             "left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID " +
             "where ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null) or (SystemPrompts.Name = 'SLF Doubts')) " + //and SessionID not in ('"+closedSessions.join("','")+"') "+
             "order by Sessions.CREATEDTIME ASC";
+          console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")  
           getAllRows(
             "Sessions.IsActive, Sessions.PerformanceReportURL, Sessions.EndOfSession, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.ROWID, SystemPrompts.Name, SystemPrompts.Persona, SystemPrompts.Module, Sessions.Message, Sessions.MessageType, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens",
             query,
@@ -139,6 +142,7 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                 query = "Select {} from SessionFeedback";
                 //"where SessionID in ('"+sessionIDs.join("','")+"') "+
                 //"order by SessionFeedback.CREATEDTIME ASC"
+                console.info((new Date()).toString()+"|"+prependToLog,"Getting Session Feedback Data")
                 getAllRows(
                   "SessionID, Rating, Feedback, FeedbackType, FeedbackURL, GPTRating, GPTFeedback, GPTFeedbackType, GPTFeedbackURL",
                   query,
@@ -188,6 +192,7 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                             }
                           }
                         )
+                        console.info((new Date()).toString()+"|"+prependToLog,"Getting Session Events Data + Serious Mode and Voice Challenge Data")
                         Promise.all([getAllRows("distinct SessionID", query, zcql),runUserFlowQuestionLog])
                           .then(async ([allevents,userFlowQuestionLog]) => {
                             const events = allevents.filter((data) =>
