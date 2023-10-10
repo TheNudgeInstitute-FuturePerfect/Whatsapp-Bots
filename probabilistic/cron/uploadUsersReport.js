@@ -33,8 +33,8 @@ const getAllRows = (fields,query,zcql,dataLimit) => {
 			console.debug((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+300-1))/*+
 						'\nQuery: '+query)*/
 			const queryResult = await zcql.executeZCQLQuery(query)
-			if((queryResult.length == 0)||(typeof queryResult[0] === 'undefined')){
-				if((queryResult.length > 0)&&(typeof queryResult[0] === 'undefined'))
+			if((queryResult.length == 0)||(!Array.isArray(queryResult))){
+				if(!Array.isArray(queryResult))
 					console.error((new Date()).toString()+"|"+prependToLog,"Encountered error in executing query:",queryResult)
 				break;
 			}
@@ -91,20 +91,21 @@ getAllRows("ROWID, Mobile",query,zcql)
 		query = "Select {} "+
 				"from Sessions "+
 				"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
-				"where ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) and  Mobile in ("+mobiles.join(",")+") "+
+				"where ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) "+// and  Mobile in ("+mobiles.join(",")+") "+
 				"order by Sessions.CREATEDTIME desc"
 		console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
 		getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name, Sessions.IsActive",query,zcql)
 		.then((allSessions)=>{
-			const sessions = allSessions.filter(data=>!(data.Sessions.SessionID.endsWith(' - Translation')||data.Sessions.SessionID.endsWith(' - Hints')||data.Sessions.SessionID.endsWith(' - ObjectiveFeedback')))
+			const sessions = allSessions.filter(data=>(!(data.Sessions.SessionID.endsWith(' - Translation')||data.Sessions.SessionID.endsWith(' - Hints')||data.Sessions.SessionID.endsWith(' - ObjectiveFeedback')))&&(mobiles.includes(data.Sessions.Mobile)))
 			query = "Select {} "+
 					"from Sessions "+
 					"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
-					"where SystemPrompts.Name = 'Self Introduction' and  Mobile in ("+mobiles.join(",")+") "+
+					"where SystemPrompts.Name = 'Self Introduction' "+//and  Mobile in ("+mobiles.join(",")+") "+
 				"order by Sessions.CREATEDTIME desc"
 			console.info((new Date()).toString()+"|"+prependToLog,"Getting Onboarding Data")
 			getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.EndOfSession",query,zcql)
-			.then((obdSessions)=>{
+			.then((allObdSessions)=>{
+				const obdSessions = allObdSessions.filter(data=>mobiles.includes(data.Sessions.Mobile))
 				console.info((new Date()).toString()+"|"+prependToLog,"Getting Versions")
 				zcql.executeZCQLQuery("Select Version,StartDate from Versions order by StartDate")
 				.then(async (versionRecords)=>{
