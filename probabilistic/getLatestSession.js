@@ -43,7 +43,7 @@ app.post("/latestsession", (req, res) => {
 		let zcql = catalystApp.zcql()
 		//Build query
 		let query = "select Sessions.IsActive, Sessions.Reply, Sessions.ReplyAudioURL, Sessions.SessionID, Sessions.SystemPromptsROWID, SystemPrompts.Name from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID  where Sessions.Mobile = '"+mobile+"' "+
-					(module != null ? " and SystemPrompts.Module = '"+module+"' ":"")+
+					((module != null)&&(module != 'All') ? " and SystemPrompts.Module = '"+module+"' ":"")+
 					"order by Sessions.CREATEDTIME DESC"
 		//Execute Query
 		zcql.executeZCQLQuery(query)
@@ -62,7 +62,7 @@ app.post("/latestsession", (req, res) => {
 				.catch(err=>console.info((new Date()).toString()+"|"+prependToLog,"Error returned from Glific: ",err))
 			}
 			//Filter Ask Any Doubt Sessions if the module is not present in request
-			const queryResult = module != null ? queryResultAll : queryResultAll.filter(data=>!data.Sessions.SessionID.endsWith("AskAnyDoubt"))
+			const queryResult = ((module == 'All')||(module == null)) ? queryResultAll.filter(data=>!data.Sessions.SessionID.endsWith("AskAnyDoubt")) : queryResultAll
 			if(queryResult==null){//If no data returned
 				responseBody['OperationStatus']='NO_DATA' //Send a non success status
 				responseBody['StatusDescription']='No session data for the user'
