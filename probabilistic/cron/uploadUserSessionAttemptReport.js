@@ -55,15 +55,12 @@ const getAllRows = (fields, query, zcql, dataLimit) => {
         );
       }
 
-      if (queryResult.length == 0 || typeof queryResult[0] === "undefined") {
-        if (queryResult.length > 0 && typeof queryResult[0] === "undefined")
-          console.error(
-            new Date().toString() + "|" + prependToLog,
-            "Encountered error in executing query:",
-            queryResult
-          );
-        break;
-      }
+      if((queryResult.length == 0)||(!Array.isArray(queryResult))){
+				if(!Array.isArray(queryResult))
+					console.error((new Date()).toString()+"|"+prependToLog,"Encountered error in executing query:",queryResult)
+				break;
+			}
+			
       jsonReport = jsonReport.concat(queryResult);
       i = i + 300;
     }
@@ -112,6 +109,7 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
     getAllRows("Name, Mobile, OnboardingDate", query, zcql)
       .then((users) => {
         if (users.length > 0) {
+          console.info((new Date()).toString()+"|"+prependToLog,"UsersReport Records:"+users.length)
           const mobiles = users.map((user) => user.UsersReport.Mobile);
           query =
             "Select {} " +
@@ -126,6 +124,7 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
             zcql
           )
             .then(async (allSessions) => {
+              console.info((new Date()).toString()+"|"+prependToLog,"Session Records:"+allSessions.length)
               const sessions = allSessions.filter(
                 (data) =>
                   !(
