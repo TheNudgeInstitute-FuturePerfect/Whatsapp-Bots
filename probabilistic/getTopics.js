@@ -116,7 +116,7 @@ app.post("/topiclist", (req, res) => {
     .then((promptsResult) => {
       const allPrompts = JSON.parse(promptsResult);
       if (allPrompts["OperationStatus"] == "SUCCESS") {
-        var promptNames = allPrompts["Prompts"].filter(data=>data.Module==module).map((data) => data.Name);
+        var promptNames = allPrompts["Prompts"].filter(data=>module == 'All' ? true : (data.Module==module)).map((data) => data.Name);
         promptNames = promptNames.filter(unique);
         for (var i = nextStartIndex; i < promptNames.length; i++) {
           responseJSON["Topic" + (i - nextStartIndex + 1)] = promptNames[i];
