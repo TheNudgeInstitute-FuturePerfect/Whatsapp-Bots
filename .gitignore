@@ -50,3 +50,6 @@ Thumbs.db
 
 .vscode/launch.json
 test.js
+
+.env.uat
+.env.prod
