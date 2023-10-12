@@ -2,7 +2,7 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
 let userTopicSubscriptionMapper = require("./models/userTopicSubscriptionMapper.js")
 const SystemPrompts = require("./models/SystemPrompts.js");
@@ -178,7 +178,7 @@ app.post("/allocatetopic", (req, res) => {
 	}
 	*/
 
-  //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+  ////let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
   const executionID = Math.random().toString(36).slice(2)
     
@@ -221,7 +221,7 @@ app.post("/allocatetopic", (req, res) => {
   //   .executeZCQLQuery(query)
   SystemPrompts.find(filterParams)
     .then((systemPrompts) => {
-      console.log("+++++++++++++",systemPrompts);
+      console.info((new Date()).toString()+"|"+prependToLog,"+++++++++++++",systemPrompts);
       if (!(systemPrompts != null && systemPrompts.length > 0)) {
         responseObject["OperationStatus"] = "NO_DATA";
         responseObject["StatusDescription"] =
@@ -373,7 +373,7 @@ app.post("/allocatetopic", (req, res) => {
 
         }
 
-        checkLockStatusForUser(systemPrompts[0]["IsPaid"],mobile,systemPrompts[0]["ROWID"])
+        checkLockStatusForUser(systemPrompts[0]["IsPaid"],mobile,systemPrompts[0]["id"])
         .then((lockStatus)=>{
           if(lockStatus=='Locked'){
             responseObject["OperationStatus"] = "TPC_LOCKED";
@@ -625,8 +625,8 @@ app.post("/topicpersonas", (req, res) => {
           allPrompts != null &&
           allPrompts.length > 0
         ) {
-          let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
-          let zcql = catalystApp.zcql()
+          //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+          //let zcql = catalystApp.zcql()
           for (var i = nextStartIndex; i < allPrompts.length; i++) {
             if(allPrompts[i]["IsPaid"]!=true)
               responseJSON["Persona" + (i - nextStartIndex + 1)] = allPrompts[i]["Persona"]
@@ -742,7 +742,7 @@ app.post("/topicpersonas", (req, res) => {
 
 app.post("/unlocktopic", (req, res) => {
   
-  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+  //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
   const executionID = Math.random().toString(36).slice(2)
     
@@ -831,7 +831,7 @@ app.post("/unlocktopic", (req, res) => {
           }
 
         }
-        let table = catalystApp.datastore().table("UserPaidTopicMapper")
+        //let table = catalystApp.datastore().table("UserPaidTopicMapper")
         if(getCurrentPaymentRecords.length==0){
           table.insertRow(record)
           .then((row)=>{

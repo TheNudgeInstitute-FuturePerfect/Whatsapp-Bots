@@ -1,5 +1,5 @@
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const SystemPrompts = require('.././models/SystemPrompts.js');
 
 module.exports = async (basicIO) => {
@@ -14,7 +14,7 @@ module.exports = async (basicIO) => {
 	}
 	*/
 
-	const catalystApp = catalyst.initialize();
+	//const catalystApp = catalyst.initialize();
 
 	const executionID = Math.random().toString(36).slice(2)
 
@@ -60,7 +60,7 @@ module.exports = async (basicIO) => {
 	}
 
 	try{
-		console.log("---------------",filterParams);
+		console.info((new Date()).toString()+"|"+prependToLog,"---------------",filterParams);
         const queryOutput = await SystemPrompts.find(filterParams)
 		  .select('Game Module LearningObjective _id Name Content IsActive SupportingText SupportingAVURL SupportingImageURL Sequence Persona ObjectiveMessage Type ShowLearningContent IsPaid')
 		  .sort({ CREATEDTIME: 1 });

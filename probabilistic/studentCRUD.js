@@ -60,6 +60,7 @@ app.post("/create", (req, res) => {
     OnboardingComplete: false,
     OnboardingStep: 1,
     Excluded: false,
+    GoalInMinutes: null
   })
   //insertPromise
     .then((row) => {
@@ -97,7 +98,7 @@ app.post("/update", async (req, res) => {
   const mobile = requestBody["Mobile"].toString().slice(-10);
   console.info((new Date()).toString()+"|"+prependToLog,"User Mobile Number: " + mobile);
   //Get the Consent Status: Yes/No
-  var updateFields = [];
+  var updateFields = {}//[];
   var requestOK = true;
   var errorDescription = "";
   //Consent
@@ -106,14 +107,14 @@ app.post("/update", async (req, res) => {
   //console.info((new Date()).toString()+"|"+prependToLog,requestBody["contact"]["fields"]["consent"]["value"].length)
   if (typeof requestBody["Consent"] !== "undefined") {
     if (requestBody["Consent"].length > 0) {
-      updateFields.push("Consent=" + requestBody["Consent"]);
+      updateFields["Consent"]  = requestBody["Consent"];
     }
   }
 
   //Name
   if (typeof requestBody["Name"] !== "undefined")
     if (requestBody["Name"].length > 0)
-      updateFields.push("Name='" + encodeURI(requestBody["Name"]) + "'");
+      updateFields["Name"] = encodeURI(requestBody["Name"])
     else {
       requestOK = false;
       errorDescription += "name is empty. ";
@@ -122,7 +123,7 @@ app.post("/update", async (req, res) => {
   //Age
   if (typeof requestBody["Age"] !== "undefined")
     if (requestBody["Age"].length > 0)
-      updateFields.push("Age=" + requestBody["Age"] + "");
+      updateFields["Age"]  = requestBody["Age"]
     else {
       requestOK = false;
       errorDescription += "age is empty. ";
@@ -130,7 +131,7 @@ app.post("/update", async (req, res) => {
   //Gender
   if (typeof requestBody["Gender"] !== "undefined")
     if (requestBody["Gender"].length > 0)
-      updateFields.push("Gender='" + requestBody["Gender"] + "'");
+      updateFields["Gender"] = requestBody["Gender"]
     else {
       requestOK = false;
       errorDescription += "gender is empty. ";
@@ -141,7 +142,7 @@ app.post("/update", async (req, res) => {
       requestBody["Language"].length > 0 &&
       requestBody["Language"].indexOf("@result") == -1
     )
-      updateFields.push("Language='" + requestBody["Language"] + "'");
+      updateFields["Language"] = requestBody["Language"]
     else {
       requestOK = false;
       errorDescription +=
@@ -151,7 +152,7 @@ app.post("/update", async (req, res) => {
   //Nudge Time
   if (typeof requestBody["NudgeTime"] !== "undefined")
     if (requestBody["NudgeTime"].length > 0)
-      updateFields.push("NudgeTime='" + requestBody["NudgeTime"] + "'");
+      updateFields["NudgeTime"] = requestBody["NudgeTime"]
     else {
       requestOK = false;
       errorDescription += "NudgeTime is empty. ";
@@ -160,7 +161,7 @@ app.post("/update", async (req, res) => {
   //Goal
   if (typeof requestBody["GoalInMinutes"] !== "undefined")
     if (isNaN(parseInt(requestBody["GoalInMinutes"]))==false)
-      updateFields.push("GoalInMinutes=" + parseInt(requestBody["GoalInMinutes"]));
+      updateFields["GoalInMinutes"]  = parseInt(requestBody["GoalInMinutes"])
     else {
       requestOK = false;
       errorDescription += "GoalInMinutes must be a number. ";
@@ -169,7 +170,7 @@ app.post("/update", async (req, res) => {
   //Unsubscribed/Re-Subscribed
   if (typeof requestBody["IsActive"] !== "undefined")
     if (typeof requestBody["IsActive"] === "boolean")
-      updateFields.push("IsActive=" + requestBody["IsActive"]);
+      updateFields["IsActive"]  = requestBody["IsActive"]
     else {
       requestOK = false;
       errorDescription += "isactive is not a boolean value. ";
@@ -178,7 +179,7 @@ app.post("/update", async (req, res) => {
   //Excluded
   if (typeof requestBody["Excluded"] !== "undefined")
     if (typeof requestBody["Excluded"] === "boolean")
-      updateFields.push("Excluded=" + requestBody["Excluded"]);
+      updateFields["Excluded"]  = requestBody["Excluded"]
     else {
       requestOK = false;
       errorDescription += "Excluded is not a boolean value. ";
@@ -186,7 +187,7 @@ app.post("/update", async (req, res) => {
 
   if (typeof requestBody["GlificID"] !== "undefined")
     if (!isNaN(parseInt(requestBody["GlificID"])))
-      updateFields.push("GlificID=" + requestBody["GlificID"]);
+      updateFields["GlificID"]  = requestBody["GlificID"]
     else {
       requestOK = false;
       errorDescription += "GlificID is not a number. ";
@@ -195,7 +196,7 @@ app.post("/update", async (req, res) => {
   //EnglishProficiency
   if (typeof requestBody["EnglishProficiency"] !== "undefined")
     if (requestBody["EnglishProficiency"] == null) {
-      updateFields.push("EnglishProficiency=null");
+      updateFields["EnglishProficiency"]=null
     } 
     else if (requestBody["EnglishProficiency"].length > 0)
       if (
@@ -203,9 +204,7 @@ app.post("/update", async (req, res) => {
           requestBody["EnglishProficiency"]
         )
       )
-        updateFields.push(
-          "EnglishProficiency='" + requestBody["EnglishProficiency"] + "'"
-        );
+        updateFields["EnglishProficiency"] = requestBody["EnglishProficiency"]
       else if(!requestBody["EnglishProficiency"].startsWith("@result")){
         requestOK = false;
         errorDescription +=
@@ -223,10 +222,8 @@ app.post("/update", async (req, res) => {
         errorDescription +=
           "OnboardingStep is required along with OnboardingComplete status.";
       } else {
-        updateFields.push(
-          "OnboardingComplete=" + requestBody["OnboardingComplete"]
-        );
-        updateFields.push("OnboardingStep=" + requestBody["OnboardingStep"]);
+        updateFields["OnboardingComplete"]  = requestBody["OnboardingComplete"]
+        updateFields["OnboardingStep"]  = requestBody["OnboardingStep"]
       }
     } else {
       requestOK = false;
@@ -237,7 +234,7 @@ app.post("/update", async (req, res) => {
   //Update SourcingChannel
   if (typeof requestBody["SourcingChannel"] !== "undefined")
     if (requestBody["SourcingChannel"].length > 0)
-      updateFields.push("SourcingChannel='" + requestBody["SourcingChannel"] + "'");
+      updateFields["SourcingChannel"] = requestBody["SourcingChannel"]
     else {
       requestOK = false;
       errorDescription += "SourcingChannel is empty. ";
@@ -261,7 +258,7 @@ app.post("/update", async (req, res) => {
           ("0" + currentDate.getMinutes()).slice(-2) +
           ":" +
           ("0" + currentDate.getSeconds()).slice(-2);
-        updateFields.push("RegisteredTime='" + regDate + "'");
+        updateFields["RegisteredTime"] = regDate
       }
     }
     else {
@@ -272,7 +269,7 @@ app.post("/update", async (req, res) => {
 
 
   //Final fields to update
-  console.info((new Date()).toString()+"|"+prependToLog,"Final fields to update: " + updateFields.join(","));
+  console.info((new Date()).toString()+"|"+prependToLog,"Final fields to update: " + updateFields);
   if (requestOK == false) {
     console.info((new Date()).toString()+"|"+prependToLog,"Issue with request: ", errorDescription);
     responseJSON["ErrorDescription"] = errorDescription;
