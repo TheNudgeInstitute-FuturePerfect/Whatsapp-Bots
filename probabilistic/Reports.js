@@ -2,7 +2,7 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const emojiRegex = require('emoji-regex');
 const userFlowQuestionLogs = require("./models/userFlowQuestionLogs");
 const flowQuestions = require("./models/flowQuestions");
@@ -38,13 +38,13 @@ const getAllRows = (fields,query,zcql,dataLimit) => {
 		var i = 1
 		while(true){
 			query = dataQuery+" LIMIT "+i+", "+lmt
-			console.log('Fetching records from '+i+" to "+(i+300-1))/*+
+			console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+300-1))/*+
 						'\nQuery: '+query)*/
 			const queryResult = await zcql.executeZCQLQuery(query)
 			console.log(queryResult.length)
 			if((queryResult.length == 0)||(!Array.isArray(queryResult))){
 				if(!Array.isArray(queryResult))
-					console.log("Error in query - ",queryResult)
+					console.info((new Date()).toString()+"|"+prependToLog,"Error in query - ",queryResult)
 				break;
 			}
 			jsonReport = jsonReport.concat(queryResult)					
@@ -56,9 +56,9 @@ const getAllRows = (fields,query,zcql,dataLimit) => {
 
 
 app.get("/migration",(req,res)=>{
-	    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+	    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
-		let zcql = catalystApp.zcql()
+		//let zcql = catalystApp.zcql()
 
 	const dataLimit = req.query.limit ? req.query.limit : null
 
@@ -84,7 +84,7 @@ app.get("/migration",(req,res)=>{
 
 app.get("/userreport", (req, res) => {
 
-    // let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    // //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const executionID = Math.random().toString(36).slice(2)
     
@@ -115,7 +115,7 @@ app.get("/userreport", (req, res) => {
 		}
 	  })
 	.then((reportData)=>{
-		console.log("++++++++++++++++++++",reportData)
+		console.info((new Date()).toString()+"|"+prependToLog,"++++++++++++++++++++",reportData)
 		const report = reportData.map(data=>{
 			return {
 				//Name:data.UsersReport.Name == null ? "" : data.UsersReport.Name.toString(),
@@ -321,7 +321,7 @@ app.get("/userreport", (req, res) => {
 
 app.get("/useronboardingreport", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const executionID = Math.random().toString(36).slice(2)
     
@@ -339,7 +339,7 @@ app.get("/useronboardingreport", (req, res) => {
 	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
 	const dataLimit = req.query.limit ? req.query.limit : null
 
-	let zcql = catalystApp.zcql()
+	//let zcql = catalystApp.zcql()
 		
 	// let query = "Select {} from UserData"
 	
@@ -493,7 +493,7 @@ app.get("/useronboardingreport", (req, res) => {
 
 app.get("/usertopicreport", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const executionID = Math.random().toString(36).slice(2)
     
@@ -503,7 +503,7 @@ app.get("/usertopicreport", (req, res) => {
     
     console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
 	
-	let zcql = catalystApp.zcql()
+	//let zcql = catalystApp.zcql()
 
 	const startDate = req.query.startDate ? req.query.startDate : (req.query.date ? req.query.date : '1970-01-01')
 	var today = new Date()
@@ -623,7 +623,7 @@ app.get("/usertopicreport", (req, res) => {
 										const sessionWCs = personaSessionData.map(record=>record.Sessions.SessionID == data ? record.Sessions.TotalWords:0)
 										return sessionWCs.reduce((a,b)=>a+b,0)
 									})
-									console.log("topicWC",topicWC)
+									console.info((new Date()).toString()+"|"+prependToLog,"topicWC",topicWC)
 									userReport['MinWordCount']=Math.min(...topicWC).toString()
 									userReport['MaxWordCount']=Math.max(...topicWC).toString()	
 
@@ -633,9 +633,9 @@ app.get("/usertopicreport", (req, res) => {
 
 									const latestSessionData = personaSessionData.filter(data=>data.Sessions.CREATEDTIME == lastActiveDate)
 									const latestSessionID = latestSessionData[0]['Sessions']['SessionID']								
-									console.log("Latest Session ID: ",latestSessionID)
+									console.info((new Date()).toString()+"|"+prependToLog,"Latest Session ID: ",latestSessionID)
 									const latestSessionIDWCs = personaSessionData.map(data=>data.Sessions.SessionID == latestSessionID ? data.Sessions.TotalWords:0)
-									console.log("latestSessionIDWCs:",latestSessionIDWCs)
+									console.info((new Date()).toString()+"|"+prependToLog,"latestSessionIDWCs:",latestSessionIDWCs)
 									userReport['LastAttemptWordCount'] = latestSessionIDWCs.reduce((a,b)=>a+b,0).toString()											
 
 									report.push(userReport)
@@ -692,7 +692,7 @@ app.get("/usertopicreport", (req, res) => {
 
 app.get("/usertopicattemptreport", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const executionID = Math.random().toString(36).slice(2)
     
@@ -703,7 +703,7 @@ app.get("/usertopicattemptreport", (req, res) => {
     console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
 
 
-	let zcql = catalystApp.zcql()
+	//let zcql = catalystApp.zcql()
 
 	const startDate = req.query.startDate ? req.query.startDate : (req.query.date ? req.query.date : '1970-01-01')
 	var today = new Date()
@@ -950,7 +950,7 @@ app.get("/usertopicattemptreport", (req, res) => {
 					});
 				}
 				else{
-					console.log("No session found")
+					console.info((new Date()).toString()+"|"+prependToLog,"No session found")
 					const report = users.map(user=>{
 						return {
 							Mobile:user.Users.Mobile,
@@ -985,7 +985,7 @@ app.get("/usertopicattemptreport", (req, res) => {
 			});
 		}
 		else{
-			console.log("No user found")
+			console.info((new Date()).toString()+"|"+prependToLog,"No user found")
 			res.status(200).json([{
 				Mobile:'',
 				Topic:"",
@@ -1019,7 +1019,7 @@ app.get("/usertopicattemptreport", (req, res) => {
 
 app.get("/userobdtopicattemptreport", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const executionID = Math.random().toString(36).slice(2)
     
@@ -1029,7 +1029,7 @@ app.get("/userobdtopicattemptreport", (req, res) => {
     
     console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
 
-	let zcql = catalystApp.zcql()
+	//let zcql = catalystApp.zcql()
 
 	const startDate = req.query.startDate ? req.query.startDate : (req.query.date ? req.query.date : '1970-01-01')
 	var today = new Date()
@@ -1090,7 +1090,7 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 				.select(projection)
 				.sort(sortOrder)  
 			.then((allSessions)=>{
-				console.log("..............+++++++",allSessions)
+				console.info((new Date()).toString()+"|"+prependToLog,"..............+++++++",allSessions)
 				const sessions = allSessions.filter(data=>!(data.SessionID.endsWith(' - Translation')||data.SessionID.endsWith(' - Hints')||data.SessionID.endsWith(' - ObjectiveFeedback')))
 				if(sessions.length>0){
 					const sessionIDs = sessions.map(session=>session.SessionID)
@@ -1387,7 +1387,7 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 
 app.get("/usertopicmsgs", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const executionID = Math.random().toString(36).slice(2)
     
@@ -1397,7 +1397,7 @@ app.get("/usertopicmsgs", (req, res) => {
     
     console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
 
-	let zcql = catalystApp.zcql()
+	//let zcql = catalystApp.zcql()
 
 	const startDate = req.query.startDate ? req.query.startDate : '1970-01-01'
 	var today = new Date()
@@ -1434,7 +1434,7 @@ Session.find({
   .select('IsActive MessageType Classification Improvement UserFeedback Mobile SessionID CREATEDTIME SystemPromptsROWID SystemPrompts.Name Sessions.Message MessageAudioURL Sessions.Reply ReplyAudioURL Sessions.PerformanceReportURL Sessions.SentenceLevelFeedback Sessions.CompletionTokens Sessions.PromptTokens Sessions.SLFCompletionTokens Sessions.SLFPromptTokens')
   .sort({ 'Sessions.SessionID': 1, 'Sessions.CREATEDTIME': 1 })
 	.then((allSessions)=>{
-		console.log("_______________",allSessions);
+		console.info((new Date()).toString()+"|"+prependToLog,"_______________",allSessions);
 		const sessions = allSessions.filter(data=>!(data.SessionID.endsWith(' - Translation')||data.SessionID.endsWith(' - Hints')||data.SessionID.endsWith(' - ObjectiveFeedback')))
 		if(sessions.length>0){
 			var report = sessions.map(data=>{
@@ -1542,7 +1542,7 @@ Session.find({
 
 app.get("/sessionevents", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const executionID = Math.random().toString(36).slice(2)
     
@@ -1552,7 +1552,7 @@ app.get("/sessionevents", (req, res) => {
     
     console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
 
-	let zcql = catalystApp.zcql()
+	//let zcql = catalystApp.zcql()
 	const startDate = req.query.startDate ? req.query.startDate : (req.query.date ? req.query.date : '1970-01-01')
 	var today = new Date()
 	today.setHours(today.getHours()+5)
@@ -1577,7 +1577,7 @@ app.get("/sessionevents", (req, res) => {
 		.select('Mobile SessionID Event CREATEDTIME')
 		.sort('CREATEDTIME')
 		.then((sessions)=>{
-			    console.log("++++++++++++++++",sessions);
+			    console.info((new Date()).toString()+"|"+prependToLog,"++++++++++++++++",sessions);
 				var eventData = sessions.filter(data=> event == null ? true : event.includes(data.Event))
 				var report = eventData.map(data=>{
 					return {
@@ -1601,7 +1601,7 @@ app.get("/sessionevents", (req, res) => {
 
 app.get("/sessionhints", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 	const executionID = Math.random().toString(36).slice(2)
     
     //Prepare text to prepend with logs
@@ -1610,7 +1610,7 @@ app.get("/sessionhints", (req, res) => {
     
     console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
 
-	let zcql = catalystApp.zcql()
+	//let zcql = catalystApp.zcql()
 
     const startDate = req.query.startDate ? req.query.startDate : (req.query.date ? req.query.date : '1970-01-01')
 	var today = new Date()
@@ -1628,7 +1628,7 @@ app.get("/sessionhints", (req, res) => {
 		}
 	  })
 	.then((maxRowsResult) => {
-		console.log("++++++........... ",maxRowsResult);
+		console.info((new Date()).toString()+"|"+prependToLog,"++++++........... ",maxRowsResult);
 
 		let maxRows = maxRowsResult
 		console.info((new Date()).toString()+"|"+prependToLog,'Total Rows: '+maxRows)
@@ -1758,7 +1758,7 @@ app.get("/sessionhints", (req, res) => {
 
 app.get("/sessiontranslations", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const executionID = Math.random().toString(36).slice(2)
     
@@ -1768,7 +1768,7 @@ app.get("/sessiontranslations", (req, res) => {
     
     console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
 
-	let zcql = catalystApp.zcql()
+	//let zcql = catalystApp.zcql()
 
 	const startDate = req.query.startDate ? req.query.startDate : (req.query.date ? req.query.date : '1970-01-01')
 	var today = new Date()
@@ -1786,7 +1786,7 @@ app.get("/sessiontranslations", (req, res) => {
 		}
 	  })
 	.then((maxRowsResult) => {
-		console.log("...........",maxRowsResult);
+		console.info((new Date()).toString()+"|"+prependToLog,"...........",maxRowsResult);
 		let maxRows = maxRowsResult
 		console.info((new Date()).toString()+"|"+prependToLog,'Total Rows: '+maxRows)
 		if(maxRows>0)
@@ -1897,7 +1897,7 @@ app.get("/sessiontranslations", (req, res) => {
 
 app.get("/sessiontecherrors", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const executionID = Math.random().toString(36).slice(2)
     
@@ -1907,7 +1907,7 @@ app.get("/sessiontecherrors", (req, res) => {
     
     console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
 	
-	let zcql = catalystApp.zcql()
+	//let zcql = catalystApp.zcql()
 
 	const dataLimit = req.query.limit ? req.query.limit : null
 
@@ -1943,7 +1943,7 @@ Session.aggregate([
 	}
   ])
 	.then((maxRowsResult) => {
-		console.log("+++++++++++...............",maxRowsResult);
+		console.info((new Date()).toString()+"|"+prependToLog,"+++++++++++...............",maxRowsResult);
 		let maxRows = parseInt(maxRowsResult[0].rowCount)
 		console.info((new Date()).toString()+"|"+prependToLog,'Total Rows: '+maxRows)
 		if(maxRows>0)
@@ -1979,7 +1979,7 @@ Session.aggregate([
 			})
 			.sort('Mobile SessionID CreatedTime')
 			.then((sessions)=>{
-				console.log("-------------------.........",sessions);
+				console.info((new Date()).toString()+"|"+prependToLog,"-------------------.........",sessions);
 				var report = sessions.map((data,index)=>{
 					if(data.Reply == null){
 						var returnObject = {}
@@ -2054,7 +2054,7 @@ Session.aggregate([
 
 app.get("/sessionabandoned", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const executionID = Math.random().toString(36).slice(2)
     
@@ -2064,7 +2064,7 @@ app.get("/sessionabandoned", (req, res) => {
     
     console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
 
-	let zcql = catalystApp.zcql()
+	//let zcql = catalystApp.zcql()
 	const dataLimit = req.query.limit ? req.query.limit : null
 
 	// let query = "Select {} from Sessions order by Mobile, SessionID, Sessions.CREATEDTIME ASC"
@@ -2183,7 +2183,7 @@ app.get("/sessionabandoned", (req, res) => {
 
 app.get("/wordleattempts", (req, res) => {
 
-	let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+	//let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
   
   const executionID = Math.random().toString(36).slice(2)
 	
@@ -2193,7 +2193,7 @@ app.get("/wordleattempts", (req, res) => {
 	
 	console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
   
-  let zcql = catalystApp.zcql()
+  //let zcql = catalystApp.zcql()
   
   const mobile = req.query.mobile ? req.query.mobile.slice(-10) : null
   const startDate = req.query.startDate ? req.query.startDate : '1970-01-01'
@@ -2413,7 +2413,7 @@ app.get("/wordleattempts", (req, res) => {
 
 app.get("/cfuattempts", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const executionID = Math.random().toString(36).slice(2)
     
@@ -2423,7 +2423,7 @@ app.get("/cfuattempts", (req, res) => {
     
     console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
 
-	let zcql = catalystApp.zcql()
+	//let zcql = catalystApp.zcql()
 
 	const startDate = req.query.startDate ? req.query.startDate : '1970-01-01'
 	var today = new Date()
@@ -2543,11 +2543,11 @@ User.aggregate([
 ])
   .exec()
 	.then((cfuAttempts)=>{
-		console.log("++++++++++++++++",cfuAttempts)
+		console.info((new Date()).toString()+"|"+prependToLog,"++++++++++++++++",cfuAttempts)
 		if(!Array.isArray(cfuAttempts))
 			throw new Error(cfuAttempts)
 		else if(cfuAttempts.length>0){
-			console.log("++++++++++++++++",cfuAttempts)
+			console.info((new Date()).toString()+"|"+prependToLog,"++++++++++++++++",cfuAttempts)
 			var report = cfuAttempts.map(record=>{
 				return {
 					Mobile:record.Users.Mobile,
@@ -2613,7 +2613,7 @@ User.aggregate([
 
 app.get("/sessionfeedbacks", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const executionID = Math.random().toString(36).slice(2)
     
@@ -2623,7 +2623,7 @@ app.get("/sessionfeedbacks", (req, res) => {
     
     console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
 
-	let zcql = catalystApp.zcql()
+	//let zcql = catalystApp.zcql()
 	const startDate = req.query.startDate ? req.query.startDate : (req.query.date ? req.query.date : '1970-01-01')
 	var today = new Date()
 	today.setHours(today.getHours()+5)
@@ -2768,7 +2768,7 @@ app.get("/sessionfeedbacks", (req, res) => {
 
 app.get("/userlifecycle", (req, res) => {
 
-	const catalystApp = catalyst.initialize();
+	//const catalystApp = catalyst.initialize();
 
     const executionID = Math.random().toString(36).slice(2)
     
