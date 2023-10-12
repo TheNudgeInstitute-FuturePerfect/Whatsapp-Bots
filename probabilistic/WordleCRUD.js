@@ -2,7 +2,7 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
 const WordleConfiguration = require("./models/WordleConfiguration.js");
 const mongoose = require('mongoose');
@@ -124,7 +124,7 @@ app.post("/", (req, res) => {
 
 app.get("/", (req, res) => {
   let startTimeStamp = new Date();
-  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+  //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
   
   const requestBody = req.body;
 
@@ -173,11 +173,14 @@ app.get("/", (req, res) => {
     let filterParams = {};
     if(typeof wordleDate !== 'undefined'){
       //whereConditions.push("WordleDate='"+wordleDate+"'")
-      filterParams.WordleDate = wordleDate;
+      filterParams.WordleDate = {
+        $gte:wordleDate.slice(0,10)+" 00:00:00",
+        $lte:wordleDate.slice(0,10)+" 23:59:59"
+      }
     }    
     if(typeof word !== 'undefined'){
       //whereConditions.push("Word='"+wordleDate+"'")
-      filterParams.Word = wordleDate;
+      filterParams.Word = word;
     }
     if(typeof recommendedTopic !== 'undefined'){
       //whereConditions.push("RecommendedTopic='"+recommendedTopic+"'")
@@ -193,7 +196,7 @@ app.get("/", (req, res) => {
     // zcql.executeZCQLQuery(query)
     WordleConfiguration.find(filterParams)
     .then((wordle)=>{
-      console.log("++++++++++",wordle);
+      console.info((new Date()).toString()+"|"+prependToLog,"++++++++++",wordle);
       if(wordle.length==0){
         responseObject['OperationStatus'] = "APP_ERR"
         responseObject['StatusDescription'] = "No record satisfying the given condition"
@@ -227,7 +230,7 @@ app.get("/", (req, res) => {
 
 app.patch("/", (req, res) => {
   let startTimeStamp = new Date();
-  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+  //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
   
   const requestBody = req.body;
 
@@ -315,7 +318,7 @@ app.patch("/", (req, res) => {
 
 app.delete("/*", (req, res) => {
   let startTimeStamp = new Date();
- // let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+ // //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
   
   const requestBody = req.body;
 

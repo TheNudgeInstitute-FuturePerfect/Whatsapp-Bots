@@ -2,7 +2,7 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
 const WordleAttempts = require("./models/WordleAttempts.js");
 const User = require("./models/Users.js");
@@ -42,7 +42,7 @@ const checkType = (keyTypePair, obj) => {
 
 }
 
-app.post("/userstatus", (req, res) => {
+app.post("/userstatus", async (req, res) => {
     let startTimeStamp = new Date();
 
     const requestBody = req.body;
@@ -90,38 +90,38 @@ app.post("/userstatus", (req, res) => {
 
         User.aggregate([
             {
-              $match: { Mobile: mobileSuffix },
+                $match: { Mobile: parseInt(mobileSuffix) },
             },
             {
-              $lookup: {
-                from: 'WordleAttempts', // Replace with the actual name of the WordleAttempts collection
-                localField: '_id',
-                foreignField: 'UserROWID',
-                as: 'WordleAttempts',
-              },
+                $lookup: {
+                    from: 'wordleattempts', // Replace with the actual name of the WordleAttempts collection
+                    localField: '_id',
+                    foreignField: 'UserROWID',
+                    as: 'WordleAttempts',
+                },
             },
             {
-              $unwind: {
-                path: '$WordleAttempts',
-                preserveNullAndEmptyArrays: true,
-              },
+                $unwind: {
+                    path: '$WordleAttempts',
+                    preserveNullAndEmptyArrays: true,
+                },
             },
             {
-              $project: {
-                '_id': 1,
-                'WordleLevel': 1,
-                'WordleAttempts._id': 1,
-                'WordleAttempts.WordleROWID': 1,
-                'WordleAttempts.Answer': 1,
-                'WordleAttempts.IsCorrect': 1,
-              },
+                $project: {
+                    '_id': 1,
+                    'WordleLevel': 1,
+                    'WordleAttempts._id': 1,
+                    'WordleAttempts.WordleROWID': 1,
+                    'WordleAttempts.Answer': 1,
+                    'WordleAttempts.IsCorrect': 1,
+                },
             },
             {
-              $sort: {
-                'WordleAttempts.CREATEDTIME': 1,
-              },
+                $sort: {
+                    'WordleAttempts.CREATEDTIME': 1,
+                },
             },
-          ])
+        ])
         .then(async (allWordleAttempts)=>{
             console.debug((new Date()).toString()+"|"+prependToLog,"QueryResult=",allWordleAttempts)
             if(allWordleAttempts.length==0){
@@ -139,7 +139,7 @@ app.post("/userstatus", (req, res) => {
                 res.status(200).json(responseObject)
             }
             else{
-                var userWordleLevel = allWordleAttempts[0]['Users']['WordleLevel']
+                var userWordleLevel = allWordleAttempts[0]['WordleLevel']
                 if(userWordleLevel==null){
                     console.info((new Date()).toString()+"|"+prependToLog,"Determining User's Wordle Level")   
                     const wordles = allWordleAttempts.map(data=>data.WordleAttempts.WordleROWID).filter(unique)
@@ -175,8 +175,14 @@ app.post("/userstatus", (req, res) => {
                 console.debug((new Date()).toString()+"|"+prependToLog,"User's Wordle Level="+userWordleLevel)
                 // query = "Select * from WordleConfiguration where WordleDate = '"+wordleDate+"' and EnglishLevel = '"+userWordleLevel+"'"
                 // zcql.executeZCQLQuery(query)
-                WordleConfiguration.find(
-                    { WordleDate: wordleDate, EnglishLevel: userWordleLevel })
+                const filter  = { 
+                    WordleDate: {
+                        $gte: wordleDate + " 00:00:00",
+                        $lte: wordleDate + " 23:59:59"
+                    }, 
+                    EnglishLevel: userWordleLevel 
+                }
+                WordleConfiguration.find(filter)
                 .then((wordleofday)=>{
                     console.debug((new Date()).toString()+"|"+prependToLog,"WordleOfDay=",wordleofday)
                     if(wordleofday.includes("ZCQL QUERY ERR")){
@@ -188,37 +194,37 @@ app.post("/userstatus", (req, res) => {
                     }
                     else if(wordleofday.length>0){
                         console.info((new Date()).toString()+"|"+prependToLog,"Got wordle of day")
-                        responseObject['Word'] = wordleofday[0]['WordleConfiguration']['Word']
-                        responseObject['Translation'] = wordleofday[0]['WordleConfiguration']['WordTranslation']
-                        responseObject['Definition'] = wordleofday[0]['WordleConfiguration']['Definition']
-                        responseObject['Example'] = wordleofday[0]['WordleConfiguration']['Example']
-                        responseObject['RecommendedTopic'] = wordleofday[0]['WordleConfiguration']['RecommendedTopic']
-                        responseObject['WordleID'] = wordleofday[0]['WordleConfiguration']['ROWID']
+                        responseObject['Word'] = wordleofday[0]['Word']
+                        responseObject['Translation'] = wordleofday[0]['WordTranslation']
+                        responseObject['Definition'] = wordleofday[0]['Definition']
+                        responseObject['Example'] = wordleofday[0]['Example']
+                        responseObject['RecommendedTopic'] = wordleofday[0]['RecommendedTopic']
+                        responseObject['WordleID'] = wordleofday[0]['ROWID']
                         
-                        const wordleAttempts = allWordleAttempts.filter(data=>data.WordleAttempts.WordleROWID == wordleofday[0]['WordleConfiguration']['ROWID'])
+                        const wordleAttempts = allWordleAttempts.filter(data=>data.WordleAttempts.WordleROWID == wordleofday[0]['ROWID'])
                         
                         const totalAttempts = wordleAttempts.length
-                        console.info((new Date()).toString()+"|"+prependToLog,"Total Attempts="+totalAttempts+" | Max Attempts="+wordleofday[0]['WordleConfiguration']['MaxAttempts'])
+                        console.info((new Date()).toString()+"|"+prependToLog,"Total Attempts="+totalAttempts+" | Max Attempts="+wordleofday[0]['MaxAttempts'])
                         if(wordleAttempts.some(data=>data.WordleAttempts.IsCorrect==true)){
                             responseObject['OperationStatus'] = "ANSWRD_CRRCT"
                             responseObject['StatusDescription'] = "Wordle answered correctly by user"
                         }
-                        else if(totalAttempts >= wordleofday[0]['WordleConfiguration']['MaxAttempts']){
+                        else if(totalAttempts >= wordleofday[0]['MaxAttempts']){
                             responseObject['OperationStatus'] = "MAX_ATTMPTS_RCHD"
                             responseObject['StatusDescription'] = "Max Attempts Reached by User"
                         }
                         else{
-                            responseObject['PendingAttempts'] = wordleofday[0]['WordleConfiguration']['MaxAttempts'] - totalAttempts
+                            responseObject['PendingAttempts'] = wordleofday[0]['MaxAttempts'] - totalAttempts
                             var hints = []
                             var index = 1;
                             for(var i=0; i<wordleAttempts.length; i++){
                                 var hintText = ''
                                 var noMatch = true
-                                for(var j=0; j<wordleofday[0]['WordleConfiguration']['Word'].length; j++){
+                                for(var j=0; j<wordleofday[0]['Word'].length; j++){
                                     if(typeof wordleAttempts[i]['WordleAttempts']['Answer'][j]==='undefined')
                                         hintText += ' _'
-                                    else if(wordleofday[0]['WordleConfiguration']['Word'][j].toLowerCase()==wordleAttempts[i]['WordleAttempts']['Answer'][j].toLowerCase()){
-                                        hintText += wordleofday[0]['WordleConfiguration']['Word'][j]
+                                    else if(wordleofday[0]['Word'][j].toLowerCase()==wordleAttempts[i]['WordleAttempts']['Answer'][j].toLowerCase()){
+                                        hintText += wordleofday[0]['Word'][j]
                                         noMatch = false
                                     }
                                     else
@@ -229,10 +235,10 @@ app.post("/userstatus", (req, res) => {
                                     index++
                                 }
                             }
-                            responseObject['Hint'] = hints.length == 0 ? wordleofday[0]['WordleConfiguration']['Hint'] : hints.join("\n")
+                            responseObject['Hint'] = hints.length == 0 ? wordleofday[0]['Hint'] : hints.join("\n")
                             responseObject['IsStart'] = hints.length == 0
-                            responseObject['FirstLetter'] = wordleofday[0]['WordleConfiguration']['Word'][0]
-                            for(var k=1; k<wordleofday[0]['WordleConfiguration']['Word'].length; k++)
+                            responseObject['FirstLetter'] = wordleofday[0]['Word'][0]
+                            for(var k=1; k<wordleofday[0]['Word'].length; k++)
                                 responseObject['FirstLetter'] += " _"
                         }
                         console.info((new Date()).toString()+"|"+prependToLog,"End of Execution")
@@ -258,11 +264,11 @@ app.post("/userstatus", (req, res) => {
                             }),
                         })
                         .then((glificResponse) => {})
-                        .catch((err) => console.log("Error returned from Glific: ", err));
+                        .catch((err) => console.info((new Date()).toString()+"|"+prependToLog,"Error returned from Glific: ", err));
                     }
                 })
                 .catch((error)=>{
-                    console.error((new Date()).toString()+"|"+prependToLog,"Error in getting wordle of day: \n",query,"\n",error)
+                    console.error((new Date()).toString()+"|"+prependToLog,"Error in getting wordle of day: \n",filter,"\n",error)
                     res.status(500).send(error)
                 })
             }
@@ -276,7 +282,7 @@ app.post("/userstatus", (req, res) => {
 
 app.post("/storeuserresponse", (req, res) => {
     let startTimeStamp = new Date();
-    // let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+    // //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
     
     const requestBody = req.body;
  
@@ -306,7 +312,7 @@ app.post("/storeuserresponse", (req, res) => {
         // let zcql = catalystApp.zcql()
         // let query = "Select ROWID, WordleLevel from Users where Mobile = "+requestBody['Mobile'].slice(-10)
         // zcql.executeZCQLQuery(query)
-        console.log("requestBody['Mobile'].slice(-10)",requestBody['Mobile'].slice(-10));
+        console.info((new Date()).toString()+"|"+prependToLog,"requestBody['Mobile'].slice(-10)",requestBody['Mobile'].slice(-10));
         User.findOne(
             { Mobile: requestBody['Mobile'].slice(-10) }, // Condition to match
             '_id WordleLevel')
@@ -322,22 +328,22 @@ app.post("/storeuserresponse", (req, res) => {
                     'Word')
                 .then((wordleofday)=>{
                     console.debug((new Date()).toString()+"|"+prependToLog,"Query=")
-                    if(wordleofday.length>0){
+                    if(wordleofday!=null){//.length>0){
                         //------27/07/2023:rbhushan@dhwaniris.com : Skipped world length check on CR from sahana.madlapur
-                        if(1==0){//wordleofday[0]['WordleConfiguration']['Word'].length!=requestBody['Response'].length){
+                        if(1==0){//wordleofday[0]['Word'].length!=requestBody['Response'].length){
                             responseObject['OperationStatus'] = "WRD_LNGTH_ERR"
-                            responseObject['StatusDescription'] = "The word must be of "+wordleofday[0]['Word'].length+" characters only"
+                            responseObject['StatusDescription'] = "The word must be of "+wordleofday['Word'].length+" characters only"
                         }
                         else{
                             const insertData = {
-                                UserROWID : user[0]['_id'],
+                                UserROWID : user['_id'],
                                 WordleROWID : requestBody['WordleROWID'],
                                 Answer : requestBody['Response'],
-                                IsCorrect : requestBody['Response'].toLowerCase()==wordleofday[0]['Word'].toLowerCase(),
+                                IsCorrect : requestBody['Response'].toLowerCase()==wordleofday['Word'].toLowerCase(),
                                 Source : requestBody['WordleSource'].startsWith("@result") ? "Wordle Reminder" : requestBody['WordleSource'],
                                 SystemPromptROWID : requestBody['TopicID'] ? (requestBody['TopicID'].startsWith("@result") ? null:requestBody['TopicID']):null
                             }
-                           // let table = catalystApp.datastore().table('WordleAttempts')
+                           // //let table = catalystApp.datastore().table('WordleAttempts')
                            WordleAttempts.create(insertData)
                             .then(async (row)=>{
                                 // if(typeof row['ROWID'] !== 'undefined'){
@@ -365,7 +371,7 @@ app.post("/storeuserresponse", (req, res) => {
                                 }),
                             })
                             .then((glificResponse) => {})
-                            .catch((err) => console.log("Error returned from Glific: ", err));
+                            .catch((err) => console.info((new Date()).toString()+"|"+prependToLog,"Error returned from Glific: ", err));
                         }
                     }
                     else{

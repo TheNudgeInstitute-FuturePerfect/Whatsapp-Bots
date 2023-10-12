@@ -2,7 +2,7 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const searchUserbyMobile = require("./common/searchUserbyMobile.js");
 const addUserData = require("./common/addUserData.js");
 const User = require("./models/Users.js");
@@ -12,7 +12,7 @@ const User = require("./models/Users.js");
 const app = express.Router();
 
 app.post("/create", (req, res) => {
-  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+  //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
   const executionID = Math.random().toString(36).slice(2)
     
@@ -40,10 +40,11 @@ app.post("/create", (req, res) => {
   //console.info((new Date()).toString()+"|"+prependToLog,'Current TimeStamp= '+currentDate)
 
   //Get table meta object without details.
-  let table = catalystApp.datastore().table("Users");
+  //let table = catalystApp.datastore().table("Users");
 
   //Use Table Meta Object to insert the row which returns a promise
-  let insertPromise = table.insertRow({
+  //let insertPromise = table.insertRow(
+  User.create({
     Mobile: requestBody["Mobile"].slice(-10),
     Name: encodeURI(requestBody["Name"]),
     Age: requestBody["Age"],
@@ -59,9 +60,8 @@ app.post("/create", (req, res) => {
     OnboardingComplete: false,
     OnboardingStep: 1,
     Excluded: false,
-  });
-
-  insertPromise
+  })
+  //insertPromise
     .then((row) => {
       console.info((new Date()).toString()+"|"+prependToLog,"\nInserted Row : " + JSON.stringify(row));
       res.status(200).json({ OperationStatus: "USER_RECORD_CREATED" });
@@ -76,7 +76,7 @@ app.post("/create", (req, res) => {
 });
 
 app.post("/update", async (req, res) => {
- // let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+ // //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
   
   const executionID = Math.random().toString(36).slice(2)
     
@@ -301,9 +301,15 @@ app.post("/update", async (req, res) => {
       { $set: updateFields },
       { new: true })
       .then((questionQueryResult) => {
-        console.log('questionQueryResult+++++++++',questionQueryResult);
+        console.info((new Date()).toString()+"|"+prependToLog,'questionQueryResult+++++++++',questionQueryResult);
         //If there is no record, then the mobile number does not exist in system. Return error
-        if (questionQueryResult.length == 0) {
+        if (questionQueryResult == null) {
+          //Send the response
+          responseJSON["OperationStatus"] = "USER_NOT_FOUND";
+          console.info((new Date()).toString()+"|"+prependToLog,"USER_NOT_FOUND ERROR");
+          res.status(200).json(responseJSON);
+        }
+        else if (questionQueryResult.length == 0) {
           //Send the response
           responseJSON["OperationStatus"] = "USER_NOT_FOUND";
           console.info((new Date()).toString()+"|"+prependToLog,"USER_NOT_FOUND ERROR");
@@ -332,7 +338,7 @@ app.post("/update", async (req, res) => {
 });
 
 app.post("/search", (req, res) => {
-  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+  //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
   const executionID = Math.random().toString(36).slice(2)
     
@@ -349,7 +355,7 @@ app.post("/search", (req, res) => {
   console.info((new Date()).toString()+"|"+prependToLog,"User Mobile Number: " + mobile);
 
   //Initialze ZCQL
-  let zcql = catalystApp.zcql();
+  //let zcql = catalystApp.zcql();
 
   //Update consent
   // let query =
@@ -362,9 +368,15 @@ app.post("/search", (req, res) => {
   var responseJSON = {};
   User.findOne({ Mobile: mobile, IsActive: true }).select('ROWID IsActive')
     .then((questionQueryResult) => {
-      console.log("+++++++++++++",questionQueryResult);
+      console.info((new Date()).toString()+"|"+prependToLog,"+++++++++++++",questionQueryResult);
       //If there is no record, then the mobile number does not exist in system. Return error
-      if (questionQueryResult.length == 0) {
+      if (questionQueryResult ==null){
+        //Send the response
+        responseJSON["OperationStatus"] = "USER_NOT_FOUND";
+        console.info((new Date()).toString()+"|"+prependToLog,"USER_NOT_FOUND ERROR");
+        res.status(200).json(responseJSON);
+      }
+      else if (questionQueryResult.length == 0) {
         //Send the response
         responseJSON["OperationStatus"] = "USER_NOT_FOUND";
         console.info((new Date()).toString()+"|"+prependToLog,"USER_NOT_FOUND ERROR");
@@ -384,7 +396,7 @@ app.post("/search", (req, res) => {
 });
 
 app.post("/searchfield", (req, res) => {
-  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+  //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
   const executionID = Math.random().toString(36).slice(2)
     
@@ -406,7 +418,7 @@ app.post("/searchfield", (req, res) => {
   }
   console.info((new Date()).toString()+"|"+prependToLog,"Field Array: " + fields);
   //Initialze ZCQL
-  let zcql = catalystApp.zcql();
+  //let zcql = catalystApp.zcql();
 
   //Update consent
   // let query =
