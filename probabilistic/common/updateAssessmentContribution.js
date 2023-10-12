@@ -1,5 +1,5 @@
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const SystemPrompt = require(".././models/SystemPrompts.js");
 const mongoose = require('mongoose');
 const ObjectId = mongoose.Types.ObjectId;
@@ -15,7 +15,7 @@ module.exports = async (basicIO) => {
 	}
 	*/
 
-	const catalystApp = catalyst.initialize();
+	//const catalystApp = catalyst.initialize();
 
 	const executionID = Math.random().toString(36).slice(2)
 
@@ -159,7 +159,7 @@ module.exports = async (basicIO) => {
 
 								console.debug((new Date()).toString()+"|"+prependToLog,updateData)
 
-								// let table = catalystApp.datastore().table('SystemPrompts')
+								// //let table = catalystApp.datastore().table('SystemPrompts')
 								try{
 								const updateQueryResult = await SystemPrompt.updateOne({_id:objectIdRow},updateData);
 								result['OperationStatus']="SUCCESS"

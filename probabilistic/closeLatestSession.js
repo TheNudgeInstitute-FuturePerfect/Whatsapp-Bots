@@ -2,7 +2,7 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const Sessions = require("./models/Sessions.js")
 
 // const app = express();
@@ -11,7 +11,7 @@ const app = express.Router();
 
 app.post("/latestsession", (req, res) => {
 	//Initialize catalyst app
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const startTimeStamp = new Date();
 
@@ -67,7 +67,7 @@ app.post("/latestsession", (req, res) => {
 			else{//Else
 				responseBody['StatusDescription']='All active sessions closed'
 			}
-			console.log("End of Execution. Response: ",responseBody)
+			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Response: ",responseBody)
 			res.status(200).json(responseBody);//Send the response
 			let sendResponseToGlific = require("./common/sendResponseToGlific.js");
 			sendResponseToGlific({
@@ -77,11 +77,11 @@ app.post("/latestsession", (req, res) => {
 						"closedsession":responseBody
 					})
 				}).then(glificResponse=>{})
-			.catch(err=>console.log("Error returned from Glific: ",err))
+			.catch(err=>console.info((new Date()).toString()+"|"+prependToLog,"Error returned from Glific: ",err))
 		})
 		.catch((err) => {//On error in execution
 			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error while executing select statement");
-			console.error((new Date()).toString()+"|"+prependToLog,"Error while executing select statement: ",query,"\nError: ",err);
+			console.error((new Date()).toString()+"|"+prependToLog,"Error while executing update statement: ",filter,"\nError: ",err);
 			res.status(500).send(err);//Return technical error
 		});
 	}
@@ -89,7 +89,7 @@ app.post("/latestsession", (req, res) => {
 
 app.post("/endsession", (req, res) => {
 	//Initialize catalyst app
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const startTimeStamp = new Date();
 
@@ -156,7 +156,7 @@ app.post("/endsession", (req, res) => {
 		})
 		.catch((err) => {//On error in execution
 			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error while executing select statement");
-			console.error((new Date()).toString()+"|"+prependToLog,"Error while executing select statement: ",query,"\nError: ",err);
+			console.error((new Date()).toString()+"|"+prependToLog,"Error while executing select statement: ",filter,"\nError: ",err);
 			res.status(500).send(err);//Return technical error
 			});
 	}
