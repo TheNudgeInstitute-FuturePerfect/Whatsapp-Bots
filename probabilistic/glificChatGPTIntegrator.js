@@ -2,7 +2,7 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const Session = require("./models/Sessions.js");
 const SystemPrompt = require("./models/SystemPrompts.js");
 const mongoose = require('mongoose');
@@ -87,7 +87,7 @@ const runQuery = async (query, zcql) => {
 };
 
 app.post("/chatgpt", async (request, response) => {
-  const app = catalyst.initialize(request, { type: catalyst.type.applogic });
+  //const app = catalyst.initialize(request, { type: catalyst.type.applogic });
 
   executionID = request.body.sessionId ? request.body.sessionId : Math.random().toString(36).slice(2)
     
@@ -98,7 +98,7 @@ app.post("/chatgpt", async (request, response) => {
   console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
 
 
-  const zcql = app.zcql();
+  //const zcql = app.zcql();
 
   const startTimeStamp = new Date();
 
@@ -145,7 +145,7 @@ app.post("/chatgpt", async (request, response) => {
   let systemPrompt = null;
   let query = null;
   var filterParams = {}
-  if ("topicId" in requestBody && !isNaN(requestBody.topicId)) {
+  if ("topicId" in requestBody){// && !isNaN(requestBody.topicId)) {
     console.log(requestBody.topicId,"_====================");
     systemPromptROWID = new ObjectId(requestBody.topicId);
     
@@ -321,14 +321,14 @@ app.post("/chatgpt", async (request, response) => {
      queryOutput = await Session.aggregate([
       {
         $match: {
-          Mobile: mobile,
+          Mobile: mobile.toString(),
           //SessionID: sessionId
           SessionID: (["Serious Mode","Voice Challenge","AskAnyDoubt"].includes(sessionType)? requestBody.sessionId :sessionId)
         }
       },
       {
         $lookup: {
-          from: "SystemPrompts", // Name of the collection to join with
+          from: "systemprompts", // Name of the collection to join with
           localField: 'SystemPromptsROWID',
           foreignField: 'ROWID',
           as: 'systemPromptData'
@@ -382,14 +382,14 @@ app.post("/chatgpt", async (request, response) => {
     }*/
 
     //If it's an empty response from ChatGPT in the record and it's not current record, don't include it in the session records
-    if(j !== queryOutput.length-1 && queryOutput[j]["Sessions"]["Reply"]==null)
+    if(j !== queryOutput.length-1 && queryOutput[j]["Reply"]==null)
       continue
 
     //If maxlinesofchat = -1 and its more than 20 messages, break
     if((j>=20)&&(maxlinesofchat == -1))
       break
     
-    let content = queryOutput[j]["Sessions"]["Message"];
+    let content = queryOutput[j]["Message"];
     content = decodeURIComponent(content);
 
     if (["SentenceFeedback","Serious Mode","Voice Challenge"].includes(sessionType)) {
@@ -427,18 +427,18 @@ app.post("/chatgpt", async (request, response) => {
       });
 
       if (
-        queryOutput[j]["Sessions"]["Reply"] !== null &&
+        queryOutput[j]["Reply"] !== null &&
         sessionType !== "SentenceFeedback"
       ) {
         sessionRecords.push({
           role: "assistant",
-          content: decodeURIComponent(queryOutput[j]["Sessions"]["Reply"]),
+          content: decodeURIComponent(queryOutput[j]["Reply"]),
         });
       }
     }
 
     //Increase counter of successful User Messages 
-    if(queryOutput[j]["Sessions"]["MessageType"].startsWith('UserMessage')){ 
+    if(queryOutput[j]["MessageType"].startsWith('UserMessage')){ 
       //If its the last message, increase the counter
       if(j === queryOutput.length-1)
         totalUserMessages++
@@ -582,20 +582,18 @@ app.post("/chatgpt", async (request, response) => {
   // Update the latest session record with the reply
   let updatedSessionRecord;
   if (sessionType === "SentenceFeedback") {
-    updatedSessionRecord = await Session.updateMany({
-      ROWID: storedSessionRecord.ROWID},{
+    updatedSessionRecord = await Session.findByIdAndUpdate(storedSessionRecord._id,{
       Classification: sentenceFeedbackClassification,
       Improvement: sentenceFeedbackImprovement,
       SentenceLevelFeedback: encodeURIComponent(reply),
       SLFCompletionTokens:completionTokens,
       SLFPromptTokens:promptTokens
-    });
+    },{new:true});
   } else {
     if (sessionId === "Onboarding") {
       isActive = false;
     }
-    updatedSessionRecord = await Session.updateMany({
-      ROWID: storedSessionRecord.ROWID},{
+    updatedSessionRecord = await Session.findByIdAndUpdate(storedSessionRecord._id,{
       Reply: encodeURIComponent(reply),
       IsActive: sessionType !== "ObjectiveFeedback" ? isActive : false,
       ReplyAudioURL: publicURL,
@@ -603,7 +601,7 @@ app.post("/chatgpt", async (request, response) => {
       Improvement: sentenceFeedbackImprovement,
       CompletionTokens:completionTokens,
       PromptTokens:promptTokens
-    });
+    },{new:true});
   }
 
   console.info((new Date()).toString()+"|"+prependToLog,"Updated the Session Record");
@@ -618,13 +616,8 @@ app.post("/chatgpt", async (request, response) => {
     //   sessionId +
     //   "'";
     // await zcql.executeZCQLQuery(query);
-    await Session.updateMany(
-      {
-        Mobile: mobile,
-        ROWID: { $ne: storedSessionRecord.ROWID },
-        SessionID: sessionId
-      },
-      { $set: { IsActive: false } });
+    await Session.findByIdAndUpdate(storedSessionRecord._id,
+      { $set: { IsActive: false } },{new:true});
       
     console.info((new Date()).toString()+"|"+prependToLog,"Marked the session inactive");
   }
