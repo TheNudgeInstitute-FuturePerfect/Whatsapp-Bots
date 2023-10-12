@@ -6,9 +6,9 @@ const mongoose = require("mongoose");
 const probabilistic = require("./probabilistic/index.js");
 mongoose.connect(process.env.MONGO_CONNECTION_URL + "whatsapp-bots");
 var db = mongoose.connection;
-db.on("error", console.error.bind(console, "connection error:"));
+db.on("error", console.error.bind(console, "DB Connection Error:"));
 db.once("open", function callback() {
-  console.log("h");
+  console.log("DB Connected");
 });
 
 const app = express();

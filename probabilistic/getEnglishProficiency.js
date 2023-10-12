@@ -3,7 +3,7 @@
 const express = require("express");
 const englishWordChecker = require("word-exists")
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const Sessions = require("./models/Sessions.js");
 
 
@@ -14,7 +14,7 @@ const app = express.Router();
 /*Version 4.2 Code
 app.post("/getproficiency", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const requestBody = req.body;
 	
@@ -47,7 +47,7 @@ app.post("/getproficiency", (req, res) => {
 				res.status(200).json(result)
 			}
 			else{
-				let zcql = catalystApp.zcql()
+				//let zcql = catalystApp.zcql()
 				zcql.executeZCQLQuery("Select UserData.CREATEDTIME, UserData.Question, UserData.Answer from UserData left join Users on UserData.UserROWID = Users.ROWID where Segment = '"+segment+"' and Users.Mobile = "+mobile+" order by UserData.CREATEDTIME DESC")
 				.then((userdata)=>{
 					if(typeof userdata === 'undefined'){
@@ -135,7 +135,16 @@ app.post("/getproficiency", (req, res) => {
 //Version 5.0 Code
 app.post("/getproficiency", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+
+	const executionID = req.body.SessionID ? req.body.SessionID : Math.random().toString(36).slice(2)
+    
+    //Prepare text to prepend with logs
+    const params = ["Get English Proficiency",req.method, req.url,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+    
 
 	const requestBody = req.body;
 	
@@ -147,7 +156,7 @@ app.post("/getproficiency", (req, res) => {
 	if(typeof sessionID === 'undefined'){
 		result['OperationStatus'] = "REQ_ERR"
 		result['StatusDescription'] = "Missing required parameter - SessionID"
-		console.log("End of Execution: ",result)
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ",result)
 		res.status(200).json(result)
 	}
 	else{
@@ -162,23 +171,23 @@ app.post("/getproficiency", (req, res) => {
 			if(typeof sessiondata === 'undefined'){
 				result['OperationStatus'] = "NO_DATA"
 				result['StatusDescription'] = "No record for the given SessionID"
-				console.log("End of Execution: ",result)
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ",result)
 				res.status(200).json(result)
 			}
 			else if(sessiondata == null){
 				result['OperationStatus'] = "NO_DATA"
 				result['StatusDescription'] = "No record for the given SessionID"
-				console.log("End of Execution: ",result)
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ",result)
 				res.status(200).json(result)
 			}
 			else if(sessiondata.length == 0){
 				result['OperationStatus'] = "NO_DATA"
 				result['StatusDescription'] = "No record for the given SessionID"
-				console.log("End of Execution: ",result)
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ",result)
 				res.status(200).json(result)
 			}
 			else{
-				let texts = sessiondata.map(data=>decodeURIComponent(data.Sessions.Message))
+				let texts = sessiondata.map(data=>decodeURIComponent(data.Message))
 				const tokens = texts.join(" ").split(" ")
 				result['TotalWords'] = tokens.length
 				
@@ -194,12 +203,12 @@ app.post("/getproficiency", (req, res) => {
 						break;
 					}
 				}
-				console.log("End of Execution: ",result)
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ",result)
 				res.status(200).json(result)
 			}
 		})
 		.catch((err) => {
-			console.log("End of Execution: ",err);
+			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ",err);
 			res.status(500).send(err);
 		});		
 	}

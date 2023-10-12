@@ -2,7 +2,7 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const Sessions = require("./models/Sessions.js");
 const SystemPrompt = require("./models/SystemPrompts.js");
 const User = require("./models/Users.js");
@@ -13,7 +13,7 @@ const app = express.Router();
 
 app.post("/latestsession", (req, res) => {
 	//Initialize catalyst app
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const startTimeStamp = new Date();
 
@@ -50,6 +50,7 @@ app.post("/latestsession", (req, res) => {
 		// 			"order by Sessions.CREATEDTIME DESC"
 		// //Execute Query
 		// zcql.executeZCQLQuery(query)
+		let query = "Get Session Data"
 		Sessions.find({ Mobile: mobile })
 		.populate({
 			path: 'SystemPromptsROWID',
@@ -60,7 +61,20 @@ app.post("/latestsession", (req, res) => {
 		})
 		.sort({ CREATEDTIME: -1 })
 		.then((queryResult)=>{//On successful execution
-			//console.log("queryResult",queryResult);
+			const sendResponse = () => {
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Response: ",responseBody)
+				res.status(200).json(responseBody);//Send the response
+				let sendResponseToGlific = require("./common/sendResponseToGlific.js");
+				sendResponseToGlific({
+						"flowID":requestBody["FlowId"],
+						"contactID": requestBody["contact"]["id"],
+						"resultJSON": JSON.stringify({
+							"activesession":responseBody
+						})
+					}).then(glificResponse=>{})
+				.catch(err=>console.info((new Date()).toString()+"|"+prependToLog,"Error returned from Glific: ",err))
+			}
+			//console.info((new Date()).toString()+"|"+prependToLog,"queryResult",queryResult);
 			if(queryResult==null){//If no data returned
 				responseBody['OperationStatus']='NO_DATA' //Send a non success status
 				responseBody['StatusDescription']='No session data for the user'
@@ -76,6 +90,7 @@ app.post("/latestsession", (req, res) => {
 			else{
 				// query = "select Users.OnboardingComplete, Users.OnboardingStep from Users where Users.Mobile = "+mobile+""
 				// zcql.executeZCQLQuery(query)
+				query = "Get User Onboarding Status"
 				User.findOne({ Mobile: mobile }, 'OnboardingComplete OnboardingStep')
 				.then((users)=>{//On successful execution
 					

@@ -2,7 +2,7 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const SessionEvents = require("./models/SessionEvents.js");
 const SystemPrompts = require("./models/SystemPrompts.js");
 
@@ -12,7 +12,16 @@ const app = express.Router();
 
 app.post("/sessionevents", async (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+
+	const executionID = Math.random().toString(36).slice(2)
+    
+	//Prepare text to prepend with logs
+	const params = ["Store Session Events",req.method, req.url,executionID,""]
+	const prependToLog = params.join(" | ")
+	
+	console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
 
 	const requestBody = req.body;
 
@@ -20,22 +29,22 @@ app.post("/sessionevents", async (req, res) => {
 
 	if(typeof topicID === 'undefined'){
 		// const systemPrompt = await catalystApp.zcql().executeZCQLQuery("Select ROWID from SystemPrompts where Name = 'Dummy' and IsActive = true")
-		const systemPrompt = await SystemPrompts.findOne({ Name: 'Dummy', IsActive: true }).select('ROWID');
-		topicID = systemPrompt[0]['SystemPrompts']['ROWID']
+		const systemPrompt = await SystemPrompts.findOne({ Name: 'Dummy', IsActive: true }).select('_id');
+		topicID = systemPrompt['_id']
 	}
 	else  if(topicID == null){
 		// const systemPrompt = await catalystApp.zcql().executeZCQLQuery("Select ROWID from SystemPrompts where Name = 'Dummy' and IsActive = true")
-		const systemPrompt = await SystemPrompts.findOne({ Name: 'Dummy', IsActive: true }).select('ROWID');
-		topicID = systemPrompt[0]['SystemPrompts']['ROWID']
+		const systemPrompt = await SystemPrompts.findOne({ Name: 'Dummy', IsActive: true }).select('_id');
+		topicID = systemPrompt['_id']
 	}
 	else if(topicID.startsWith("@result") == true){
 		// const systemPrompt = await catalystApp.zcql().executeZCQLQuery("Select ROWID from SystemPrompts where Name = 'Dummy' and IsActive = true")
-		const systemPrompt = await SystemPrompts.findOne({ Name: 'Dummy', IsActive: true }).select('ROWID');
-		topicID = systemPrompt[0]['SystemPrompts']['ROWID']
+		const systemPrompt = await SystemPrompts.findOne({ Name: 'Dummy', IsActive: true }).select('_id');
+		topicID = systemPrompt['_id']
 	}
 
 	//Get table meta object without details.
-	// let table = catalystApp.datastore().table('SessionEvents');
+	// //let table = catalystApp.datastore().table('SessionEvents');
 
 	//Use Table Meta Object to insert the row which returns a promise
 	// let insertPromise = table.insertRow({
@@ -52,8 +61,8 @@ app.post("/sessionevents", async (req, res) => {
 			Mobile: requestBody.Mobile.toString().slice(-10)
 		})
 		.then((row) => {
-			console.log("\nInserted Row : " + JSON.stringify(row));
-			res.status(200).json({OperationStatus:"SUCCESS",SessionEventROWID:row['ROWID']});
+			console.info((new Date()).toString()+"|"+prependToLog,"Inserted Row : " + row._id);
+			res.status(200).json({OperationStatus:"SUCCESS",SessionEventROWID:row['_id']});
 		})
 		.catch((err) => {
 			console.log(err);
