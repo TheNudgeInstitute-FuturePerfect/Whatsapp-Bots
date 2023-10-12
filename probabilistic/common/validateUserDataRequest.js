@@ -1,9 +1,17 @@
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 
 module.exports = async (basicIO) => {
 
-	const catalystApp = catalyst.initialize();
+	const executionID = basicIO['ExecutionID'] ? basicIO['ExecutionID'] : Math.random().toString(36).slice(2)
+    
+	//Prepare text to prepend with logs
+	const params = ["Validate User Data Request",executionID,""]
+	const prependToLog = params.join(" | ")
+	
+	console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
+	//const catalystApp = catalyst.initialize();
 	var responseJSON = {
 		OperationStatus:"SUCCESS"
 	}
@@ -12,7 +20,7 @@ module.exports = async (basicIO) => {
 	if((typeof userROWID === 'undefined') && (typeof mobile === 'undefined')){
 		responseJSON['OperationStatus'] = "REQ_ERR"
 		responseJSON['StatusDescription'] = 'Either UserROWID or Mobile field is required'
-		console.log("End of Execution:", responseJSON)
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution:", responseJSON)
 		return JSON.stringify(responseJSON);
 		
 	}
@@ -21,7 +29,7 @@ module.exports = async (basicIO) => {
 		if(typeof flowID === 'undefined'){
 			responseJSON['OperationStatus'] = "REQ_ERR"
 			responseJSON['StatusDescription'] = 'FlowID is required'
-			console.log("End of Execution:", responseJSON)
+			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution:", responseJSON)
 			return JSON.stringify(responseJSON);
 			
 		}
@@ -30,7 +38,7 @@ module.exports = async (basicIO) => {
 			if(typeof segment === 'undefined'){
 				responseJSON['OperationStatus'] = "REQ_ERR"
 				responseJSON['StatusDescription'] = 'Segment is required'
-				console.log("End of Execution:", responseJSON)
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution:", responseJSON)
 				return JSON.stringify(responseJSON);
 				
 			}
@@ -39,7 +47,7 @@ module.exports = async (basicIO) => {
 				if(typeof question === 'undefined'){
 					responseJSON['OperationStatus'] = "REQ_ERR"
 					responseJSON['StatusDescription'] = 'Question is required'
-					console.log("End of Execution:", responseJSON)
+					console.info((new Date()).toString()+"|"+prependToLog,"End of Execution:", responseJSON)
 					return JSON.stringify(responseJSON);
 					
 				}
@@ -48,7 +56,7 @@ module.exports = async (basicIO) => {
 						responseJSON['UserROWIDPresent']=false
 					else
 						responseJSON['UserROWIDPresent']=true
-					console.log("End of Execution:", responseJSON)
+					console.info((new Date()).toString()+"|"+prependToLog,"End of Execution:", responseJSON)
 					return JSON.stringify(responseJSON);
 					
 				}

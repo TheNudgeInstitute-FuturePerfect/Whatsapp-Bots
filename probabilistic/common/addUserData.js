@@ -1,10 +1,18 @@
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const UserData = require(".././models/UserData.js")
 
 module.exports = async (basicIO) => {
 
-	const catalystApp = catalyst.initialize();
+	const executionID = basicIO['ExecutionID'] ? basicIO['ExecutionID'] : Math.random().toString(36).slice(2)
+    
+	//Prepare text to prepend with logs
+	const params = ["Add User Data",executionID,""]
+	const prependToLog = params.join(" | ")
+	
+	console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
+	//const catalystApp = catalyst.initialize();
 	var responseJSON = {
 		OperationStatus:"SUCCESS"
 	}
@@ -21,16 +29,16 @@ module.exports = async (basicIO) => {
 		Answer		:	basicIO["Answer"]
 	}
 	
-	// let table = catalystApp.datastore().table("UserData")
+	// //let table = catalystApp.datastore().table("UserData")
 	try{
        const row = await UserData.create(insertData);
-	   responseJSON["UserDataROWID"] = row['ROWID']
-	   console.log("End of Execution:", responseJSON)
+	   responseJSON["UserDataROWID"] = row['_id']
+	   console.info((new Date()).toString()+"|"+prependToLog,"End of Execution:", responseJSON)
 	   return JSON.stringify(responseJSON);
 	} catch (error) {
 		responseJSON["OperationStatus"] = "APP_ERR"
 		responseJSON["StatusDescription"] = error
-		console.log("End of Execution:", responseJSON)
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution:", responseJSON)
 		return JSON.stringify(responseJSON);
 	}
 }

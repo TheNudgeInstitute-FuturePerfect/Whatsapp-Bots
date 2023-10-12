@@ -2,7 +2,7 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 
 // const app = express();
 // app.use(express.json());
@@ -10,7 +10,7 @@ const app = express.Router();
 
 app.post("/backendprompt", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const executionID = Math.random().toString(36).slice(2)
 
@@ -35,7 +35,7 @@ app.post("/backendprompt", (req, res) => {
 	
 	setSystemPrompt(argument)
 		.then((result) => {
-			console.log("result ........",result);
+			console.info((new Date()).toString()+"|"+prependToLog,"result ........",result);
 			const responseJSON = JSON.parse(result)
 			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution : " + responseJSON);
 			res.status(200).json(responseJSON);
@@ -49,7 +49,7 @@ app.post("/backendprompt", (req, res) => {
 
 app.get("/prompt", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const executionID = Math.random().toString(36).slice(2)
 
@@ -83,7 +83,7 @@ app.get("/prompt", (req, res) => {
 
 app.put("/prompt", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const executionID = Math.random().toString(36).slice(2)
 
@@ -116,7 +116,7 @@ app.put("/prompt", (req, res) => {
 
 app.post("/configuration", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const executionID = Math.random().toString(36).slice(2)
 
@@ -150,7 +150,7 @@ app.post("/configuration", (req, res) => {
 
 app.get("/configuration", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const executionID = Math.random().toString(36).slice(2)
 
@@ -184,7 +184,7 @@ app.get("/configuration", (req, res) => {
 
 app.get("/configuration/list", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const executionID = Math.random().toString(36).slice(2)
 
@@ -218,7 +218,7 @@ app.get("/configuration/list", (req, res) => {
 
 app.put("/configuration", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const executionID = Math.random().toString(36).slice(2)
 
