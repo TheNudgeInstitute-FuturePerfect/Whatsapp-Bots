@@ -3,6 +3,7 @@
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
+const Sessions = require("./models/Sessions.js");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
 
 // const app = express();
@@ -37,8 +38,12 @@ app.post("/gethintmessage", (req, res) => {
 		res.status(200).json(result)
 	}
 	else{
-		let zcql = catalystApp.zcql()
-		zcql.executeZCQLQuery("Select count(ROWID) from Sessions where Reply is not null and SessionID = '"+sessionID+" - Hint'")
+		// let zcql = catalystApp.zcql()
+		// zcql.executeZCQLQuery("Select count(ROWID) from Sessions where Reply is not null and SessionID = '"+sessionID+" - Hint'")
+		Sessions.countDocuments({
+			Reply: { $ne: null },
+			SessionID: `${sessionID} - Hint`
+		  })
 		.then((hintcount)=>{
 			if((typeof hintcount !== 'undefined')&&(hintcount!=null)&&(parseInt(hintcount[0]['Sessions']['ROWID'])>=parseInt(process.env.MaxHints))){
 				result['OperationStatus'] = "MAX_HINTS_RCHD"
@@ -47,7 +52,13 @@ app.post("/gethintmessage", (req, res) => {
 				res.status(200).json(result)
 			}
 			else{
-				zcql.executeZCQLQuery("Select Message, Reply from Sessions where MessageType = 'UserMessage' and SessionID = '"+sessionID+"' order by Sessions.CREATEDTIME DESC limit 1")
+				// zcql.executeZCQLQuery("Select Message, Reply from Sessions where MessageType = 'UserMessage' and SessionID = '"+sessionID+"' order by Sessions.CREATEDTIME DESC limit 1")
+				Sessions.findOne({
+					MessageType: 'UserMessage',
+					SessionID: sessionID
+				  })
+				.select('Message Reply')
+				.sort({ CREATEDTIME: -1 })
 				.then((sessiondata)=>{
 					if(typeof sessiondata === 'undefined'){
 						result['OperationStatus'] = "NO_DATA"

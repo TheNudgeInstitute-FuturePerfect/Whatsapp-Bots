@@ -1,5 +1,6 @@
 const request = require("request");
 const catalyst = require("zoho-catalyst-sdk");
+const SystemPrompt = require(".././models/SystemPrompts.js");
 
 const catalystApp = catalyst.initialize();
 
@@ -19,9 +20,10 @@ const timer = (sleepTime) => {
     });
   };
 
-let zcql = catalystApp.zcql()
+//let zcql = catalystApp.zcql()
 
-zcql.executeZCQLQuery("Select distinct ROWID, Name from SystemPrompts where Type = 'Topic Prompt'")
+// zcql.executeZCQLQuery("Select distinct ROWID, Name from SystemPrompts where Type = 'Topic Prompt'")
+SystemPrompt.distinct('ROWID', { Type: 'Topic Prompt' })
 .then(async (rowids)=>{
     for(var i = 0; i<rowids.length; i++){
         data = rowids[i]

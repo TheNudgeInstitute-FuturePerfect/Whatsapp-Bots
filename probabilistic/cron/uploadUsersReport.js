@@ -1,5 +1,9 @@
 const catalyst = require("zoho-catalyst-sdk");
-
+const Session = require(".././models/Sessions.js");
+const SystemPrompt = require(".././models/SystemPrompts.js");
+const UsersReport = require(".././models/UsersReport.js");
+const User = require(".././models/Users.js");
+const Version = require(".././models/versions.js");
 
 const catalystApp = catalyst.initialize();
 
@@ -47,13 +51,15 @@ const getAllRows = (fields,query,zcql,dataLimit) => {
 
 let zcql = catalystApp.zcql()
 
-let query = "select {} from UsersReport"
+//let query = "select {} from UsersReport"
 console.info((new Date()).toString()+"|"+prependToLog,"Getting UserReport Data")
-getAllRows("ROWID, Mobile",query,zcql)
+//getAllRows("ROWID, Mobile",query,zcql)
+UsersReport.find({},'ROWID Mobile')
 .then((currentReport)=>{
-	query = "select {} from Users"
+	//query = "select {} from Users"
 	console.info((new Date()).toString()+"|"+prependToLog,"Getting Users Data")
-	getAllRows("Name, Mobile, Consent, RegisteredTime, NudgeTime, Excluded, EnglishProficiency, SourcingChannel, CREATEDTIME",query,zcql)
+	//getAllRows("Name, Mobile, Consent, RegisteredTime, NudgeTime, Excluded, EnglishProficiency, SourcingChannel, CREATEDTIME",query,zcql)
+	User.find({},'Name Mobile Consent RegisteredTime NudgeTime Excluded EnglishProficiency SourcingChannel CREATEDTIME')
 	.then(async  (users)=>{
 		const mobiles = users.map(user=>user.Users.Mobile)
 		
@@ -88,26 +94,104 @@ getAllRows("ROWID, Mobile",query,zcql)
             console.info((new Date()).toString()+"|"+prependToLog,`BQ Job ${job.id} Failed. Error:`,error);
         }
 
-		query = "Select {} "+
-				"from Sessions "+
-				"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
-				"where ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) "+// and  Mobile in ("+mobiles.join(",")+") "+
-				"order by Sessions.CREATEDTIME desc"
+		// query = "Select {} "+
+		// 		"from Sessions "+
+		// 		"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
+		// 		"where ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) and  Mobile in ("+mobiles.join(",")+") "+
+		// 		"order by Sessions.CREATEDTIME desc"
+		// getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name, Sessions.IsActive",query,zcql)
 		console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
-		getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name, Sessions.IsActive",query,zcql)
+		Session.aggregate([
+			{
+			  $match: {
+				Mobile: { $in: mobiles }
+			  }
+			},
+			{
+			  $lookup: {
+				from: "SystemPrompts", // Name of the collection to join with
+				localField: 'SystemPromptsROWID',
+				foreignField: 'ROWID',
+				as: 'systemPromptData'
+			  }
+			},
+			{
+			  $unwind: {
+				path: '$systemPromptData',
+				preserveNullAndEmptyArrays: true
+			  }
+			},
+			{
+			  $match: {
+				$or: [
+				  { 'systemPromptData.Type': 'Topic Prompt' },
+				  { SystemPromptsROWID: null }
+				]
+			  }
+			},
+			{
+			  $sort: { CREATEDTIME: -1 } // Sort by CREATEDTIME in descending order
+			},
+			{
+			  $project: {
+				Mobile: 1,
+				SessionID: 1,
+				CREATEDTIME: 1,
+				SystemPromptsROWID: 1,
+				'systemPromptData.Name': 1,
+				IsActive: 1
+			  }
+			}
+		  ])
 		.then((allSessions)=>{
-			const sessions = allSessions.filter(data=>(!(data.Sessions.SessionID.endsWith(' - Translation')||data.Sessions.SessionID.endsWith(' - Hints')||data.Sessions.SessionID.endsWith(' - ObjectiveFeedback')))&&(mobiles.includes(data.Sessions.Mobile)))
-			query = "Select {} "+
-					"from Sessions "+
-					"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
-					"where SystemPrompts.Name = 'Self Introduction' "+//and  Mobile in ("+mobiles.join(",")+") "+
-				"order by Sessions.CREATEDTIME desc"
+			const sessions = allSessions.filter(data=>!(data.Sessions.SessionID.endsWith(' - Translation')||data.Sessions.SessionID.endsWith(' - Hints')||data.Sessions.SessionID.endsWith(' - ObjectiveFeedback')))
+			// query = "Select {} "+
+			// 		"from Sessions "+
+			// 		"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
+			// 		"where SystemPrompts.Name = 'Self Introduction' and  Mobile in ("+mobiles.join(",")+") "+
+			// 	"order by Sessions.CREATEDTIME desc"
+			// getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.EndOfSession",query,zcql)
 			console.info((new Date()).toString()+"|"+prependToLog,"Getting Onboarding Data")
-			getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.EndOfSession",query,zcql)
-			.then((allObdSessions)=>{
-				const obdSessions = allObdSessions.filter(data=>mobiles.includes(data.Sessions.Mobile))
+			Session.aggregate([
+				{
+				  $match: {
+					Mobile: { $in: mobiles }
+				  }
+				},
+				{
+				  $lookup: {
+					from: "SystemPrompts", // Name of the collection to join with
+					localField: 'SystemPromptsROWID',
+					foreignField: 'ROWID',
+					as: 'systemPromptData'
+				  }
+				},
+				{
+					$unwind: {
+						path: '$systemPromptData',
+						preserveNullAndEmptyArrays: true
+					  }
+					},
+					{
+					  $match: {
+						'systemPromptData.Name': 'Self Introduction'
+					  }
+					},
+					{
+					  $sort: { CREATEDTIME: -1 } // Sort by CREATEDTIME in descending order
+					},
+					{
+						$project: {
+							Mobile: 1,
+							SessionID: 1,
+							EndOfSession: 1
+						  }
+						}
+					  ])
+			.then((obdSessions)=>{
 				console.info((new Date()).toString()+"|"+prependToLog,"Getting Versions")
-				zcql.executeZCQLQuery("Select Version,StartDate from Versions order by StartDate")
+				// zcql.executeZCQLQuery("Select Version,StartDate from Versions order by StartDate")
+				Version.find().sort({ StartDate: 1 })
 				.then(async (versionRecords)=>{
 					var versions = []
 					if((typeof versionRecords !== 'undefined')&&(versionRecords!=null)&&(versionRecords.length>0))

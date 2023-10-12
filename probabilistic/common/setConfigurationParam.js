@@ -1,6 +1,9 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
+const Configurations = require(".././models/Configurations");
+
+
 module.exports = async (basicIO) => {
 	/*
 	Request:
@@ -95,9 +98,9 @@ module.exports = async (basicIO) => {
 								PrimaryKey:systemPromptROWID+"-"+encodeURI(name)
 							}
 
-							let table = catalystApp.datastore().table('Configurations');
+							// let table = catalystApp.datastore().table('Configurations');
 							try{
-								const insertQueryResult = await table.insertRow(insertQuery);
+								const insertQueryResult = await Configurations.create(insertQuery);
                                 result['OperationStatus']="SUCCESS"
 								result['Configurations']=insertQueryResult
 								console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result);

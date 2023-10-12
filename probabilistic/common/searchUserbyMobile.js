@@ -1,5 +1,6 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
+const User = require(".././models/Users.js");
 
 module.exports = async (basicIO) => {
 
@@ -26,7 +27,10 @@ module.exports = async (basicIO) => {
 			mobile = mobile.toString().slice(-10)
 			let zcql = catalystApp.zcql()
 			try{
-               const user = await zcql.executeZCQLQuery("Select ROWID from Users where IsActive = true and Mobile = "+mobile)
+			    const user = await User.find(
+					{ IsActive: true, Mobile: mobile }, // Conditions to match
+					'ROWID'); 	
+               //const user = await zcql.executeZCQLQuery("Select ROWID from Users where IsActive = true and Mobile = "+mobile)
                if(user==null){
 					responseJSON['OperationStatus'] = "NO_DATA"
 					responseJSON['StatusDescription'] = 'No record found with given mobile'

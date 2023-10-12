@@ -5,6 +5,7 @@ const express = require("express");
 const catalyst = require("zoho-catalyst-sdk");
 const searchUserbyMobile = require("./common/searchUserbyMobile.js");
 const addUserData = require("./common/addUserData.js");
+const User = require("./models/Users.js");
 
 // const app = express();
 // app.use(express.json());
@@ -75,7 +76,7 @@ app.post("/create", (req, res) => {
 });
 
 app.post("/update", async (req, res) => {
-  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+ // let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
   
   const executionID = Math.random().toString(36).slice(2)
     
@@ -86,7 +87,7 @@ app.post("/update", async (req, res) => {
   console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
   
   //Initialze ZCQL
-  let zcql = catalystApp.zcql();
+ // let zcql = catalystApp.zcql();
 
   const requestBody = req.body;
   var responseJSON = {};
@@ -284,18 +285,23 @@ app.post("/update", async (req, res) => {
     res.status(200).json(responseJSON);
   } else {
     //Update consent
-    let query =
-      "UPDATE Users SET " +
-      updateFields.join(",") +
-      " where Mobile='" +
-      mobile +
-      "'";
-    console.info((new Date()).toString()+"|"+prependToLog,"Query : " + query);
-    //Execute Query
-    let zcqlQuestions = zcql.executeZCQLQuery(query);
+    // let query =
+    //   "UPDATE Users SET " +
+    //   updateFields.join(",") +
+    //   " where Mobile='" +
+    //   mobile +
+    //   "'";
+    // console.info((new Date()).toString()+"|"+prependToLog,"Query : " + query);
+    // //Execute Query
+    // let zcqlQuestions = zcql.executeZCQLQuery(query);
 
-    zcqlQuestions
+    // zcqlQuestions
+    User.findOneAndUpdate(
+      { Mobile: mobile },
+      { $set: updateFields },
+      { new: true })
       .then((questionQueryResult) => {
+        console.log('questionQueryResult+++++++++',questionQueryResult);
         //If there is no record, then the mobile number does not exist in system. Return error
         if (questionQueryResult.length == 0) {
           //Send the response
@@ -311,7 +317,7 @@ app.post("/update", async (req, res) => {
           res.status(200).json(responseJSON);
         } else {
           responseJSON["OperationStatus"] = "SUCCESS";
-          responseJSON["UserROWID"] = questionQueryResult[0]["Users"]["ROWID"];
+          responseJSON["UserROWID"] = questionQueryResult._id;
           console.info((new Date()).toString()+"|"+prependToLog,
             "Updated User Record - " + JSON.stringify(questionQueryResult)
           );
@@ -346,16 +352,17 @@ app.post("/search", (req, res) => {
   let zcql = catalystApp.zcql();
 
   //Update consent
-  let query =
-    "Select ROWID, IsActive from User where Mobile='" +
-    mobile +
-    "' and isActive=true";
-  console.info((new Date()).toString()+"|"+prependToLog,"Query : " + query);
-  //Execute Query
-  let zcqlQuestions = zcql.executeZCQLQuery(query);
+  // let query =
+  //   "Select ROWID, IsActive from User where Mobile='" +
+  //   mobile +
+  //   "' and isActive=true";
+  // console.info((new Date()).toString()+"|"+prependToLog,"Query : " + query);
+  // //Execute Query
+  // let zcqlQuestions = zcql.executeZCQLQuery(query);
   var responseJSON = {};
-  zcqlQuestions
+  User.findOne({ Mobile: mobile, IsActive: true }).select('ROWID IsActive')
     .then((questionQueryResult) => {
+      console.log("+++++++++++++",questionQueryResult);
       //If there is no record, then the mobile number does not exist in system. Return error
       if (questionQueryResult.length == 0) {
         //Send the response
@@ -402,17 +409,21 @@ app.post("/searchfield", (req, res) => {
   let zcql = catalystApp.zcql();
 
   //Update consent
-  let query =
-    "Select ROWID, " +
-    fields.join(", ") +
-    " from Users where Mobile='" +
-    mobile +
-    "' and IsActive=true";
-  console.info((new Date()).toString()+"|"+prependToLog,"Query : " + query);
-  //Execute Query
-  let zcqlQuestions = zcql.executeZCQLQuery(query);
+  // let query =
+  //   "Select ROWID, " +
+  //   fields.join(", ") +
+  //   " from Users where Mobile='" +
+  //   mobile +
+  //   "' and IsActive=true";
+  // console.info((new Date()).toString()+"|"+prependToLog,"Query : " + query);
+  // //Execute Query
+  // let zcqlQuestions = zcql.executeZCQLQuery(query);
   var responseJSON = {};
-  zcqlQuestions
+  // zcqlQuestions
+  const selectFields = ['ROWID', ...fields];
+  User.findOne(
+    { Mobile: mobile, IsActive: true },
+    selectFields.join(' '))
     .then((questionQueryResult) => {
       //If there is no record, then the mobile number does not exist in system. Return error
       if (questionQueryResult.length == 0) {

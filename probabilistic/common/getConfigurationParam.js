@@ -1,6 +1,8 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 
+const Configurations = require(".././models/Configurations");
+
 module.exports = async (basicIO) => {
   /*
 	Request:
@@ -52,12 +54,10 @@ module.exports = async (basicIO) => {
       );
     }
     //basicIO.write(JSON.stringify({x:listOfParams}));
-    var searchQuery =
-      "select Name, Value from Configurations where SystemPromptROWID = " +
-      systemPromptROWID;
-    let zcql = catalystApp.zcql();
+    
     try {
-      const searchQueryResult = await zcql.executeZCQLQuery(searchQuery);
+      const searchQueryResult = await Configurations.find({ SystemPromptROWID:systemPromptROWID});
+     // console.log(searchQueryResult,"____________________________")
       result["OperationStatus"] = "SUCCESS";
       if(!Array.isArray(searchQueryResult))
         throw new Error(searchQueryResult)
@@ -65,13 +65,13 @@ module.exports = async (basicIO) => {
         var filteredValues = searchQueryResult;
         if (listOfParams.length > 0)
           filteredValues = searchQueryResult.filter((data) =>
-            listOfParams.includes(data.Configurations.Name)
+            listOfParams.includes(data.Name)
           );
         if (filteredValues != null && filteredValues.length > 0) {
           const values = filteredValues.map((data) => {
             var pair = {};
-            pair[decodeURI(data.Configurations.Name)] = decodeURI(
-              data.Configurations.Value
+            pair[decodeURI(data.Name)] = decodeURI(
+              data.Value
             );
             return pair;
           });
@@ -99,8 +99,7 @@ module.exports = async (basicIO) => {
       console.error((new Date()).toString()+"|"+prependToLog,
         "Error in execution of search query:",
         error,
-        "\nQuery:",
-        searchQuery
+        "\nQuery:"
       );
       return JSON.stringify(result);
     }

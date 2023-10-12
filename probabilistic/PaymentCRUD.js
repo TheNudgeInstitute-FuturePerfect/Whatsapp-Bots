@@ -3,8 +3,10 @@
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
+const SessionEvents = require("./models/SessionEvents.js");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
-let userTopicSubscriptionMapper = require("./models/userTopicSubscriptionMapper.js")
+let userTopicSubscriptionMapper = require("./models/userTopicSubscriptionMapper.js");
+const User = require("./models/Users.js");
 
 // const app = express();
 // app.use(express.json());
@@ -55,8 +57,9 @@ app.post("/create", (req, res) => {
 
     const mobile = requestBody['Mobile'].toString().slice(-10)
 
-    let zcql = catalystApp.zcql()
-    zcql.executeZCQLQuery("Select ROWID, Name, GlificID from Users where Mobile ='"+mobile+"'")
+    // let zcql = catalystApp.zcql()
+    // zcql.executeZCQLQuery("Select ROWID, Name, GlificID from Users where Mobile ='"+mobile+"'")
+    User.findOne({ Mobile: mobile }, 'ROWID Name GlificID')
     .then(async (user)=>{
         if(!Array.isArray(user))
             throw new Error(user)
@@ -86,7 +89,14 @@ app.post("/create", (req, res) => {
         }
         else{
             console.info((new Date()).toString()+"|"+prependToLog,"Fetched Topic Subscription Amount:"+topicConfig.Values['subsciptionamt'])
-            zcql.executeZCQLQuery("Select distinct ROWID from SystemPrompts where IsPaid = true and (Name = '"+requestBody["Topic"]+"' or ROWID = '"+requestBody["TopicID"]+"')")
+            // zcql.executeZCQLQuery("Select distinct ROWID from SystemPrompts where IsPaid = true and (Name = '"+requestBody["Topic"]+"' or ROWID = '"+requestBody["TopicID"]+"')")
+            SystemPrompt.distinct('ROWID', {
+                IsPaid: true,
+                $or: [
+                  { Name: requestBody["Topic"] },
+                  { ROWID: requestBody["TopicID"] }
+                ]
+              })
             .then(async (systemPrompts)=>{
                 if(!Array.isArray(systemPrompts))
                     throw new Error(systemPrompts)

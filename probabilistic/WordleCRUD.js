@@ -4,6 +4,9 @@ const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
+const WordleConfiguration = require("./models/WordleConfiguration.js");
+const mongoose = require('mongoose');
+const ObjectId = mongoose.Types.ObjectId;
 // const app = express();
 // app.use(express.json());
 const app = express.Router();
@@ -41,7 +44,7 @@ const checkType = (keyTypePair, obj) => {
 
 app.post("/", (req, res) => {
     let startTimeStamp = new Date();
-    let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+    // let catalys]tApp = catalyst.initialize(req, { type: catalyst.type.applogic });
     
     const requestBody = req.body;
  
@@ -95,13 +98,13 @@ app.post("/", (req, res) => {
             MaxAttempts:requestBody['MaxAttempts'],
             EnglishLevel:requestBody['EnglishLevel'],
           }
-          const table = catalystApp.datastore().table("WordleConfiguration")
-          table.insertRow(insertData)
+         // const table = catalystApp.datastore().table("WordleConfiguration")
+         WordleConfiguration.create(insertData)
           .then((row)=>{
-            if(typeof row['Word'] === 'undefined'){
-              responseObject['OperationStatus'] = "APP_ERR"
-              responseObject['StatusDescription'] = row        
-            }
+            // if(typeof row['Word'] === 'undefined'){
+            //   responseObject['OperationStatus'] = "APP_ERR"
+            //   responseObject['StatusDescription'] = row        
+            // }
             console.info((new Date()).toString()+"|"+prependToLog,"End of Execution")
             console.debug((new Date()).toString()+"|"+prependToLog,"End of Execution. Response:",responseObject,"\nInserted Data: ",row)
             res.status(200).json(responseObject)
@@ -165,22 +168,32 @@ app.get("/", (req, res) => {
     res.status(200).json(responseObject)
   }
   else{
-    let query = "select * from WordleConfiguration"
+    //let query = "select * from WordleConfiguration"
     let whereConditions = []
-    if(typeof wordleDate !== 'undefined')
-      whereConditions.push("WordleDate='"+wordleDate+"'")
-    if(typeof word !== 'undefined')
-      whereConditions.push("Word='"+wordleDate+"'")
-    if(typeof recommendedTopic !== 'undefined')
-      whereConditions.push("RecommendedTopic='"+recommendedTopic+"'")
-    if(typeof maxAttempts !== 'undefined')
+    let filterParams = {};
+    if(typeof wordleDate !== 'undefined'){
+      //whereConditions.push("WordleDate='"+wordleDate+"'")
+      filterParams.WordleDate = wordleDate;
+    }    
+    if(typeof word !== 'undefined'){
+      //whereConditions.push("Word='"+wordleDate+"'")
+      filterParams.Word = wordleDate;
+    }
+    if(typeof recommendedTopic !== 'undefined'){
+      //whereConditions.push("RecommendedTopic='"+recommendedTopic+"'")
+      filterParams.RecommendedTopic = recommendedTopic
+    }
+    if(typeof maxAttempts !== 'undefined'){
       whereConditions.push("MaxAttepts="+maxAttempts)
-    if(whereConditions.length>0)
-      query = query + " where " + whereConditions.join("and")
+      filterParams.MaxAttepts = maxAttempts;
+    }
     
-    let zcql = catalystApp.zcql()
-    zcql.executeZCQLQuery(query)
+    
+    // let zcql = catalystApp.zcql()
+    // zcql.executeZCQLQuery(query)
+    WordleConfiguration.find(filterParams)
     .then((wordle)=>{
+      console.log("++++++++++",wordle);
       if(wordle.length==0){
         responseObject['OperationStatus'] = "APP_ERR"
         responseObject['StatusDescription'] = "No record satisfying the given condition"
@@ -188,16 +201,16 @@ app.get("/", (req, res) => {
       else{
         responseObject['WordleData'] = wordle.map(data=>{
           return {
-            ROWID : data.WordleConfiguration.ROWID,
-            Date : data.WordleConfiguration.WordleDate,
-            Word : data.WordleConfiguration.Word,
-            Translation : data.WordleConfiguration.WordTranslation,
-            Definition : data.WordleConfiguration.Definition,
-            Hint : data.WordleConfiguration.Hint,
-            Example : data.WordleConfiguration.Example,
-            RecommendedTopic : data.WordleConfiguration.RecommendedTopic,
-            MaxAttempts : data.WordleConfiguration.MaxAttempts,
-            EnglishLevel  : data.WordleConfiguration.EnglishLevel
+            ROWID : data._id,
+            Date : data.WordleDate,
+            Word : data.Word,
+            Translation : data.WordTranslation,
+            Definition : data.Definition,
+            Hint : data.Hint,
+            Example : data.Example,
+            RecommendedTopic : data.RecommendedTopic,
+            MaxAttempts : data.MaxAttempts,
+            EnglishLevel  : data.EnglishLevel
           }
         })
       }
@@ -264,8 +277,8 @@ app.patch("/", (req, res) => {
     }
     else{
       try{
+        let ObjectRowId = new ObjectId(requestBody['ROWID']);
         let updateData = {
-          ROWID:requestBody['ROWID'],
           WordleDate:new Date(requestBody['Date']),
           Word:requestBody['Word'],
           WordTranslation:requestBody['Translation'],
@@ -276,13 +289,13 @@ app.patch("/", (req, res) => {
           MaxAttempts:requestBody['MaxAttempts'],
           EnglishLevel:requestBody['EnglishLevel']
         }
-        const table = catalystApp.datastore().table("WordleConfiguration")
-        table.updateRow(updateData)
+        //const table = catalystApp.datastore().table("WordleConfiguration")ObjectRowId
+        WordleConfiguration.updateOne({"_id":ObjectRowId},updateData)
         .then((row)=>{
-          if(typeof row['Word'] === 'undefined'){
-            responseObject['OperationStatus'] = "APP_ERR"
-            responseObject['StatusDescription'] = row        
-          }
+          // if(typeof row['Word'] === 'undefined'){
+          //   responseObject['OperationStatus'] = "APP_ERR"
+          //   responseObject['StatusDescription'] = row        
+          // }
           console.info((new Date()).toString()+"|"+prependToLog,"End of Execution")
           console.debug((new Date()).toString()+"|"+prependToLog,"End of Execution. Response:",responseObject,"\nUpated Data: ",row)
           res.status(200).json(responseObject)
@@ -302,7 +315,7 @@ app.patch("/", (req, res) => {
 
 app.delete("/*", (req, res) => {
   let startTimeStamp = new Date();
-  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+ // let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
   
   const requestBody = req.body;
 
@@ -319,6 +332,7 @@ app.delete("/*", (req, res) => {
       "OperationStatus":"SUCCESS"
   }
   const rowID = req.url.substring(1,req.url.length)
+  let ObjectRowId = new ObjectId(rowID);
 
   if(rowID.length==0){
       responseObject['OperationStatus'] = "REQ_ERR"
@@ -328,13 +342,11 @@ app.delete("/*", (req, res) => {
       res.status(200).json(responseObject)
   }
   else {
-    let zcql = catalystApp.zcql()
-    zcql.executeZCQLQuery("Delete from WordleConfiguration where ROWID = "+rowID)
+    // let zcql = catalystApp.zcql()
+    // zcql.executeZCQLQuery("Delete from WordleConfiguration where ROWID = "+rowID)
+    WordleConfiguration.findByIdAndRemove(ObjectRowId)
     .then((row)=>{
-      if((row.length > 0) && (row[0]['WordleConfiguration']['DELETED_ROWS_COUNT']<=0)){
-        responseObject['OperationStatus'] = "APP_ERR"
-        responseObject['StatusDescription'] = "No such record with ROWID = "+rowID
-      }
+      
       console.info((new Date()).toString()+"|"+prependToLog,"End of Execution")
       console.debug((new Date()).toString()+"|"+prependToLog,"End of Execution. Response:",responseObject,"\nUpated Data: ",row)
       res.status(200).json(responseObject)

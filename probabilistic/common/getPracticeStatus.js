@@ -1,5 +1,7 @@
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
+const Session = require(".././models/Sessions.js");
+const User = require(".././models/Users.js");
 
 //Filter unique elements in an array
 const unique = (value, index, self) => {
@@ -25,8 +27,9 @@ module.exports = async (basicIO) => {
 		mobile = mobile.slice(-10)
 		let zcql = catalystApp.zcql()
 		try{
-          const users = await zcql.executeZCQLQuery("Select distinct ROWID, RegisteredTime from Users where IsActive=true and Mobile = '"+mobile+"'")
-           if(users.length==0){
+        //   const users = await zcql.executeZCQLQuery("Select distinct ROWID, RegisteredTime from Users where IsActive=true and Mobile = '"+mobile+"'")
+            const users = await User.distinct('ROWID', { IsActive: true, Mobile: mobile });
+			if(users.length==0){
 				responseObject["OperationStatus"] = "USR_NT_FND"
 				responseObject["StatusDescription"] = "User could not be found or is inactive"
 				console.log("End of Execution: ",responseObject)
@@ -35,8 +38,13 @@ module.exports = async (basicIO) => {
 			else{
 				const today = new Date()
 				try {
-                  const sessions = await zcql.executeZCQLQuery("Select distinct CREATEDTIME, SessionID from Sessions where Mobile = '"+mobile+"'")
-                  if(sessions == null){
+                //   const sessions = await zcql.executeZCQLQuery("Select distinct CREATEDTIME, SessionID from Sessions where Mobile = '"+mobile+"'")
+                const sessions = await Session.distinct('CREATEDTIME', {
+					Mobile: mobile
+				  })
+				  .select('CREATEDTIME SessionID');
+				    
+				if(sessions == null){
 						responseObject["StatusDescription"] = "User has not started any conversation"
 						responseObject["PendingPracticeCount"] = process.env.MinDays
 						responseObject["PendingPracticeDays"] = process.env.Period

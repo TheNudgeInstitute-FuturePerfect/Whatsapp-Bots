@@ -5,6 +5,12 @@ const express = require("express");
 const catalyst = require("zoho-catalyst-sdk");
 const emojiRegex = require("emoji-regex");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
+const Sessions = require("./models/Sessions.js");
+const SystemPrompts = require("./models/SystemPrompts.js");
+const User = require("./models/Users.js");
+const UserAssessment = require("./models/UserAssessment.js");
+const UserAssessmentLog = require("./models/UserAssessmentLogs.js");
+const WordleAttempt = require("./models/WordleAttempts.js");
 const userFlowQuestionLogs = require("./models/userFlowQuestionLogs.js");
 // const app = express();
 // app.use(express.json());
@@ -71,15 +77,21 @@ app.post("/getperformancereport", (req, res) => {
     };
 
     //Get table meta object without details.
-    let zcql = catalystApp.zcql();
-    //zcql.executeZCQLQuery("Select PerformanceReportURL from Sessions where ROWID = "+requestBody['SessionROWID'])
-    let query =
-      "Select ROWID, Message from Sessions where MessageType = 'UserMessage' and SessionID = '" +
-      sessionId +
-      "' order by CREATEDTIME DESC";
-    console.info((new Date()).toString()+"|"+prependToLog,query);
-    zcql
-      .executeZCQLQuery(query)
+    // let zcql = catalystApp.zcql();
+    // //zcql.executeZCQLQuery("Select PerformanceReportURL from Sessions where ROWID = "+requestBody['SessionROWID'])
+    // let query =
+    //   "Select ROWID, Message from Sessions where MessageType = 'UserMessage' and SessionID = '" +
+    //   sessionId +
+    //   "' order by CREATEDTIME DESC";
+    // console.info((new Date()).toString()+"|"+prependToLog,query);
+    // zcql
+    //   .executeZCQLQuery(query)
+    Sessions.find({
+      MessageType: 'UserMessage',
+      SessionID: sessionId
+    })
+    .select('ROWID Message')
+    .sort({ CREATEDTIME: -1 })
       .then((row) => {
         console.info((new Date()).toString()+"|"+prependToLog,row);
         if (row == null) {
@@ -191,16 +203,43 @@ app.post("/getoverallperformancereport", (req, res) => {
   } else {
     mobile = mobile.toString().slice(-10);
     let zcql = catalystApp.zcql();
-    let query =
-      "Select {} " +
-      "from Sessions " +
-      "left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID " +
-      "where Mobile = " +
-      mobile +
-      " and SystemPrompts.Type = 'Topic Prompt' and Sessions.MessageType = 'UserMessage' ";
-    ("order by Sessions.CREATEDTIME desc");
-    zcql
-      .executeZCQLQuery(query.replace("{}", "count(ROWID)"))
+    // let query =
+    //   "Select {} " +
+    //   "from Sessions " +
+    //   "left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID " +
+    //   "where Mobile = " +
+    //   mobile +
+    //   " and SystemPrompts.Type = 'Topic Prompt' and Sessions.MessageType = 'UserMessage' ";
+    // ("order by Sessions.CREATEDTIME desc");
+    // zcql
+    //   .executeZCQLQuery(query.replace("{}", "count(ROWID)"))
+    Sessions.aggregate([
+      {
+        $match: {
+          Mobile: mobile,
+          MessageType: 'UserMessage'
+        }
+      },
+      {
+        $lookup: {
+          from: "SystemPrompts", // Name of the collection to join with
+          localField: 'SystemPromptsROWID',
+          foreignField: 'ROWID',
+          as: 'systemPromptData'
+        }
+      },
+      {
+        $unwind: '$systemPromptData'
+      },
+      {
+        $match: {
+          'systemPromptData.Type': 'Topic Prompt'
+        }
+      },
+      {
+        $count: 'count'
+      }
+    ])
       .then((maxRowsResult) => {
         let maxRows = parseInt(maxRowsResult[0].Sessions.ROWID);
         console.info((new Date()).toString()+"|"+prependToLog,"Total Session Records: " + maxRows);
@@ -338,7 +377,7 @@ app.post("/getoverallperformancereport", (req, res) => {
 });
 
 app.post("/goalachievementcalendar", (req, res) => {
-  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+ // let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
   const startTimeStamp = new Date();
 
@@ -365,16 +404,17 @@ app.post("/goalachievementcalendar", (req, res) => {
   } else {
     mobile = mobile.toString().slice(-10);
     
-    let zcql = catalystApp.zcql();
+   // let zcql = catalystApp.zcql();
     //get the user's goal 
-    let query = "Select {} from Users where Mobile = "+mobile
-    getAllRows("ROWID, RegisteredTime, GoalInMinutes",query,zcql,prependToLog)
+    // let query = "Select {} from Users where Mobile = "+mobile
+    // getAllRows("ROWID, RegisteredTime, GoalInMinutes",query,zcql,prependToLog)
+    User.findOne({ Mobile: mobile }, '_id RegisteredTime GoalInMinutes')
     .then((users)=>{
-      if(!Array.isArray(users))
+      if(!users)
         throw new Error(users)
       else{
       
-        const goal = users[0]['Users']['GoalInMinutes']
+        const goal = users['GoalInMinutes']
         console.info((new Date()).toString()+"|"+prependToLog,"User's Goal:",goal)
 
         if(goal == null){
@@ -392,19 +432,49 @@ app.post("/goalachievementcalendar", (req, res) => {
           nextMonthTimeStamp.setMonth(nextMonthTimeStamp.getMonth()+1)
           const nextMonthStartDate = nextMonthTimeStamp.getFullYear()+"-"+('0'+(nextMonthTimeStamp.getMonth()+1)).slice(-2)+"-01 00:00:00"
 
-          const sessionQuery =
-            "Select {} " +
-            "from Sessions " +
-            "where Mobile = " +mobile+
-            " and Sessions.CREATEDTIME>='"+monthStart+"' and Sessions.CREATEDTIME<'"+nextMonthStartDate+"' "+
-            "group by Sessions.SessionID, Sessions.IsActive";
-          const runSessionQuery = getAllRows("Sessions.SessionID, Sessions.IsActive, max(Sessions.CREATEDTIME)",sessionQuery,zcql,prependToLog)
-          const assessmentQuery = "Select {} " +
-            "from UserAssessmentLogs " +
-            "where UserAssessmentLogs.UserROWID = '" +users[0]['Users']['ROWID']+"'"+
-            " and UserAssessmentLogs.IsAssessmentComplete = true"+
-            " and UserAssessmentLogs.MODIFIEDTIME >= '"+monthStart+"' and UserAssessmentLogs.MODIFIEDTIME < '"+nextMonthStartDate+"'"
-          const runAssessmentQuery = getAllRows("UserAssessmentLogs.ROWID, UserAssessmentLogs.MODIFIEDTIME",assessmentQuery,zcql,prependToLog)
+          // const sessionQuery =
+          //   "Select {} " +
+          //   "from Sessions " +
+          //   "where Mobile = " +mobile+
+          //   " and Sessions.CREATEDTIME>='"+monthStart+"' and Sessions.CREATEDTIME<'"+nextMonthStartDate+"' "+
+          //   "group by Sessions.SessionID, Sessions.IsActive";
+          // const runSessionQuery = getAllRows("Sessions.SessionID, Sessions.IsActive, max(Sessions.CREATEDTIME)",sessionQuery,zcql,prependToLog)
+          const runSessionQuery = Sessions.aggregate([
+            {
+              $match: {
+                Mobile: mobile,
+                CREATEDTIME: {
+                  $gte: new Date(monthStart),
+                  $lt: new Date(nextMonthStartDate)
+                }
+              }
+            },
+            {
+              $group: {
+                _id: '$SessionID',
+                IsActive: { $first: '$IsActive' },
+                MaxCreatedTime: { $max: '$CREATEDTIME' }
+              }
+            },
+            {
+              $project: {
+                _id: 0,
+                SessionID: '$_id',
+                IsActive: 1,
+                MaxCreatedTime: 1
+              }
+            }
+          ]);
+          // const assessmentQuery = "Select {} " +
+          //   "from UserAssessmentLogs " +
+          //   "where UserAssessmentLogs.UserROWID = '" +users[0]['Users']['ROWID']+"'"+
+          //   " and UserAssessmentLogs.IsAssessmentComplete = true"
+          // const runAssessmentQuery = getAllRows("UserAssessmentLogs.ROWID, UserAssessmentLogs.MODIFIEDTIME",assessmentQuery,zcql,prependToLog)
+          
+          const runAssessmentQuery = UserAssessmentLog.find({
+            UserROWID: users['_id'],
+            IsAssessmentComplete: true
+          }, 'ROWID MODIFIEDTIME')
           const axios = require("axios");
           const runGameAttemptQuery = axios.get(process.env.WordleReportURL+mobile)          
           const runFlowQuestionAnswerQuery = userFlowQuestionLogs.find({
@@ -422,22 +492,22 @@ app.post("/goalachievementcalendar", (req, res) => {
             else if(!Array.isArray(userassessment))
               throw new Error(userassessment)
             else{
-              const openSessions = allsessions.filter(data=>data.Sessions.IsActive==true).map(data=>data.Sessions.SessionID)
-              const sessions = allsessions.filter(data=>openSessions.includes(data.Sessions.SessionID)==false).filter(
+              const openSessions = allsessions.filter(data=>data.IsActive==true).map(data=>data.SessionID)
+              const sessions = allsessions.filter(data=>openSessions.includes(data.SessionID)==false).filter(
                 (data) =>
                   !(
-                    data.Sessions.SessionID.endsWith("Hint") ||
-                    data.Sessions.SessionID.endsWith("Translation") ||
-                    data.Sessions.SessionID.endsWith("ObjectiveFeedback") ||
-                    data.Sessions.SessionID.startsWith("Onboarding") ||
-                    data.Sessions.SessionID.endsWith("Onboarding") ||
-                    data.Sessions.SessionID.startsWith("onboarding") ||
-                    data.Sessions.SessionID.endsWith("onboarding")
+                    data.SessionID.endsWith("Hint") ||
+                    data.SessionID.endsWith("Translation") ||
+                    data.SessionID.endsWith("ObjectiveFeedback") ||
+                    data.SessionID.startsWith("Onboarding") ||
+                    data.SessionID.endsWith("Onboarding") ||
+                    data.SessionID.startsWith("onboarding") ||
+                    data.SessionID.endsWith("onboarding")
                   )
               );
-              let practiceDates = sessions.map(data=>data.Sessions.CREATEDTIME)
+              let practiceDates = sessions.map(data=>data.CREATEDTIME)
               console.info((new Date()).toString()+"|"+prependToLog,"Fetched Conversation TimeStamps:",practiceDates)                
-              practiceDates =  practiceDates.concat(userassessment.map(data=>data.UserAssessmentLogs.MODIFIEDTIME))
+              practiceDates =  practiceDates.concat(userassessment.map(data=>data.MODIFIEDTIME))
               console.info((new Date()).toString()+"|"+prependToLog,"Fetched Learning TimeStamps:",practiceDates)
               practiceDates = practiceDates.concat(wordleAttempts.data.filter(data=>(data.SessionEndTime>=monthStart)&&(data.SessionEndTime<nextMonthStartDate)).map(data=>data.SessionEndTime))
               console.info((new Date()).toString()+"|"+prependToLog,"Fetched Wordle TimeStamps:",practiceDates)
@@ -485,11 +555,11 @@ app.post("/goalachievementcalendar", (req, res) => {
                 }
                 if(dateOfMonth.getDate() == dateToday.getDate()){
                   //Get total sessions completed today
-                  const todaysSessionCount = sessions.filter(data=>data.Sessions.CREATEDTIME.toString().slice(0,10)==toDay).map(data=>data.Sessions.SessionID).filter(unique).length
+                  const todaysSessionCount = sessions.filter(data=>data.CREATEDTIME.toString().slice(0,10)==toDay).map(data=>data.SessionID).filter(unique).length
                   //Whether more than one conversation session has been completed
                   //responseObject['MultipleConversationToday']=todaysSessionCount>1
                   //Get total assessments completed today
-                  const todaysAssessmentCount = userassessment.filter(data=>data.UserAssessmentLogs.MODIFIEDTIME.toString().slice(0,10)==toDay).map(data=>data.UserAssessmentLogs.ROWID).filter(unique).length
+                  const todaysAssessmentCount = userassessment.filter(data=>data.MODIFIEDTIME.toString().slice(0,10)==toDay).map(data=>data._id).filter(unique).length
                   //Whether more than one assessment has been completed
                   //responseObject['MultipleLearningToday']=todaysAssessmentCount>1
                   //Get total games completed today
@@ -551,7 +621,7 @@ app.post("/goalachievementcalendar", (req, res) => {
 });
 
 app.post("/dailygoalprogress", (req, res) => {
-  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+  // let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
   const startTimeStamp = new Date();
 
@@ -578,16 +648,18 @@ app.post("/dailygoalprogress", (req, res) => {
   } else {
     mobile = mobile.toString().slice(-10);
     
-    let zcql = catalystApp.zcql();
+    // let zcql = catalystApp.zcql();
     //get the user's goal 
-    let query = "Select {} from Users where Mobile = "+mobile
-    getAllRows("ROWID, GoalInMinutes",query,zcql,prependToLog)
+    // let query = "Select {} from Users where Mobile = "+mobile
+    // getAllRows("ROWID, GoalInMinutes",query,zcql,prependToLog)
+    User.findOne({ Mobile: mobile }, '_id GoalInMinutes')
     .then((users)=>{
-      if(!Array.isArray(users))
+      console.log("+++++++++",users)
+      if(!users)
         throw new Error(users)
       else{
       
-        const goal = users[0]['Users']['GoalInMinutes']
+        const goal = users['GoalInMinutes']
 
         console.info((new Date()).toString()+"|"+prependToLog,"Goal of User :",goal)
 
@@ -603,27 +675,80 @@ app.post("/dailygoalprogress", (req, res) => {
           const currentTimeStamp = new Date();
           const toDay = currentTimeStamp.getFullYear()+"-"+('0'+(currentTimeStamp.getMonth()+1)).slice(-2)+"-"+('0'+currentTimeStamp.getDate()).slice(-2)
           
-          query =
-            "Select {} " +
-            "from Sessions " +
-            "where Mobile = " +mobile+
-            " and Sessions.CREATEDTIME>='"+toDay+" 00:00:00' and Sessions.CREATEDTIME<='"+toDay+" 23:59:59'"+
-            " and Sessions.MessageType = 'UserMessage' "+
-            "order by Sessions.CREATEDTIME ASC";
-          const runSessionQuery = getAllRows("Sessions.SessionID, Sessions.CREATEDTIME",query,zcql,prependToLog)
-          const assessmentQuery = "Select {} " +
-              "from UserAssessment " +
-              "left join UserAssessmentLogs on UserAssessment.UserAssessmentLogROWID = UserAssessmentLogs.ROWID " +
-              "where UserAssessmentLogs.UserROWID = '" +users[0]['Users']['ROWID']+"' "+
-              " and UserAssessment.CREATEDTIME>='"+toDay+" 00:00:00' and UserAssessment.CREATEDTIME<='"+toDay+" 23:59:59'"+
-              " order by UserAssessment.CREATEDTIME ASC";
-          const runAssessmentQuery = getAllRows("UserAssessment.UserAssessmentLogROWID, UserAssessment.CREATEDTIME",assessmentQuery,zcql,prependToLog)
-          const gameAttemptQuery = "Select {} " +
-                  "from WordleAttempts " +
-                  "where WordleAttempts.UserROWID = '" +users[0]['Users']['ROWID']+"' "+
-                  " and WordleAttempts.CREATEDTIME>='"+toDay+" 00:00:00' and WordleAttempts.CREATEDTIME<='"+toDay+" 23:59:59'"+
-                  " order by WordleAttempts.CREATEDTIME ASC";
-          const runGameAttemptQuery = getAllRows("WordleAttempts.WordleROWID, WordleAttempts.CREATEDTIME",gameAttemptQuery,zcql,prependToLog)
+          // query =
+          //   "Select {} " +
+          //   "from Sessions " +
+          //   "where Mobile = " +mobile+
+          //   " and Sessions.CREATEDTIME>='"+toDay+" 00:00:00' and Sessions.CREATEDTIME<='"+toDay+" 23:59:59'"+
+          //   " and Sessions.MessageType = 'UserMessage' "+
+          //   "order by Sessions.CREATEDTIME ASC";
+          // const runSessionQuery = getAllRows("Sessions.SessionID, Sessions.CREATEDTIME",query,zcql,prependToLog)
+          const fromDate = new Date(toDay + ' 00:00:00');
+          const toDate = new Date(toDay + ' 23:59:59');
+          const runSessionQuery = Sessions.find({
+                            Mobile: mobile,
+                            CREATEDTIME: {
+                              $gte: fromDate,
+                              $lte: toDate
+                            },
+                            MessageType: 'UserMessage'
+                          })
+                          .select('SessionID CREATEDTIME')
+                          .sort({ CREATEDTIME: 'asc' })
+          // const assessmentQuery = "Select {} " +
+          //     "from UserAssessment " +
+          //     "left join UserAssessmentLogs on UserAssessment.UserAssessmentLogROWID = UserAssessmentLogs.ROWID " +
+          //     "where UserAssessmentLogs.UserROWID = '" +users[0]['Users']['ROWID']+"' "+
+          //     " and UserAssessment.CREATEDTIME>='"+toDay+" 00:00:00' and UserAssessment.CREATEDTIME<='"+toDay+" 23:59:59'"+
+          //     " order by UserAssessment.CREATEDTIME ASC";
+          // const runAssessmentQuery = getAllRows("UserAssessment.UserAssessmentLogROWID, UserAssessment.CREATEDTIME",assessmentQuery,zcql,prependToLog)
+         
+          const runAssessmentQuery = UserAssessment.aggregate([
+            {
+              $lookup: {
+                from: "UserAssessmentLogs", // Name of the collection to join with
+                localField: 'UserAssessmentLogROWID',
+                foreignField: 'ROWID',
+                as: 'assessmentLog'
+              }
+            },
+            {
+              $unwind: '$assessmentLog'
+            },
+            {
+              $match: {
+                'assessmentLog.UserROWID': users['_id'],
+                CREATEDTIME: {
+                  $gte: fromDate,
+                  $lte: toDate
+                }
+              }
+            },
+            {
+              $project: {
+                _id: 0,
+                UserAssessmentLogROWID: 1,
+                CREATEDTIME: 1
+              }
+            },
+            {
+              $sort: { CREATEDTIME: 1 }
+            }
+          ])
+          // const gameAttemptQuery = "Select {} " +
+          //         "from WordleAttempts " +
+          //         "where WordleAttempts.UserROWID = '" +users[0]['Users']['ROWID']+"' "+
+          //         " and WordleAttempts.CREATEDTIME>='"+toDay+" 00:00:00' and WordleAttempts.CREATEDTIME<='"+toDay+" 23:59:59'"+
+          //         " order by WordleAttempts.CREATEDTIME ASC";
+          // const runGameAttemptQuery = getAllRows("WordleAttempts.WordleROWID, WordleAttempts.CREATEDTIME",gameAttemptQuery,zcql,prependToLog)
+          const runGameAttemptQuery = WordleAttempt.find({
+            UserROWID: users['_id'],
+            CREATEDTIME: {
+              $gte: fromDate,
+              $lte: toDate
+            }
+          }, 'WordleROWID CREATEDTIME')
+          .sort({ CREATEDTIME: 'asc' });
           const runFlowQuestionAnswerQuery = userFlowQuestionLogs.find({
             Mobile:mobile,
             updatedAt:{

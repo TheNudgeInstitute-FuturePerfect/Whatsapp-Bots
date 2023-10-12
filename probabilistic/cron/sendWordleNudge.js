@@ -1,4 +1,9 @@
 const catalyst = require("zoho-catalyst-sdk");
+const SessionEvents = require(".././models/SessionEvents.js");
+const Session = require(".././models/Sessions.js");
+const User = require(".././models/Users.js");
+const WordleAttempts = require(".././models/WordleAttempts.js");
+const SystemPrompts = require(".././models/SystemPrompts.js");
 
 /*let cronParams = cronDetails.getCronParam("name");
 if(typeof cronParams === 'undefined'){
@@ -52,8 +57,27 @@ const getAllRows = (fields) => {
         resolve(jsonReport);
     });
 };
-let query = "Select {} from Users left join WordleAttempts on WordleAttempts.UserROWID = Users.ROWID group by Mobile, GlificID, Tags"
-getAllRows("Users.Mobile, Users.GlificID, Users.Tags, max(WordleAttempts.CREATEDTIME)")
+//let query = "Select {} from Users left join WordleAttempts on WordleAttempts.UserROWID = Users.ROWID group by Mobile, GlificID, Tags"
+//getAllRows("Users.Mobile, Users.GlificID, Users.Tags, max(WordleAttempts.CREATEDTIME)")
+User.aggregate([
+    {
+      $lookup: {
+        from: "WordleAttempts", // Name of the WordleAttempts collection
+        localField: 'ROWID',
+        foreignField: 'UserROWID',
+        as: 'wordleAttempts'
+      }
+    },
+    {
+      $group: {
+        _id: { Mobile: '$Mobile', GlificID: '$GlificID', Tags: '$Tags' },
+        Mobile: { $first: '$Mobile' },
+        GlificID: { $first: '$GlificID' },
+        Tags: { $first: '$Tags' },
+        MaxCreatedTime: { $max: '$wordleAttempts.CREATEDTIME' }
+      }
+    }
+  ])
 .then(async (users) =>{
     //If there is no record,
     if(users == null){
@@ -99,8 +123,21 @@ getAllRows("Users.Mobile, Users.GlificID, Users.Tags, max(WordleAttempts.CREATED
             console.info((new Date()).toString()+"|"+prependToLog,`BQ Job ${job.id} Failed. Error:`,error);
         }
 
-        query = "Select {} from Sessions where Mobile in ("+mobiles.join(",")+") group by Mobile"
-        getAllRows("Mobile, max(CREATEDTIME)")
+        // query = "Select {} from Sessions where Mobile in ("+mobiles.join(",")+") group by Mobile"
+        // getAllRows("Mobile, max(CREATEDTIME)")
+        Session.aggregate([
+            {
+              $match: {
+                Mobile: { $in: mobiles }
+              }
+            },
+            {
+              $group: {
+                _id: '$Mobile',
+                maxCreatedTime: { $max: '$CREATEDTIME' }
+              }
+            }
+          ])
         .then(async (sessions) =>{
             //If there is no record,
             if(sessions == null){
@@ -122,8 +159,9 @@ getAllRows("Users.Mobile, Users.GlificID, Users.Tags, max(WordleAttempts.CREATED
                     });
                 }					
                 
-                let table = catalystApp.datastore().table("SessionEvents")
-                const systemPrompt = await zcql.executeZCQLQuery("Select ROWID from SystemPrompts where Name = 'Dummy' and IsActive = true")
+                // let table = catalystApp.datastore().table("SessionEvents")
+                //const systemPrompt = await zcql.executeZCQLQuery("Select ROWID from SystemPrompts where Name = 'Dummy' and IsActive = true")
+                const systemPrompt = await SystemPrompts.findOne({ Name: 'Dummy', IsActive: true }, 'ROWID');
                 const topicID = systemPrompt[0]['SystemPrompts']['ROWID']
 
                 const request = require("request");
@@ -307,7 +345,7 @@ getAllRows("Users.Mobile, Users.GlificID, Users.Tags, max(WordleAttempts.CREATED
                         try{
                             eventData['Event'] = "Wordle Nudge Not Sent (User Active within 10 min)"
                             eventData['Mobile'] = record.Users.Mobile
-                            await table.insertRow(eventData)
+                            await SessionEvents.create(eventData)
                         }
                         catch(e){
                             console.error((new Date()).toString()+"|"+prependToLog,i+": Could not update event table for "+ record.Users.Mobile)
@@ -317,7 +355,7 @@ getAllRows("Users.Mobile, Users.GlificID, Users.Tags, max(WordleAttempts.CREATED
                         try{
                             eventData['Event'] = "Wordle Nudge Not Sent (User Inactive for more than 4 days)"
                             eventData['Mobile'] = record.Users.Mobile
-                            await table.insertRow(eventData)
+                            await SessionEvents.create(eventData)
                         }
                         catch(e){
                             console.error((new Date()).toString()+"|"+prependToLog,i+": Could not update event table for "+ record.Users.Mobile)
@@ -335,7 +373,7 @@ getAllRows("Users.Mobile, Users.GlificID, Users.Tags, max(WordleAttempts.CREATED
                                     try{
                                         eventData['Event'] = "Wordle Nudge Sent"
                                         eventData['Mobile'] = record.Users.Mobile
-                                        await table.insertRow(eventData)
+                                        await SessionEvents.create(eventData)
                                     }
                                     catch(e){
                                         console.error((new Date()).toString()+"|"+prependToLog,i+": Could not update event table for "+ record.Users.Mobile)

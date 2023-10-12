@@ -1,6 +1,12 @@
 const catalyst = require("zoho-catalyst-sdk");
-
-	
+const SessionEvents = require(".././models/SessionEvents.js");
+const Session = require(".././models/Sessions.js")
+const User = require(".././models/Users.js");
+const UsersReport = require(".././models/UsersReport.js");
+const UserAssessment = require(".././models/UserAssessment.js");
+const UserAssessmentLogs = require(".././models/UserAssessmentLogs.js");
+const WordleAttempts = require(".././models/WordleAttempts.js");
+const SystemPrompts = require(".././models/SystemPrompts.js");
 /*let cronParams = cronDetails.getCronParam("name");
 if(typeof cronParams === 'undefined'){
 	cronParams = 'DefaultName';
@@ -29,9 +35,11 @@ console.info((new Date()).toString()+"|"+prependToLog,"Current TimeStamp = ",cur
 
 let query = "select {} from Users where NudgeTime = '"+currentHour+"'"
 if(currentHour==process.env.DefaultNudgeHour)
-	query = query + " or NudgeTime = '"+process.env.DefaultNudgeTime+"'"
-//console.debug((new Date()).toString()+"|"+prependToLog,query)
-zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"))
+// 	query = query + " or NudgeTime = '"+process.env.DefaultNudgeTime+"'"
+// //console.debug((new Date()).toString()+"|"+prependToLog,query)
+// zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"))
+User.countDocuments(
+	{ $or: [{ NudgeTime: currentHour }, { NudgeTime: defaultNudgeTime }] })
 .then((maxRowsResult) => {
 	let maxRows = parseInt(maxRowsResult[0].Users.ROWID)
 	console.info((new Date()).toString()+"|"+prependToLog,'Total Users: '+maxRows)
@@ -62,8 +70,11 @@ zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"))
 				resolve(jsonReport)
 			})
 		}		
+		// getAllRows("Mobile, GlificID, RegisteredTime, NudgeTime",query,zcql,prependToLog)
 		console.info((new Date()).toString()+"|"+prependToLog,"Getting Users Data")
-		getAllRows("Mobile, GlificID, RegisteredTime, NudgeTime",query,zcql,prependToLog)
+		User.find(
+			{ NudgeTime: currentHour }, // Conditions to match
+			'Mobile GlificID RegisteredTime NudgeTime')
 		.then(async (users) =>	{
 			console.info((new Date()).toString()+"|"+prependToLog,"Fetched Records")
 			//If there is no record, then the mobile number does not exist in system. Return error				
@@ -109,11 +120,29 @@ zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"))
 					console.info((new Date()).toString()+"|"+prependToLog,`BQ Job ${job.id} Failed. Error:`,error);
 				}
 
-				query = "select {} from UsersReport where (OnboardingDate is null) or (OnboardingDate < '"+currentDt+" 00:00:00') and Mobile in ("+mobiles.join(",")+") group by Mobile"
+				//query = "select {} from UsersReport where (OnboardingDate is null) or (OnboardingDate < '"+currentDt+" 00:00:00') and Mobile in ("+mobiles.join(",")+") group by Mobile"
 				maxRows = parseInt(users.length)
 				console.info((new Date()).toString()+"|"+prependToLog,'Total UsersReport Data: '+maxRows)
+				//getAllRows("Mobile, OnboardingDate",query,zcql,prependToLog)
 				console.info((new Date()).toString()+"|"+prependToLog,"Getting UsersReport Data")
-				getAllRows("Mobile, OnboardingDate",query,zcql,prependToLog)
+				UsersReport.aggregate([
+					{
+					  $match: {
+						$or: [
+						  { OnboardingDate: null },
+						  { OnboardingDate: { $lt: new Date(currentDt + ' 00:00:00') } }
+						],
+						Mobile: { $in: mobiles }
+					  }
+					},
+					{
+					  $group: {
+						_id: '$Mobile',
+						Mobile: { $first: '$Mobile' },
+						OnboardingDate: { $first: '$OnboardingDate' }
+					  }
+					}
+				  ])
 				.then((usersReport)=>{
 					if(!Array.isArray(usersReport))
 						throw new Error(usersReport)
@@ -142,14 +171,87 @@ zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"))
 					
 					maxRows = parseInt(users.length)
 					console.info((new Date()).toString()+"|"+prependToLog,'Total Sessions Data: '+maxRows)
-					query = "select {} from Sessions where Mobile in ("+mobiles.join(",")+") group by Mobile"
-					const userSessionQuery = getAllRows("Mobile, max(CREATEDTIME)",query,zcql,prependToLog)
-					const learningQuery = "Select {} from UserAssessment left join UserAssessmentLogs on UserAssessment.UserAssessmentLogROWID = UserAssessmentLogs.ROWID left join Users on Users.ROWID = UserAssessmentLogs.UserROWID where Users.Mobile in ("+mobiles.join(",")+") group by Users.Mobile"
-          			const userAssessmentQuery = getAllRows("Users.Mobile, max(UserAssessment.CREATEDTIME)",learningQuery,zcql,prependToLog)
-					const gameQuery = "Select {} from WordleAttempts left join Users on Users.ROWID = WordleAttempts.UserROWID where Users.Mobile in ("+mobiles.join(",")+") group by Users.Mobile "
-          			const userGameQuery = getAllRows("Users.Mobile, max(WordleAttempts.CREATEDTIME)",gameQuery,zcql,prependToLog)
-					
-					console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions + Learning + Game Data")
+					// query = "select {} from Sessions where Mobile in ("+mobiles.join(",")+") group by Mobile"
+					// const userSessionQuery = getAllRows("Mobile, max(CREATEDTIME)",query,zcql,prependToLog)
+					const userSessionQuery = Session.aggregate([
+						{
+						  $match: {
+							Mobile: { $in: mobiles }
+						  }
+						},
+						{
+						  $group: {
+							_id: '$Mobile',
+							maxCreatedTime: { $max: '$CREATEDTIME' }
+						  }
+						}
+					  ])
+					//const learningQuery = "Select {} from UserAssessment left join UserAssessmentLogs on UserAssessment.UserAssessmentLogROWID = UserAssessmentLogs.ROWID left join Users on Users.ROWID = UserAssessmentLogs.UserROWID where Users.Mobile in ("+mobiles.join(",")+") group by Users.Mobile"
+          			//const userAssessmentQuery = getAllRows("Users.Mobile, max(UserAssessment.CREATEDTIME)",learningQuery,zcql,prependToLog)
+					const userAssessmentQuery = UserAssessment.aggregate([
+						{
+						  $lookup: {
+							from: "UserAssessmentLogs", // Name of the UserAssessmentLogs collection
+							localField: 'UserAssessmentLogROWID',
+							foreignField: 'ROWID',
+							as: 'assessmentLogs'
+						  }
+						},
+						{
+						  $unwind: '$assessmentLogs'
+						},
+						{
+						  $lookup: {
+							from: "Users", // Name of the Users collection
+							localField: 'assessmentLogs.UserROWID',
+							foreignField: 'ROWID',
+							as: 'user'
+						  }
+						},
+						{
+						  $unwind: '$user'
+						},
+						{
+						  $match: {
+							'user.Mobile': { $in: mobiles }
+						  }
+						},
+						{
+						  $group: {
+							_id: '$user.Mobile',
+							Mobile: { $first: '$user.Mobile' },
+							MaxCreatedTime: { $max: '$CREATEDTIME' }
+						  }
+						}
+					  ]);
+					// const gameQuery = "Select {} from WordleAttempts left join Users on Users.ROWID = WordleAttempts.UserROWID where Users.Mobile in ("+mobiles.join(",")+") group by Users.Mobile "
+          			// const userGameQuery = getAllRows("Users.Mobile, max(WordleAttempts.CREATEDTIME)",gameQuery,zcql,prependToLog)
+                    const userGameQuery = WordleAttempts.aggregate([
+						{
+						  $lookup: {
+							from: "Users", // Name of the Users collection
+							localField: 'UserROWID',
+							foreignField: 'ROWID',
+							as: 'user'
+						  }
+						},
+						{
+						  $unwind: '$user'
+						},
+						{
+						  $match: {
+							'user.Mobile': { $in: mobiles }
+						  }
+						},
+						{
+						  $group: {
+							_id: '$user.Mobile',
+							Mobile: { $first: '$user.Mobile' },
+							MaxCreatedTime: { $max: '$CREATEDTIME' }
+						  }
+						}
+					  ])
+
 					Promise.all([userSessionQuery,userAssessmentQuery,userGameQuery])				
 					.then(async ([sessions,userAssessments,gameSessions]) =>	{
 						console.info((new Date()).toString()+"|"+prependToLog,"Fetched Sessions Records")
@@ -202,8 +304,9 @@ zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"))
 							}
 						}
 
-						let table = catalystApp.datastore().table("SessionEvents")
-						const systemPrompt = await zcql.executeZCQLQuery("Select ROWID from SystemPrompts where Name = 'Dummy' and IsActive = true")
+						// let table = catalystApp.datastore().table("SessionEvents")
+						// const systemPrompt = await zcql.executeZCQLQuery("Select ROWID from SystemPrompts where Name = 'Dummy' and IsActive = true")
+						const systemPrompt = await SystemPrompts.findOne({ Name: promptName, IsActive: true }, 'ROWID');
 						const topicID = systemPrompt[0]['SystemPrompts']['ROWID']
 
 						const request = require("request");
@@ -444,7 +547,7 @@ zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"))
 														SystemPromptROWID: topicID,
 														Mobile:record.Users.Mobile
 													}
-													await table.insertRow(eventData)
+													await SessionEvents.create(eventData)
 												}
 												catch(e){
 													console.error((new Date()).toString()+"|"+prependToLog,i+": Could not update event table for "+ record.Users.Mobile)

@@ -6,7 +6,21 @@ const catalyst = require("zoho-catalyst-sdk");
 const emojiRegex = require('emoji-regex');
 const userFlowQuestionLogs = require("./models/userFlowQuestionLogs");
 const flowQuestions = require("./models/flowQuestions");
-
+const SessionEvents = require("./models/SessionEvents.js");
+const SessionFeedback = require("./models/SessionFeedback.js")
+const Session = require("./models/Sessions.js")
+const systemprompts = require("./models/SystemPrompts.js");
+const UserData = require("./models/UserData.js");
+const User = require("./models/Users.js");
+const WordleAttempt = require("./models/WordleAttempts.js");
+const WordleConfiguration = require("./models/WordleConfiguration.js");
+const QuestionBank = require("./models/questionBank.js");
+const UserAssessmentLogs = require("./models/UserAssessmentLogs.js");
+const UserAssessment = require("./models/UserAssessment.js");
+const UsersReport = require("./models/UsersReport.js");
+const Configurations = require("./models/Configurations.js");
+const Version = require("./models/versions.js");
+// const WordleConfiguration = require("./models/WordleConfiguration.js");
 // const app = express();
 // app.use(express.json());
 const app = express.Router();
@@ -39,11 +53,38 @@ const getAllRows = (fields,query,zcql,dataLimit) => {
 		resolve(jsonReport)
 	})
 }
+
+
+app.get("/migration",(req,res)=>{
+	    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+
+		let zcql = catalystApp.zcql()
+
+	const dataLimit = req.query.limit ? req.query.limit : null
+
+	let query = "select {} from SystemPrompts"
+	getAllRows("*",query,zcql,dataLimit)
+		.then(async (data)=>{
+           const dataArray = [];
+		   for(var i=0;i<data.length;i++){
+			 
+
+			systemprompts.create(data[i]['SystemPrompts']);
+			  dataArray.push(data[i]['SystemPrompts']);
+			  
+		   }
+
+			res.status(200).json(dataArray)
+		})
+		.catch((err) => {
+			res.status(500).send(err);
+		});
+})
 	
 
 app.get("/userreport", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    // let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const executionID = Math.random().toString(36).slice(2)
     
@@ -54,36 +95,43 @@ app.get("/userreport", (req, res) => {
     console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
 
 
-	let zcql = catalystApp.zcql()
+	// let zcql = catalystApp.zcql()
 
 	const startDate = req.query.startDate ? req.query.startDate : (req.query.date ? req.query.date : '1970-01-01')
 	var today = new Date()
 	today.setHours(today.getHours()+5)
 	today.setMinutes(today.getMinutes()+30)
 	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
-	const dataLimit = req.query.limit ? req.query.limit : null
+	// const dataLimit = req.query.limit ? req.query.limit : null
 
-	let query = "select {} from UsersReport "+
-				"where UsersReport.OnboardingDate >='"+startDate+" 00:00:00' and UsersReport.OnboardingDate <= '"+endDate+" 23:59:59' "
+	// let query = "select {} from UsersReport "+
+	// 			"where UsersReport.OnboardingDate >='"+startDate+" 00:00:00' and UsersReport.OnboardingDate <= '"+endDate+" 23:59:59' "
+	// getAllRows("*",query,zcql,dataLimit)
 	console.info((new Date()).toString()+"|"+prependToLog,"Getting UsersReport Data")
-	getAllRows("*",query,zcql,dataLimit)
+	UsersReport.find({
+		OnboardingDate: {
+			$gte: new Date(startDate + 'T00:00:00Z'),
+			$lte: new Date(endDate + 'T23:59:59Z')
+		}
+	  })
 	.then((reportData)=>{
+		console.log("++++++++++++++++++++",reportData)
 		const report = reportData.map(data=>{
 			return {
 				//Name:data.UsersReport.Name == null ? "" : data.UsersReport.Name.toString(),
-				Mobile:data.UsersReport.Mobile == null ? "" : data.UsersReport.Mobile.toString(),
+				Mobile:data.Mobile == null ? "" : data.Mobile.toString(),
 				//Consent:data.UsersReport.Consent == null ? "" : data.UsersReport.Consent.toString(),
-				Excluded:data.UsersReport.Excluded == null ? "" : data.UsersReport.Excluded.toString(),
-				UserCreatedAt:data.UsersReport.UserCreatedAt == null ? "" : data.UsersReport.UserCreatedAt.toString(),
+				Excluded:data.Excluded == null ? "" : data.Excluded.toString(),
+				UserCreatedAt:data.UserCreatedAt == null ? "" : data.UserCreatedAt.toString(),
 				//OnboardingDate:data.UsersReport.OnboardingDate == null ? "" : data.UsersReport.OnboardingDate.toString(),
 				//OnboardingVersion:data.UsersReport.OnboardingVersion == null ? "" : data.UsersReport.OnboardingVersion.toString(),
 				//Onboarded:data.UsersReport.Onboarded == null ? "" : data.UsersReport.Onboarded.toString(),
-				OnboardingResurrectionDate : (data.UsersReport.ResurrectionDate != null) && (data.UsersReport.ResurrectionDate > data.UsersReport.OnboardingDate) ? data.UsersReport.ResurrectionDate.toString() : data.UsersReport.OnboardingDate.toString(),
-				OnboardingResurrectionVersion : (data.UsersReport.ResurrectionDate != null) && (data.UsersReport.ResurrectionDate > data.UsersReport.OnboardingDate) ? data.UsersReport.RessurectionVersion.toString() : data.UsersReport.OnboardingVersion.toString(),
-				DeadlineDate:data.UsersReport.DeadlineDate == null ? "" : data.UsersReport.DeadlineDate.toString(),
-				ReminderTime:data.UsersReport.ReminderTime == null ? "" : data.UsersReport.ReminderTime.toString(),
-				LastActiveDate:data.UsersReport.LastActiveDate == null ? "" : data.UsersReport.LastActiveDate.toString(),
-				Churned:data.UsersReport.Churned == null ? "" : data.UsersReport.Churned.toString(),
+				OnboardingResurrectionDate : (data.ResurrectionDate != null) && (data.ResurrectionDate > data.OnboardingDate) ? data.ResurrectionDate.toString() : data.OnboardingDate.toString(),
+				OnboardingResurrectionVersion : (data.ResurrectionDate != null) && (data.ResurrectionDate > data.OnboardingDate) ? data.RessurectionVersion.toString() : data.OnboardingVersion.toString(),
+				DeadlineDate:data.DeadlineDate == null ? "" : data.DeadlineDate.toString(),
+				ReminderTime:data.ReminderTime == null ? "" : data.ReminderTime.toString(),
+				LastActiveDate:data.LastActiveDate == null ? "" : data.LastActiveDate.toString(),
+				Churned:data.Churned == null ? "" : data.Churned.toString(),
 				//Resurrected:data.UsersReport.Resurrected == null ? "" : data.UsersReport.Resurrected.toString(),
 				//ResurrectionDate:data.UsersReport.ResurrectionDate == null ? "" : data.UsersReport.ResurrectionDate.toString(),
 				//RessurectionVersion:data.UsersReport.RessurectionVersion == null ? "" : data.UsersReport.RessurectionVersion.toString(),
@@ -103,7 +151,7 @@ app.get("/userreport", (req, res) => {
 				//DaysAttmptCmpltdPstOBD:data.UsersReport.DaysAttmptCmpltdPstOBD == null ? "" :data.UsersReport.DaysAttmptCmpltdPstOBD.toString(),
 				//DaysAttmptdPstOBD:data.UsersReport.DaysAttmptdPstOBD == null ? "" :data.UsersReport.DaysAttmptdPstOBD.toString(),
 				//EnglishProficiency:data.UsersReport.EnglishProficiency == null ? "" :data.UsersReport.EnglishProficiency.toString(),
-				SourcingChannel:data.UsersReport.SourcingChannel == null ? "" :data.UsersReport.SourcingChannel.toString(),
+				SourcingChannel:data.SourcingChannel == null ? "" :data.SourcingChannel.toString(),
 			}
 		})
 		console.info((new Date()).toString()+"|"+prependToLog,'End of Execution. Total Length of Report=',report.length)
@@ -293,30 +341,88 @@ app.get("/useronboardingreport", (req, res) => {
 
 	let zcql = catalystApp.zcql()
 		
-	let query = "Select {} from UserData"
+	// let query = "Select {} from UserData"
+	
+	// getAllRows("distinct Segment, Question",query,zcql,dataLimit)
 	console.info((new Date()).toString()+"|"+prependToLog,"Getting Onboarding Questions")
-	getAllRows("distinct Segment, Question",query,zcql,dataLimit)
+	UserData.distinct('Segment')
+	.select('Question')
 	.then((segmentQuestions)=>{
 		let questions = segmentQuestions.map(data=>data.UserData.Segment+" "+data.UserData.Question)
 		questions = questions.filter(unique)
 		questions = questions.filter(data=>data.toString()!="null-null")	
-		query = "Select {} "+
-					"from Users "+
-					"left join UserData on UserData.UserROWID = Users.ROWID "+
-					"where UserData.CREATEDTIME  >='"+startDate+" 00:00:00' and UserData.CREATEDTIME <= '"+endDate+" 23:59:59' "+
-					"order by Users.Mobile asc, UserData.CREATEDTIME desc"
+		// query = "Select {} "+
+		// 			"from Users "+
+		// 			"left join UserData on UserData.UserROWID = Users.ROWID "+
+		// 			"where UserData.CREATEDTIME  >='"+startDate+" 00:00:00' and UserData.CREATEDTIME <= '"+endDate+" 23:59:59' "+
+		// 			"order by Users.Mobile asc, UserData.CREATEDTIME desc"
+		// getAllRows("Users.Name, Users.Excluded, Users.Mobile, Users.RegisteredTime, Users.NudgeTime, Users.EnglishProficiency, UserData.CREATEDTIME, UserData.Segment, UserData.Question, UserData.Answer",query,zcql)
 		console.info((new Date()).toString()+"|"+prependToLog,"Getting Users Onboarding Data")
-		getAllRows("Users.Name, Users.Excluded, Users.Mobile, Users.RegisteredTime, Users.NudgeTime, Users.EnglishProficiency, UserData.CREATEDTIME, UserData.Segment, UserData.Question, UserData.Answer",query,zcql)
+		User.aggregate([
+			{
+			  $lookup: {
+				from: "UserData", // Name of the collection to join with
+				localField: 'ROWID',
+				foreignField: 'UserROWID',
+				as: 'userData'
+			  }
+			},
+			{
+			  $unwind: {
+				path: '$userData',
+				preserveNullAndEmptyArrays: true
+			  }
+			},
+			{
+			  $match: {
+				'userData.CREATEDTIME': {
+				  $gte: new Date(startDate + ' 00:00:00'),
+				  $lte: new Date(endDate + ' 23:59:59')
+				}
+			  }
+			},
+			{
+			  $sort: { 'userData.CREATEDTIME': -1 }
+			},
+			{
+			  $project: {
+				Name: 1,
+				Excluded: 1,
+				Mobile: 1,
+				RegisteredTime: 1,
+				NudgeTime: 1,
+				EnglishProficiency: 1,
+				'userData.CREATEDTIME': 1,
+				'userData.Segment': 1,
+				'userData.Question': 1,
+				'userData.Answer': 1
+			  }
+			}
+		  ])
 		.then((users)=>{
 			var report = []
 			let mobiles = users.map(data=>data.Users.Mobile)
 			mobiles = mobiles.filter(unique)
 			//Get Session Data
-			query = "Select {} "+
-			"from Sessions "+
-			"where SessionID != 'Onboarding' and Sessions.Mobile in ("+mobiles.join(",")+") group by Mobile, SessionID"
+			// query = "Select {} "+
+			// "from Sessions "+
+			// "where SessionID != 'Onboarding' and Sessions.Mobile in ("+mobiles.join(",")+") group by Mobile, SessionID"
+			// getAllRows("Mobile, SessionID, max(CREATEDTIME)",query,zcql)
 			console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
-			getAllRows("Mobile, SessionID, max(CREATEDTIME)",query,zcql)
+			Session.aggregate([
+				{
+				  $match: {
+					SessionID: { $ne: 'Onboarding' },
+					Mobile: { $in: mobiles }
+				  }
+				},
+				{
+				  $group: {
+					_id: { Mobile: '$Mobile', SessionID: '$SessionID' },
+					maxCreatedTime: { $max: '$CREATEDTIME' }
+				  }
+				}
+			  ])
 			.then((sessions)=>{
 				for(var i=0; i<mobiles.length;i++){
 					var userReport = {
@@ -412,14 +518,62 @@ app.get("/usertopicreport", (req, res) => {
 	.then((users)=>{
 		if(users.length>0){
 			const mobiles = users.map(user=>user.Users.Mobile)
-			query = "Select {} "+
-					"from Sessions "+
-					"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
-					"where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59'"
-					"and ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) and Mobile in ("+mobiles.join(",")+") "+
-					"order by Sessions.CREATEDTIME desc"
+			// query = "Select {} "+
+			// 		"from Sessions "+
+			// 		"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
+			// 		"where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59'"
+			// 		"and ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) and Mobile in ("+mobiles.join(",")+") "+
+			// 		"order by Sessions.CREATEDTIME desc"
+			// getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name, SystemPrompts.Persona, Sessions.Message, Sessions.MessageType",query,zcql)
 			console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
-			getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name, SystemPrompts.Persona, Sessions.Message, Sessions.MessageType",query,zcql)
+			Session.aggregate([
+				{
+				  $match: {
+					CREATEDTIME: {
+					  $gte: new Date(startDate + 'T00:00:00Z'),
+					  $lte: new Date(endDate + 'T23:59:59Z')
+					},
+					Mobile: { $in: mobiles }
+				  }
+				},
+				{
+				  $lookup: {
+					from: "SystemPrompts", // Name of the collection to join with
+					localField: 'SystemPromptsROWID',
+					foreignField: 'ROWID',
+					as: 'systemPromptData'
+				  }
+				},
+				{
+				  $unwind: {
+					path: '$systemPromptData',
+					preserveNullAndEmptyArrays: true
+				  }
+				},
+				{
+				  $match: {
+					$or: [
+					  { 'systemPromptData.Type': 'Topic Prompt' },
+					  { SystemPromptsROWID: null }
+					]
+				  }
+				},
+				{
+				  $sort: { CREATEDTIME: -1 } // Sort by CREATEDTIME in descending order
+				},
+				{
+				  $project: {
+					Mobile: 1,
+					SessionID: 1,
+					CREATEDTIME: 1,
+					SystemPromptsROWID: 1,
+					'systemPromptData.Name': 1,
+					'systemPromptData.Persona': 1,
+					Message: 1,
+					MessageType: 1
+				  }
+				}
+			  ])
 			.then((allSessions)=>{
 				const sessions = allSessions.filter(data=>!(data.Sessions.SessionID.endsWith(' - Translation')||data.Sessions.SessionID.endsWith(' - Hints')||data.Sessions.SessionID.endsWith(' - ObjectiveFeedback')))
 				if(sessions.length>0){
@@ -884,33 +1038,72 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
 	const dataLimit = req.query.limit ? req.query.limit : null
 
-	let query = "select {} from Users where RegisteredTime >= '2023-06-15 19:00:00'"
+	// let query = "select {} from Users where RegisteredTime >= '2023-06-15 19:00:00'"
+	// getAllRows("Name, Mobile, EnglishProficiency",query,zcql,dataLimit)
 	console.info((new Date()).toString()+"|"+prependToLog,"Getting Users Data")
-	getAllRows("Name, Mobile, EnglishProficiency",query,zcql,dataLimit)
+	User.find({ RegisteredTime: { $gte: new Date('2023-06-15 19:00:00') } }, 'Name Mobile EnglishProficiency')
 	.then((users)=>{
 		if(users.length>0){
-			const mobiles = users.map(user=>user.Users.Mobile)
-			query = "Select {} "+
-					"from Sessions "+
-					"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
-					"where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59' "+
-					"and SystemPrompts.Name = 'Self Introduction' and Mobile in ("+mobiles.join(",")+") "+
-					"order by Sessions.CREATEDTIME desc"
-			//console.debug((new Date()).toString()+"|"+prependToLog,query)
+			const mobiles = users.map(user=>user.Mobile)
+			// query = "Select {} "+
+			// 		"from Sessions "+
+			// 		"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
+			// 		"where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59' "+
+			// 		"and SystemPrompts.Name = 'Self Introduction' and Mobile in ("+mobiles.join(",")+") "+
+			// 		"order by Sessions.CREATEDTIME desc"
+			// console.debug((new Date()).toString()+"|"+prependToLog,query)
+			// getAllRows("Sessions.PerformanceReportURL, Sessions.EndOfSession, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name, SystemPrompts.Persona, Sessions.Message, Sessions.MessageType, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens",query,zcql)
 			console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
-			getAllRows("Sessions.PerformanceReportURL, Sessions.EndOfSession, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name, SystemPrompts.Persona, Sessions.Message, Sessions.MessageType, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens",query,zcql)
+			const query = {
+				CREATEDTIME: {
+				  $gte: new Date(startDate + 'T00:00:00Z'),
+				  $lte: new Date(endDate + 'T23:59:59Z')
+				},
+				'SystemPrompts.Name': 'Self Introduction',
+				Mobile: { $in: mobiles }
+			  };
+
+			const projection = {
+				PerformanceReportURL: 1,
+				EndOfSession: 1,
+				Mobile: 1,
+				SessionID: 1,
+				CREATEDTIME: 1,
+				SystemPromptsROWID: 1,
+				'SystemPrompts.Name': 1,
+				'SystemPrompts.Persona': 1,
+				Message: 1,
+				MessageType: 1,
+				CompletionTokens: 1,
+				PromptTokens: 1,
+				SLFCompletionTokens: 1,
+				SLFPromptTokens: 1
+			  };
+
+			  const sortOrder = { CREATEDTIME: -1 };
+
+			  Session.find(query)
+				.populate({
+				  path: 'SystemPromptsROWID',
+				  select: 'Name Persona -_id' 
+				})
+				.select(projection)
+				.sort(sortOrder)  
 			.then((allSessions)=>{
-				const sessions = allSessions.filter(data=>!(data.Sessions.SessionID.endsWith(' - Translation')||data.Sessions.SessionID.endsWith(' - Hints')||data.Sessions.SessionID.endsWith(' - ObjectiveFeedback')))
+				console.log("..............+++++++",allSessions)
+				const sessions = allSessions.filter(data=>!(data.SessionID.endsWith(' - Translation')||data.SessionID.endsWith(' - Hints')||data.SessionID.endsWith(' - ObjectiveFeedback')))
 				if(sessions.length>0){
-					const sessionIDs = sessions.map(session=>session.Sessions.SessionID)
-					query = "Select {} "+
-							"from SessionFeedback "+
-							"where SessionID in ('"+sessionIDs.join("','")+"') "+
-							"order by SessionFeedback.CREATEDTIME desc"
+					const sessionIDs = sessions.map(session=>session.SessionID)
+					// query = "Select {} "+
+					// 		"from SessionFeedback "+
+					// 		"where SessionID in ('"+sessionIDs.join("','")+"') "+
+					// 		"order by SessionFeedback.CREATEDTIME desc"
+					// getAllRows("SessionID, Rating, Feedback, FeedbackType, FeedbackURL, GPTRating, GPTFeedback, GPTFeedbackType, GPTFeedbackURL",query,zcql)
 					console.info((new Date()).toString()+"|"+prependToLog,"Getting Session Feedback Data")
-					getAllRows("SessionID, Rating, Feedback, FeedbackType, FeedbackURL, GPTRating, GPTFeedback, GPTFeedbackType, GPTFeedbackURL",query,zcql)
+					SessionFeedback.find({SessionID : {$in : sessionIDs}}) 
 					.then((feedbacks)=>{
-						zcql.executeZCQLQuery("Select Version,StartDate from Versions order by StartDate")
+						// zcql.executeZCQLQuery("Select Version,StartDate from Versions order by StartDate")
+						Version.find({},'Version StartDate')
 						.then((versionRecords)=>{
 							var versions = []
 							if((typeof versionRecords !== 'undefined')&&(versionRecords!=null)&&(versionRecords.length>0))
@@ -920,38 +1113,39 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 										var now = new Date()
 										now.setHours(now.getHours()+5)
 										now.setMinutes(now.getMinutes()+30)
-										d['Versions']['EndDate'] = now
+										d['EndDate'] = now
 									}
 									else
-										d['Versions']['EndDate'] = versionRecords[index+1]['Versions']['StartDate']
+										d['EndDate'] = versionRecords[index+1]['StartDate']
 									return d
 								})
-							query = "Select {} from SessionEvents where SessionID in ('"+sessionIDs.join("','")+"') and Event in ('Progress Message - 1','Progress Message - 2','Progress Message - 3','Progress Message - 4','Progress Message - 5','Progress Message - 6','Progress Message - 7','Progress Message - 8')"
+							// query = "Select {} from SessionEvents where SessionID in ('"+sessionIDs.join("','")+"') and Event in ('Progress Message - 1','Progress Message - 2','Progress Message - 3','Progress Message - 4','Progress Message - 5','Progress Message - 6','Progress Message - 7','Progress Message - 8')"
+							// getAllRows("distinct SessionID",query,zcql)
 							console.info((new Date()).toString()+"|"+prependToLog,"Getting Session Events Data")
-							getAllRows("distinct SessionID",query,zcql)
+							SessionEvents.find({SessionID : { $in : sessionIDs},Event: { $in : ['Progress Message - 1','Progress Message - 2','Progress Message - 3','Progress Message - 4','Progress Message - 5','Progress Message - 6','Progress Message - 7','Progress Message - 8']}})
 							.then(async (events)=>{	
 								var report = []
 								const emojiRegEx = emojiRegex()
 								for(var i=0; i<users.length; i++){
-									const userSessions = sessions.filter(data=>data.Sessions.Mobile == users[i]['Users']['Mobile'])	
+									const userSessions = sessions.filter(data=>data.Mobile == users[i]['Users']['Mobile'])	
 									const userSessionsWC = userSessions.map(data=>{
 										var temp = data
 										var msg = ""
 										try{
-											msg = (decodeURIComponent(data['Sessions']['Message'])).replace(emojiRegEx,"")
+											msg = (decodeURIComponent(data['Message'])).replace(emojiRegEx,"")
 										}
 										catch(e){
-											msg = (data['Sessions']['Message']).replace(emojiRegEx,"")
+											msg = (data['Message']).replace(emojiRegEx,"")
 										}
-										temp['Sessions']['TotalWords'] = (data['Sessions']['MessageType']=='UserMessage') ? (msg.split(" ")).length : 0
+										temp['TotalWords'] = (data['MessageType']=='UserMessage') ? (msg.split(" ")).length : 0
 										return temp
 									})
-									const userSessionsTopics = userSessions.map(data=>data.SystemPrompts.Name)
+									const userSessionsTopics = userSessions.map(data=>data.Name)
 									const uniqueTopics = userSessionsTopics.filter(unique)
 									if(uniqueTopics.length==0){
 										var userReport = {}
 										//userReport['Name'] = users[i]['Users']['Name']
-										userReport['Mobile'] = users[i]['Users']['Mobile']
+										userReport['Mobile'] = users[i]['Mobile']
 										//userReport['EnglishProficiency'] = users[i]['Users']['EnglishProficiency']
 										//userReport['Topic'] = ""
 										//userReport['Persona'] = ""
@@ -983,8 +1177,8 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 									else{
 										for(var j=0; j<uniqueTopics.length;j++)
 										{
-											const topicSessionsData = userSessions.filter(data=>data.SystemPrompts.Name==uniqueTopics[j])
-											const topicSessions = topicSessionsData.map(data=>data.Sessions.SessionID)
+											const topicSessionsData = userSessions.filter(data=>data.Name==uniqueTopics[j])
+											const topicSessions = topicSessionsData.map(data=>data.SessionID)
 											const uniqueTopicSessions = topicSessions.filter(unique)
 											var attempt = uniqueTopicSessions.length
 											
@@ -992,26 +1186,26 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 											{
 												var userReport = {}
 												//userReport['Name'] = users[i]["Users"]["Name"]
-												userReport['Mobile'] = users[i]["Users"]["Mobile"]
+												userReport['Mobile'] = users[i]["Mobile"]
 												//userReport['EnglishProficiency'] = users[i]["Users"]["EnglishProficiency"]
 												//userReport['Topic'] = uniqueTopics[j] == null ? "":uniqueTopics[j]
 												//userReport['Persona'] = topicSessionsData[0].SystemPrompts.Persona == null ? "":topicSessionsData[0].SystemPrompts.Persona
 												userReport['SessionID'] = uniqueTopicSessions[k]
 												//userReport['Attempt'] = attempt.toString()
 												attempt--
-												const sessionRecord = userSessionsWC.filter(record=>record.Sessions.SessionID == userReport['SessionID'])
-												const sessionWCs = sessionRecord.map(record=>record.Sessions.TotalWords)
+												const sessionRecord = userSessionsWC.filter(record=>record.SessionID == userReport['SessionID'])
+												const sessionWCs = sessionRecord.map(record=>record.TotalWords)
 												userReport['TotalWords'] = (sessionWCs.reduce((a,b)=>a+b,0)).toString()
-												const sessionCompletionTokens = sessionRecord.map(record=>record.Sessions.CompletionTokens==null?0:parseInt(record.Sessions.CompletionTokens))
+												const sessionCompletionTokens = sessionRecord.map(record=>record.CompletionTokens==null?0:parseInt(record.CompletionTokens))
 												userReport['CompletionTokens'] = (sessionCompletionTokens.reduce((a,b)=>a+b,0))
-												const sessionPromptTokens = sessionRecord.map(record=>record.Sessions.PromptTokens==null?0:parseInt(record.Sessions.PromptTokens))
+												const sessionPromptTokens = sessionRecord.map(record=>record.PromptTokens==null?0:parseInt(record.PromptTokens))
 												userReport['PromptTokens'] = (sessionPromptTokens.reduce((a,b)=>a+b,0))
-												const sessionSLFCompletionTokens = sessionRecord.map(record=>record.Sessions.SLFCompletionTokens==null?0:parseInt(record.Sessions.SLFCompletionTokens))
+												const sessionSLFCompletionTokens = sessionRecord.map(record=>record.SLFCompletionTokens==null?0:parseInt(record.SLFCompletionTokens))
 												userReport['SLFCompletionTokens'] = (sessionSLFCompletionTokens.reduce((a,b)=>a+b,0))
-												const sessionSLFPromptTokens = sessionRecord.map(record=>record.Sessions.SLFPromptTokens==null?0:parseInt(record.Sessions.SLFPromptTokens))
+												const sessionSLFPromptTokens = sessionRecord.map(record=>record.SLFPromptTokens==null?0:parseInt(record.SLFPromptTokens))
 												userReport['SLFPromptTokens'] = (sessionSLFPromptTokens.reduce((a,b)=>a+b,0))
 												
-												var sessionTimeStamps = sessionRecord.map(record=>record.Sessions.CREATEDTIME)
+												var sessionTimeStamps = sessionRecord.map(record=>record.CREATEDTIME)
 												sessionTimeStamps = sessionTimeStamps.sort()
 												userReport['SessionStartTime'] = sessionTimeStamps[0].toString().slice(0,19)
 												const sessionTimeStampVersion = versions.filter(data=>{
@@ -1020,7 +1214,7 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 														new Date(data.Versions.EndDate), " = ",
 														(((new Date(data.Versions.StartDate)) <= (new Date(sessionTimeStamps[0]))) && ((new Date(data.Versions.EndDate)) > (new Date(sessionTimeStamps[0]))))
 													)*/
-													return (((new Date(data.Versions.StartDate)) <= (new Date(sessionTimeStamps[0]))) && ((new Date(data.Versions.EndDate)) > (new Date(sessionTimeStamps[0]))))
+													return (((new Date(data.StartDate)) <= (new Date(sessionTimeStamps[0]))) && ((new Date(data.EndDate)) > (new Date(sessionTimeStamps[0]))))
 												})
 												//userReport['AttemptVersion'] = sessionTimeStampVersion.length == 0 ? '' : sessionTimeStampVersion[0]['Versions']['Version'].toString()
 												userReport['SessionEndTime'] = sessionTimeStamps[sessionTimeStamps.length-1].toString().slice(0,19)
@@ -1035,18 +1229,18 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 												}*/
 												//userReport['SessionDuration'] = userReport['SessionDuration'].toString()
 												//userReport['EndOfSession'] = sessionRecord.some(record=>record.Sessions.EndOfSession == true) ? "Yes":"No"
-												const perfReport = sessionRecord.filter(record=>record.Sessions.PerformanceReportURL != null)
+												const perfReport = sessionRecord.filter(record=>record.PerformanceReportURL != null)
 												//userReport['OptedForPerformanceReport'] = ""//(typeof perfReport === 'undefined') ? "No" : perfReport==null ? "No" : perfReport.length==0 ? "No" : "Yes"
 												//userReport['PerformanceReportURL'] = userReport['OptedForPerformanceReport']=="Yes" ? perfReport[0].Sessions.PerformanceReportURL: ""
-												const feedback = feedbacks.filter(record=>record.SessionFeedback.SessionID == userReport['SessionID'])													
+												const feedback = feedbacks.filter(record=>record.SessionID == userReport['SessionID'])													
 												if((typeof feedback!=='undefined') && (feedback != null) && (feedback.length>0)){
 												//	userReport['SessionComplete'] = "Yes"
 												//	userReport['OptedForGPTFeedback'] =	feedback[0]['SessionFeedback']['GPTRating'] == -99 ? "No":"Yes"
 												//	userReport['GPTRating'] = feedback[0]['SessionFeedback']['GPTRating'] == -99 ? "" : feedback[0]['SessionFeedback']['GPTRating'] == -1 ? "Skipped" : feedback[0]['SessionFeedback']['GPTRating']==null ? "":feedback[0]['SessionFeedback']['GPTRating']
 												//	userReport['GPTFeedback'] = feedback[0]['SessionFeedback']['GPTRating'] == -99 ? "" : feedback[0]['SessionFeedback']['GPTRating'] == -1 ? "" : feedback[0]['SessionFeedback']['GPTFeedback'] == null ?"": feedback[0]['SessionFeedback']['GPTFeedback']
 												//	userReport['GPTFeedbackURL'] = feedback[0]['SessionFeedback']['GPTRating'] == -99 ? "" : feedback[0]['SessionFeedback']['GPTRating'] == -1 ? "" : feedback[0]['SessionFeedback']['GPTFeedbackURL'] == null ? "" : feedback[0]['SessionFeedback']['GPTFeedbackURL']
-													userReport['FlowRating'] = feedback[0]['SessionFeedback']['Rating'] == -99 ? (feedback[0]['SessionFeedback']['GPTRating'] == -99 ? "" : feedback[0]['SessionFeedback']['GPTRating'] == -1 ? "Skipped" : feedback[0]['SessionFeedback']['GPTRating']==null ? "":feedback[0]['SessionFeedback']['GPTRating']) : feedback[0]['SessionFeedback']['Rating'] == -1 ? "Skipped" : feedback[0]['SessionFeedback']['Rating'] == null ? (feedback[0]['SessionFeedback']['GPTRating'] == -99 ? "" : feedback[0]['SessionFeedback']['GPTRating'] == -1 ? "Skipped" : feedback[0]['SessionFeedback']['GPTRating']==null ? "":feedback[0]['SessionFeedback']['GPTRating']) : feedback[0]['SessionFeedback']['Rating']
-													userReport['Feedback'] = feedback[0]['SessionFeedback']['Rating'] == -99 ? (feedback[0]['SessionFeedback']['GPTRating'] == -99 ? "" : feedback[0]['SessionFeedback']['GPTRating'] == -1 ? "" : feedback[0]['SessionFeedback']['GPTFeedback'] == null ?"": feedback[0]['SessionFeedback']['GPTFeedback']) : feedback[0]['SessionFeedback']['Rating'] == -1 ? "" : feedback[0]['SessionFeedback']['Feedback'] == null ? (feedback[0]['SessionFeedback']['GPTRating'] == -99 ? "" : feedback[0]['SessionFeedback']['GPTRating'] == -1 ? "" : feedback[0]['SessionFeedback']['GPTFeedback'] == null ?"": feedback[0]['SessionFeedback']['GPTFeedback']) : feedback[0]['SessionFeedback']['Feedback']
+													userReport['FlowRating'] = feedback[0]['Rating'] == -99 ? (feedback[0]['GPTRating'] == -99 ? "" : feedback[0]['GPTRating'] == -1 ? "Skipped" : feedback[0]['GPTRating']==null ? "":feedback[0]['GPTRating']) : feedback[0]['Rating'] == -1 ? "Skipped" : feedback[0]['Rating'] == null ? (feedback[0]['GPTRating'] == -99 ? "" : feedback[0]['GPTRating'] == -1 ? "Skipped" : feedback[0]['GPTRating']==null ? "":feedback[0]['GPTRating']) : feedback[0]['Rating']
+													userReport['Feedback'] = feedback[0]['Rating'] == -99 ? (feedback[0]['GPTRating'] == -99 ? "" : feedback[0]['GPTRating'] == -1 ? "" : feedback[0]['GPTFeedback'] == null ?"": feedback[0]['GPTFeedback']) : feedback[0]['Rating'] == -1 ? "" : feedback[0]['Feedback'] == null ? (feedback[0]['GPTRating'] == -99 ? "" : feedback[0]['GPTRating'] == -1 ? "" : feedback[0]['GPTFeedback'] == null ?"": feedback[0]['GPTFeedback']) : feedback[0]['Feedback']
 												//	userReport['FeedbackURL'] = feedback[0]['SessionFeedback']['Rating'] == -99 ? "" : feedback[0]['SessionFeedback']['Rating'] == -1 ? "" : feedback[0]['SessionFeedback']['FeedbackURL'] == null ? "" : feedback[0]['SessionFeedback']['FeedbackURL']
 												}
 												else{
@@ -1112,7 +1306,7 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 					const report = users.map(user=>{
 						return {
 							//Name:user.Users.Name,
-							Mobile:user.Users.Mobile,
+							Mobile:user.Mobile,
 							//EnglishProficiency:user.Users.EnglishProficiency,
 							//Topic:"",
 							//Persona:"",
@@ -1212,16 +1406,36 @@ app.get("/usertopicmsgs", (req, res) => {
 	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
 	const dataLimit = req.query.limit ? req.query.limit : null
 
-	let query = "Select {} "+
-					"from Sessions "+
-					"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
-					"where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59' "+
-					"and (((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) or ((SystemPrompts.Type = 'Backend Prompt') and ((SystemPrompts.Name = 'Self Introduction') or (SystemPrompts.Name = 'SLF Doubts'))))"+
-					"order by Sessions.SessionID, Sessions.CREATEDTIME asc"
+	// let query = "Select {} "+
+	// 				"from Sessions "+
+	// 				"left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID "+
+	// 				"where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59' "+
+	// 				"and (((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) or ((SystemPrompts.Type = 'Backend Prompt') and (SystemPrompts.Name = 'Self Introduction')))"+
+	// 				"order by Sessions.SessionID, Sessions.CREATEDTIME asc"
+	// getAllRows("IsActive, MessageType, Classification, Improvement, UserFeedback, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name, Sessions.Message, MessageAudioURL, Sessions.Reply, ReplyAudioURL, Sessions.PerformanceReportURL, Sessions.SentenceLevelFeedback, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens	",query,zcql,dataLimit)
 	console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
-	getAllRows("IsActive, MessageType, Classification, Improvement, UserFeedback, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.Name,SystemPrompts.Module,SystemPrompts.Persona, Sessions.Message, MessageAudioURL, Sessions.Reply, ReplyAudioURL, Sessions.PerformanceReportURL, Sessions.SentenceLevelFeedback, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens	",query,zcql,dataLimit)
+Session.find({
+  CREATEDTIME: {
+    $gte: new Date(startDate + 'T00:00:00Z'),
+    $lte: new Date(endDate + 'T23:59:59Z')
+  }
+})
+  .populate({
+    path: 'SystemPromptsROWID',
+    select: 'Name Type -_id', // Select only the desired fields from SystemPrompts
+    match: {
+      $or: [
+        { Type: 'Topic Prompt' },
+        { Type: 'Backend Prompt', Name: 'Self Introduction' },
+        { SystemPromptsROWID: null }
+      ]
+    }
+  })
+  .select('IsActive MessageType Classification Improvement UserFeedback Mobile SessionID CREATEDTIME SystemPromptsROWID SystemPrompts.Name Sessions.Message MessageAudioURL Sessions.Reply ReplyAudioURL Sessions.PerformanceReportURL Sessions.SentenceLevelFeedback Sessions.CompletionTokens Sessions.PromptTokens Sessions.SLFCompletionTokens Sessions.SLFPromptTokens')
+  .sort({ 'Sessions.SessionID': 1, 'Sessions.CREATEDTIME': 1 })
 	.then((allSessions)=>{
-		const sessions = allSessions.filter(data=>!(data.Sessions.SessionID.endsWith(' - Translation')||data.Sessions.SessionID.endsWith(' - Hints')||data.Sessions.SessionID.endsWith(' - ObjectiveFeedback')))
+		console.log("_______________",allSessions);
+		const sessions = allSessions.filter(data=>!(data.SessionID.endsWith(' - Translation')||data.SessionID.endsWith(' - Hints')||data.SessionID.endsWith(' - ObjectiveFeedback')))
 		if(sessions.length>0){
 			var report = sessions.map(data=>{
 				try{
@@ -1253,27 +1467,27 @@ app.get("/usertopicmsgs", (req, res) => {
 				}
 				catch(e){
 					return {
-						Mobile : data.Sessions.Mobile,
-						Topic : data.SystemPrompts.Name,
-						SessionID : data.Sessions.SessionID,
-						IsActive : data.Sessions.IsActive.toString(),
-						MsgTimeStamp : data.Sessions.CREATEDTIME,
-						UserMessage : data.Sessions.Message,
-						UserMessageWordCount : (data.Sessions.Message.split("%20")).length.toString(),
-						MsgAudioURL : data.Sessions.MessageAudioURL == null ? '' : decodeURIComponent(data.Sessions.MessageAudioURL),
-						ChatGPTResponse : decodeURIComponent(data.Sessions.Reply),
-						ChatGPTResponseWordCount : (data.Sessions.Reply.spli("&20")).length.toString(),
-						ChatGPTRespURL : data.Sessions.ReplyAudioURL == null ? '' : decodeURIComponent(data.Sessions.ReplyAudioURL),
-						MessageType : data.Sessions.MessageType == null ? '' : decodeURIComponent(data.Sessions.MessageType),
-						Classification : data.Sessions.Classification == null ? '' : data.Sessions.Classification,
-						Improvement : data.Sessions.Improvement == null ? '' : data.Sessions.Improvement,
-						UserFeedback : data.Sessions.UserFeedback == null ? '' : data.Sessions.UserFeedback,
-						PerfReportURL : data.Sessions.PerformanceReportURL == null ? '' : decodeURIComponent(data.Sessions.PerformanceReportURL),
-						SentenceLevelFeedback: data.Sessions.SentenceLevelFeedback == null ? '' : decodeURIComponent(data.Sessions.SentenceLevelFeedback),
-						CompletionTokens:data.Sessions.CompletionTokens == null ? "" : data.Sessions.CompletionTokens.toString(),
-						PromptTokens:data.Sessions.PromptTokens == null ? "" : data.Sessions.PromptTokens.toString(),
-						SLFCompletionTokens:data.Sessions.SLFCompletionTokens == null ? "" : data.Sessions.SLFCompletionTokens.toString(),
-						SLFPromptTokens:data.Sessions.SLFPromptTokens == null ? "" : data.Sessions.SLFPromptTokens.toString()
+						Mobile : data.Mobile,
+						Topic : data.SystemPromptsROWID.Name,
+						SessionID : data.SessionID,
+						IsActive : data.IsActive.toString(),
+						MsgTimeStamp : data.CREATEDTIME,
+						UserMessage : data.Message,
+						UserMessageWordCount : (data.Message.split("%20")).length.toString(),
+						MsgAudioURL : data.MessageAudioURL == null ? '' : decodeURIComponent(data.MessageAudioURL),
+						ChatGPTResponse : decodeURIComponent(data.Reply),
+						ChatGPTResponseWordCount : (data.Reply.spli("&20")).length.toString(),
+						ChatGPTRespURL : data.ReplyAudioURL == null ? '' : decodeURIComponent(data.ReplyAudioURL),
+						MessageType : data.MessageType == null ? '' : decodeURIComponent(data.MessageType),
+						Classification : data.Classification == null ? '' : data.Classification,
+						Improvement : data.Improvement == null ? '' : data.Improvement,
+						UserFeedback : data.UserFeedback == null ? '' : data.UserFeedback,
+						PerfReportURL : data.PerformanceReportURL == null ? '' : decodeURIComponent(data.PerformanceReportURL),
+						SentenceLevelFeedback: data.SentenceLevelFeedback == null ? '' : decodeURIComponent(data.SentenceLevelFeedback),
+						CompletionTokens:data.CompletionTokens == null ? "" : data.CompletionTokens.toString(),
+						PromptTokens:data.PromptTokens == null ? "" : data.PromptTokens.toString(),
+						SLFCompletionTokens:data.SLFCompletionTokens == null ? "" : data.SLFCompletionTokens.toString(),
+						SLFPromptTokens:data.SLFPromptTokens == null ? "" : data.SLFPromptTokens.toString()
 					}
 				}
 			})
@@ -1347,40 +1561,36 @@ app.get("/sessionevents", (req, res) => {
 	const dataLimit = req.query.limit ? req.query.limit : null
 	const event = req.query.event ? req.query.event.split(",") : null
 
-	let query = "Select {} from SessionEvents left join SystemPrompts on SystemPrompts.ROWID=SessionEvents.SystemPromptROWID where SessionEvents.CREATEDTIME >='"+startDate+" 00:00:00' and SessionEvents.CREATEDTIME <= '"+endDate+" 23:59:59' order by CREATEDTIME ASC"
-	console.info((new Date()).toString()+"|"+prependToLog,"Getting Session Events Data")
-	getAllRows("Mobile, SessionID, Event, SystemPrompts.Name, SystemPrompts.Persona, SystemPrompts.Module, SessionEvents.CREATEDTIME", query,zcql,dataLimit)
-			.then((sessions)=>{
-				let mobiles = sessions.map(data=>data.SessionEvents.Mobile).filter(unique)
-				query = "select {} from Users where Mobile in ("+mobiles.join(",")+")"
-				console.info((new Date()).toString()+"|"+prependToLog,"Getting Users Data")
-				getAllRows("Mobile, GoalInMinutes", query,zcql,dataLimit)
-				.then((users)=>{
-					var eventData = sessions.filter(data=> event == null ? true : (event.includes(data.SessionEvents.Event)) || (data.SessionEvents.Event.includes(event)))
-					var report = eventData.map(data=>{
-						let userReport = {
-							Mobile : data.SessionEvents.Mobile,
-							Topic : decodeURIComponent(data.SystemPrompts.Name),
-							Persona : decodeURIComponent(data.SystemPrompts.Persona),
-							Module : data.SystemPrompts.Module,
-							SessionID : data.SessionEvents.SessionID,
-							Event : data.SessionEvents.Event,
-							EventTimestamp : data.SessionEvents.CREATEDTIME.toString().slice(0,19)
-						}
-						if(userReport['Event'].includes("Goal Reached")||userReport['Event'].includes("Goal Not Reached")){
-							const user = users.filter(record=>record.Users.Mobile == userReport['Mobile'])
-							userReport['GoalInMinutes']=user[0]['Users']['GoalInMinutes']
-						}
-						return userReport
-					})
-					console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Report Length = ",report.length)
-					res.status(200).json(report)
+	// let query = "Select {} from SessionEvents left join SystemPrompts on SystemPrompts.ROWID=SessionEvents.SystemPromptROWID where SessionEvents.CREATEDTIME >='"+startDate+" 00:00:00' and SessionEvents.CREATEDTIME <= '"+endDate+" 23:59:59' order by CREATEDTIME ASC"
+	// getAllRows("Mobile, SessionID, Event, SystemPrompts.Name, SystemPrompts.Persona, SessionEvents.CREATEDTIME", query,zcql,dataLimit)
+	console.info((new Date()).toString()+"|"+prependToLog,"Getting Session Events Data")	  
+	SessionEvents.find({
+		CREATEDTIME: {
+		  $gte: new Date(startDate + 'T00:00:00Z'),
+		  $lte: new Date(endDate + 'T23:59:59Z')
+		}
+	  })
+		.populate({
+		  path: 'SystemPromptROWID',
+		  select: 'Name Persona -_id' 
+		})
+		.select('Mobile SessionID Event CREATEDTIME')
+		.sort('CREATEDTIME')
+		.then((sessions)=>{
+			    console.log("++++++++++++++++",sessions);
+				var eventData = sessions.filter(data=> event == null ? true : event.includes(data.Event))
+				var report = eventData.map(data=>{
+					return {
+						Mobile : data.Mobile,
+						Topic : decodeURIComponent(data.SystemPromptROWID.Name),
+						Persona : decodeURIComponent(data.SystemPromptROWID.Persona),
+						SessionID : data.SessionID,
+						Event : data.Event,
+						EventTimestamp : data.CREATEDTIME.toString().slice(0,19)
+					}
 				})
-				.catch((err) => {
-					console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
-					console.error((new Date()).toString()+"|"+prependToLog,err);
-					res.status(500).send(err);
-				});
+				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Report Length = ",report.length)
+				res.status(200).json(report)
 			})
 			.catch((err) => {
 				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
@@ -1409,65 +1619,81 @@ app.get("/sessionhints", (req, res) => {
 	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
 	const dataLimit = req.query.limit ? req.query.limit : null
 
-	let query = "Select {} from Sessions where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59' order by Mobile, CREATEDTIME ASC"
-	zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"),dataLimit)
+	// let query = "Select {} from Sessions where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59' order by Mobile, CREATEDTIME ASC"
+	// zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"),dataLimit)
+	Session.countDocuments({
+		CREATEDTIME: {
+		  $gte: new Date(startDate + 'T00:00:00Z'),
+		  $lte: new Date(endDate + 'T23:59:59Z')
+		}
+	  })
 	.then((maxRowsResult) => {
-		let maxRows = parseInt(maxRowsResult[0].Sessions.ROWID)
+		console.log("++++++........... ",maxRowsResult);
+
+		let maxRows = maxRowsResult
 		console.info((new Date()).toString()+"|"+prependToLog,'Total Rows: '+maxRows)
 		if(maxRows>0)
 		{
 			const recordsToFetch = 300
 			const startingRow = 1
-			const getAllRows = (fields) => {
-				return new Promise(async (resolve) => {			
-					var jsonReport = []
-					const dataQuery = query.replace("{}",fields)
-					for(var i = startingRow; i <= maxRows ; i=i+recordsToFetch){
-						query = dataQuery+" LIMIT "+i+", "+recordsToFetch
-						console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+recordsToFetch-1))/*+
-									'\nQuery: '+query)*/
-						const queryResult = await zcql.executeZCQLQuery(query)
-							jsonReport = jsonReport.concat(queryResult)
-					}
-					resolve(jsonReport)
-				})
-			}
+			// const getAllRows = (fields) => {
+			// 	return new Promise(async (resolve) => {			
+			// 		var jsonReport = []
+			// 		const dataQuery = query.replace("{}",fields)
+			// 		for(var i = startingRow; i <= maxRows ; i=i+recordsToFetch){
+			// 			query = dataQuery+" LIMIT "+i+", "+recordsToFetch
+			// 			console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+recordsToFetch-1)+
+			// 						'\nQuery: '+query)
+			// 			const queryResult = await zcql.executeZCQLQuery(query)
+			// 				jsonReport = jsonReport.concat(queryResult)
+			// 		}
+			// 		resolve(jsonReport)
+			// 	})
+			// }
+			//getAllRows("SessionID, Message, Reply, CreatedTime, CompletionTokens, PromptTokens, SLFCompletionTokens, SLFPromptTokens")
 			console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
-			getAllRows("SessionID, Message, Reply, CreatedTime, CompletionTokens, PromptTokens, SLFCompletionTokens, SLFPromptTokens")
+			Session.find({
+				CREATEDTIME: {
+				  $gte: new Date(startDate + 'T00:00:00Z'),
+				  $lte: new Date(endDate + 'T23:59:59Z')
+				}
+			  })
+			  .select('SessionID Message Reply CreatedTime CompletionTokens PromptTokens SLFCompletionTokens SLFPromptTokens')
+			  .sort('Mobile CREATEDTIME')
 			.then((sessions)=>{
 				var report = sessions.map((data,index)=>{
-					if(data.Sessions.SessionID.endsWith(" - Hint")){
+					if(data.SessionID.endsWith(" - Hint")){
 						var returnObject = {}
-						returnObject["SessionID"]=data.Sessions.SessionID
-						returnObject["Hint"]= data.Sessions.Reply == null ? "" : decodeURIComponent(data.Sessions.Reply)
+						returnObject["SessionID"]=data.SessionID
+						returnObject["Hint"]= data.Reply == null ? "" : decodeURIComponent(data.Reply)
 						returnObject["HintWordCount"] = returnObject["Hint"] == null ? "" : (returnObject["Hint"].split(" ")).length.toString()
-						returnObject["HintPayload"]= data.Sessions.Message == null ? "" : decodeURIComponent(data.Sessions.Message)
+						returnObject["HintPayload"]= data.Message == null ? "" : decodeURIComponent(data.Message)
 						returnObject["HintPayloadWordCount"] = returnObject["HintPayload"] == null ? "" : (returnObject["HintPayload"].split(" ")).length.toString()
-						const sessionID = data.Sessions.SessionID.replace(" - Hint","")
-						const lastSessionID = (index>0) ? sessions[index-1].Sessions.SessionID.replace(" - Hint","") : null
-						const nextSessionID = (index<(sessions.length-1)) ? sessions[index+1].Sessions.SessionID.replace(" - Hint","") : null
-						if((index>0) && (data.Sessions.Mobile == sessions[index-1].Sessions.Mobile) && (sessionID == lastSessionID) && (!sessions[index-1].Sessions.SessionID.endsWith(" - Hint"))){
-							returnObject["LastMessage"] = decodeURIComponent(sessions[index-1].Sessions.Message)
-							returnObject["LastReply"] = decodeURIComponent(sessions[index-1].Sessions.Reply)
+						const sessionID = data.SessionID.replace(" - Hint","")
+						const lastSessionID = (index>0) ? sessions[index-1].SessionID.replace(" - Hint","") : null
+						const nextSessionID = (index<(sessions.length-1)) ? sessions[index+1].SessionID.replace(" - Hint","") : null
+						if((index>0) && (data.Mobile == sessions[index-1].Mobile) && (sessionID == lastSessionID) && (!sessions[index-1].SessionID.endsWith(" - Hint"))){
+							returnObject["LastMessage"] = decodeURIComponent(sessions[index-1].Message)
+							returnObject["LastReply"] = decodeURIComponent(sessions[index-1].Reply)
 						}
 						else{
 							returnObject["LastMessage"] = ""
 							returnObject["LastReply"] = ""
 						}
-						if((index<(sessions.length-1)) && (data.Sessions.Mobile == sessions[index+1].Sessions.Mobile) && (sessionID == nextSessionID))
-							returnObject["NextMessage"] = decodeURIComponent(sessions[index+1].Sessions.Message)
+						if((index<(sessions.length-1)) && (data.Mobile == sessions[index+1].Mobile) && (sessionID == nextSessionID))
+							returnObject["NextMessage"] = decodeURIComponent(sessions[index+1].Message)
 						else
 							returnObject["NextMessage"] = ""
-						if((index<(sessions.length-1)) && (data.Sessions.SessionID==sessions[index+1].Sessions.SessionID)){
+						if((index<(sessions.length-1)) && (data.SessionID==sessions[index+1].SessionID)){
 							returnObject["ConsecutiveUse"] = "Yes"
 							returnObject["NextMessage"] = ""
 						}
 						else
 							returnObject["ConsecutiveUse"] = ""
-						returnObject["CompletionTokens"]=data.Sessions.CompletionTokens == null ? "" : data.Sessions.CompletionTokens.toString(),
-						returnObject["PromptTokens"]=data.Sessions.PromptTokens == null ? "" : data.Sessions.PromptTokens.toString(),
-						returnObject["SLFCompletionTokens"]=data.Sessions.SLFCompletionTokens == null ? "" : data.Sessions.SLFCompletionTokens.toString(),
-						returnObject["SLFPromptTokens"]=data.Sessions.SLFPromptTokens == null ? "" : data.Sessions.SLFPromptTokens.toString()
+						returnObject["CompletionTokens"]=data.CompletionTokens == null ? "" : data.CompletionTokens.toString(),
+						returnObject["PromptTokens"]=data.PromptTokens == null ? "" : data.PromptTokens.toString(),
+						returnObject["SLFCompletionTokens"]=data.SLFCompletionTokens == null ? "" : data.SLFCompletionTokens.toString(),
+						returnObject["SLFPromptTokens"]=data.SLFPromptTokens == null ? "" : data.SLFPromptTokens.toString()
 						return returnObject
 					}
 					else
@@ -1551,56 +1777,71 @@ app.get("/sessiontranslations", (req, res) => {
 	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
 	const dataLimit = req.query.limit ? req.query.limit : null
 
-	let query = "Select {} from Sessions where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59' order by Mobile,SessionID, CREATEDTIME ASC"
-	zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"),dataLimit)
+	// let query = "Select {} from Sessions where Sessions.CREATEDTIME >='"+startDate+" 00:00:00' and Sessions.CREATEDTIME <= '"+endDate+" 23:59:59' order by Mobile,SessionID, CREATEDTIME ASC"
+	// zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"),dataLimit)
+	Session.countDocuments({
+		CREATEDTIME: {
+		  $gte: new Date(startDate + 'T00:00:00Z'),
+		  $lte: new Date(endDate + 'T23:59:59Z')
+		}
+	  })
 	.then((maxRowsResult) => {
-		let maxRows = parseInt(maxRowsResult[0].Sessions.ROWID)
+		console.log("...........",maxRowsResult);
+		let maxRows = maxRowsResult
 		console.info((new Date()).toString()+"|"+prependToLog,'Total Rows: '+maxRows)
 		if(maxRows>0)
 		{
 			const recordsToFetch = 300
 			const startingRow = 1
-			const getAllRows = (fields) => {
-				return new Promise(async (resolve) => {			
-					var jsonReport = []
-					const dataQuery = query.replace("{}",fields)
-					for(var i = startingRow; i <= maxRows ; i=i+recordsToFetch){
-						query = dataQuery+" LIMIT "+i+", "+recordsToFetch
-						console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+recordsToFetch-1))/*+
-									'\nQuery: '+query)*/
-						const queryResult = await zcql.executeZCQLQuery(query)
-							jsonReport = jsonReport.concat(queryResult)
-					}
-					resolve(jsonReport)
-				})
-			}
-			getAllRows("SessionID, Message, Reply, CreatedTime")
+			// const getAllRows = (fields) => {
+			// 	return new Promise(async (resolve) => {			
+			// 		var jsonReport = []
+			// 		const dataQuery = query.replace("{}",fields)
+			// 		for(var i = startingRow; i <= maxRows ; i=i+recordsToFetch){
+			// 			query = dataQuery+" LIMIT "+i+", "+recordsToFetch
+			// 			console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+recordsToFetch-1)+
+			// 						'\nQuery: '+query)
+			// 			const queryResult = await zcql.executeZCQLQuery(query)
+			// 				jsonReport = jsonReport.concat(queryResult)
+			// 		}
+			// 		resolve(jsonReport)
+			// 	})
+			// }
+			// getAllRows("SessionID, Message, Reply, CreatedTime")
 			console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
+			Session.find({
+				CREATEDTIME: {
+				  $gte: new Date(startDate + 'T00:00:00Z'),
+				  $lte: new Date(endDate + 'T23:59:59Z')
+				}
+			  })
+			  .select('SessionID Message Reply CreatedTime')
+			  .sort('Mobile SessionID CREATEDTIME')
 			.then((sessions)=>{
 				var report = sessions.map((data,index)=>{
-					if(data.Sessions.SessionID.endsWith(" - Translation")){
+					if(data.SessionID.endsWith(" - Translation")){
 						var returnObject = {}
-						returnObject["SessionID"]=data.Sessions.SessionID
-						const reply = data.Sessions.Reply == null ? null : decodeURIComponent(data.Sessions.Reply)
+						returnObject["SessionID"]=data.SessionID
+						const reply = data.Reply == null ? null : decodeURIComponent(data.Reply)
 						returnObject["LangChosen"] = reply == null ? "" : (reply['sourceLanguage'] + " to " + reply['targetLanguage'])
-						returnObject["UserInput"] = data.Sessions.Message != null ? decodeURIComponent(data.Sessions.Message) : ""
+						returnObject["UserInput"] = data.Message != null ? decodeURIComponent(data.Message) : ""
 						returnObject["Translation"] = reply != null ? decodeURIComponent(reply):""
-						const sessionID = data.Sessions.SessionID.replace(" - Translation","")
-						const lastSessionID = (index>0) ? sessions[index-1].Sessions.SessionID.replace(" - Translation","") : null
-						const nextSessionID = (index<(sessions.length-1)) ? sessions[index+1].Sessions.SessionID.replace(" - Translation","") : null
-						if((index>0) && (data.Sessions.Mobile == sessions[index-1].Sessions.Mobile) && (sessionID == lastSessionID)){
-							returnObject["LastMessage"] = decodeURIComponent(sessions[index-1].Sessions.Message)
-							returnObject["LastReply"] = decodeURIComponent(sessions[index-1].Sessions.Reply)
+						const sessionID = data.SessionID.replace(" - Translation","")
+						const lastSessionID = (index>0) ? sessions[index-1].SessionID.replace(" - Translation","") : null
+						const nextSessionID = (index<(sessions.length-1)) ? sessions[index+1].SessionID.replace(" - Translation","") : null
+						if((index>0) && (data.Mobile == sessions[index-1].Mobile) && (sessionID == lastSessionID)){
+							returnObject["LastMessage"] = decodeURIComponent(sessions[index-1].Message)
+							returnObject["LastReply"] = decodeURIComponent(sessions[index-1].Reply)
 						}
 						else{
 							returnObject["LastMessage"] = ""
 							returnObject["LastReply"] = ""
 						}
-						if((index<(sessions.length-1)) && (data.Sessions.Mobile == sessions[index+1].Sessions.Mobile) && (sessionID == nextSessionID))
-							returnObject["NextMessage"] = decodeURIComponent(sessions[index+1].Sessions.Message)
+						if((index<(sessions.length-1)) && (data.Mobile == sessions[index+1].Mobile) && (sessionID == nextSessionID))
+							returnObject["NextMessage"] = decodeURIComponent(sessions[index+1].Message)
 						else
 							returnObject["NextMessage"] = ""
-						if((index<(sessions.length-1)) && (data.Sessions.SessionID==sessions[index+1].Sessions.SessionID))
+						if((index<(sessions.length-1)) && (data.SessionID==sessions[index+1].SessionID))
 							returnObject["ConsecutiveUse"] = "Yes"
 						else
 							returnObject["ConsecutiveUse"] = ""
@@ -1671,53 +1912,95 @@ app.get("/sessiontecherrors", (req, res) => {
 	const dataLimit = req.query.limit ? req.query.limit : null
 
 
-	let query = "Select {} from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID where (SystemPrompts.Type = 'Topic Prompt') or (SystemPrompts.Type is null) order by Mobile, SessionID, Sessions.CREATEDTIME ASC"
-	zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"),dataLimit)
+	// let query = "Select {} from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID where (SystemPrompts.Type = 'Topic Prompt') or (SystemPrompts.Type is null) order by Mobile, SessionID, Sessions.CREATEDTIME ASC"
+	// zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"),dataLimit)
+	
+Session.aggregate([
+	{
+	  $lookup: {
+		from: "SystemPrompts", // Name of the collection to join with
+		localField: 'SystemPromptsROWID',
+		foreignField: '_id',
+		as: 'systemPromptData'
+	  }
+	},
+	{
+	  $unwind: {
+		path: '$systemPromptData',
+		preserveNullAndEmptyArrays: true
+	  }
+	},
+	{
+	  $match: {
+		$or: [
+		  { 'systemPromptData.Type': 'Topic Prompt' },
+		  { 'systemPromptData.Type': null }
+		]
+	  }
+	},
+	{
+	  $count: 'rowCount'
+	}
+  ])
 	.then((maxRowsResult) => {
-		let maxRows = parseInt(maxRowsResult[0].Sessions.ROWID)
+		console.log("+++++++++++...............",maxRowsResult);
+		let maxRows = parseInt(maxRowsResult[0].rowCount)
 		console.info((new Date()).toString()+"|"+prependToLog,'Total Rows: '+maxRows)
 		if(maxRows>0)
 		{
 			const recordsToFetch = 300
 			const startingRow = 1
-			const getAllRows = (fields) => {
-				return new Promise(async (resolve) => {			
-					var jsonReport = []
-					const dataQuery = query.replace("{}",fields)
-					for(var i = startingRow; i <= maxRows ; i=i+recordsToFetch){
-						query = dataQuery+" LIMIT "+i+", "+recordsToFetch
-						console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+recordsToFetch-1))/*+
-									'\nQuery: '+query)*/
-						const queryResult = await zcql.executeZCQLQuery(query)
-							jsonReport = jsonReport.concat(queryResult)
-					}
-					resolve(jsonReport)
-				})
-			}
+			// const getAllRows = (fields) => {
+			// 	return new Promise(async (resolve) => {			
+			// 		var jsonReport = []
+			// 		const dataQuery = query.replace("{}",fields)
+			// 		for(var i = startingRow; i <= maxRows ; i=i+recordsToFetch){
+			// 			query = dataQuery+" LIMIT "+i+", "+recordsToFetch
+			// 			console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+recordsToFetch-1)+
+			// 						'\nQuery: '+query)
+			// 			const queryResult = await zcql.executeZCQLQuery(query)
+			// 				jsonReport = jsonReport.concat(queryResult)
+			// 		}
+			// 		resolve(jsonReport)
+			// 	})
+			// }
+			// getAllRows("SessionID, Message, Reply, CreatedTime")
 			console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
-			getAllRows("SessionID, Message, Reply, CreatedTime")
+			Session.find({})
+			.populate({
+				path: 'SystemPromptsROWID',
+				match: {
+				$or: [
+					{ Type: 'Topic Prompt' },
+					{ Type: { $exists: false } }
+				]
+				},
+				select: 'Type -_id' // Only select the 'Type' field from SystemPrompts
+			})
+			.sort('Mobile SessionID CreatedTime')
 			.then((sessions)=>{
+				console.log("-------------------.........",sessions);
 				var report = sessions.map((data,index)=>{
-					if(data.Sessions.Reply == null){
+					if(data.Reply == null){
 						var returnObject = {}
-						returnObject["SessionID"]=data.Sessions.SessionID
-						returnObject["UserMessage"]= data.Sessions.Message == null ? "" : decodeURIComponent(data.Sessions.Message)
-						const sessionID = data.Sessions.SessionID
-						const lastSessionID = (index>0) ? sessions[index-1].Sessions.SessionID : null
-						const nextSessionID = (index<(sessions.length-1)) ? sessions[index+1].Sessions.SessionID : null
-						if((index>0) && (data.Sessions.Mobile == sessions[index-1].Sessions.Mobile) && (sessionID == lastSessionID)){
-							returnObject["LastMessage"] = decodeURIComponent(sessions[index-1].Sessions.Message)
-							returnObject["LastReply"] = decodeURIComponent(sessions[index-1].Sessions.Reply)
+						returnObject["SessionID"]=data.SessionID
+						returnObject["UserMessage"]= data.Message == null ? "" : decodeURIComponent(data.Message)
+						const sessionID = data.SessionID
+						const lastSessionID = (index>0) ? sessions[index-1].SessionID : null
+						const nextSessionID = (index<(sessions.length-1)) ? sessions[index+1].SessionID : null
+						if((index>0) && (data.Mobile == sessions[index-1].Mobile) && (sessionID == lastSessionID)){
+							returnObject["LastMessage"] = decodeURIComponent(sessions[index-1].Message)
+							returnObject["LastReply"] = decodeURIComponent(sessions[index-1].Reply)
 						}
 						else{
 							returnObject["LastMessage"] = ""
 							returnObject["LastReply"] = ""
 						}
-						if((index<(sessions.length-1)) && (data.Sessions.Mobile == sessions[index+1].Sessions.Mobile) && (sessionID == nextSessionID))
-							returnObject["NextMessage"] = decodeURIComponent(sessions[index+1].Sessions.Message)
+						if((index<(sessions.length-1)) && (data.Mobile == sessions[index+1].Mobile) && (sessionID == nextSessionID))
+							returnObject["NextMessage"] = decodeURIComponent(sessions[index+1].Message)
 						else
 							returnObject["NextMessage"] = ""
-						if((index<(sessions.length-1)) && (data.Sessions.SessionID==sessions[index+1].Sessions.SessionID) && (data.Sessions.Reply == sessions[index+1].Sessions.Reply))
+						if((index<(sessions.length-1)) && (data.SessionID==sessions[index+1].SessionID) && (data.Reply == sessions[index+1].Reply))
 							returnObject["ConsecutiveUse"] = "Yes"
 						else
 							returnObject["ConsecutiveUse"] = ""
@@ -1784,60 +2067,63 @@ app.get("/sessionabandoned", (req, res) => {
 	let zcql = catalystApp.zcql()
 	const dataLimit = req.query.limit ? req.query.limit : null
 
-	let query = "Select {} from Sessions order by Mobile, SessionID, Sessions.CREATEDTIME ASC"
-	zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"),dataLimit)
+	// let query = "Select {} from Sessions order by Mobile, SessionID, Sessions.CREATEDTIME ASC"
+	// zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"),dataLimit)
+	Session.countDocuments({})
 	.then((maxRowsResult) => {
-		let maxRows = parseInt(maxRowsResult[0].Sessions.ROWID)
+		
+		let maxRows = parseInt(maxRowsResult)
 		console.info((new Date()).toString()+"|"+prependToLog,'Total Rows: '+maxRows)
 		if(maxRows>0)
 		{
 			const recordsToFetch = 300
 			const startingRow = 1
-			const getAllRows = (fields) => {
-				return new Promise(async (resolve) => {			
-					var jsonReport = []
-					const dataQuery = query.replace("{}",fields)
-					for(var i = startingRow; i <= maxRows ; i=i+recordsToFetch){
-						query = dataQuery+" LIMIT "+i+", "+recordsToFetch
-						console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+recordsToFetch-1))/*+
-									'\nQuery: '+query)*/
-						const queryResult = await zcql.executeZCQLQuery(query)
-							jsonReport = jsonReport.concat(queryResult)
-					}
-					resolve(jsonReport)
-				})
-			}
+			// const getAllRows = (fields) => {
+			// 	return new Promise(async (resolve) => {			
+			// 		var jsonReport = []
+			// 		const dataQuery = query.replace("{}",fields)
+			// 		for(var i = startingRow; i <= maxRows ; i=i+recordsToFetch){
+			// 			query = dataQuery+" LIMIT "+i+", "+recordsToFetch
+			// 			console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+recordsToFetch-1)+
+			// 						'\nQuery: '+query)
+			// 			const queryResult = await zcql.executeZCQLQuery(query)
+			// 				jsonReport = jsonReport.concat(queryResult)
+			// 		}
+			// 		resolve(jsonReport)
+			// 	})
+			// }
 			console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
-			getAllRows("SessionID, Message, Reply, CreatedTime")
+			Session.find({}, 'SessionID Message Reply CreatedTime')
+  			.sort({ Mobile: 1, SessionID: 1, 'Sessions.CREATEDTIME': 1 })
 			.then((sessions)=>{
 				var report = sessions.map((data,index)=>{
 					if(index==(sessions.length-1))
 						return null
-					else if(data.Sessions.SessionID.endsWith(" - ObjectiveFeedback"))
+					else if(data.SessionID.endsWith(" - ObjectiveFeedback"))
 						return null
-					else if(data.Sessions.Reply != null){
-						const currentMesageAt = new Date(data.Sessions.CREATEDTIME)
-						const nextMesageAt = new Date(sessions[index+1].Sessions.CREATEDTIME)
+					else if(data.Reply != null){
+						const currentMesageAt = new Date(data.CREATEDTIME)
+						const nextMesageAt = new Date(sessions[index+1].CREATEDTIME)
 						const duration = (nextMesageAt-currentMesageAt)/1000/60
 						if(duration > 10){
-							const sessionID = data.Sessions.SessionID
-							const lastSessionID = (index>0) ? sessions[index-1].Sessions.SessionID : null
-							const nextSessionID = (index<(sessions.length-1)) ? sessions[index+1].Sessions.SessionID : null
+							const sessionID = data.SessionID
+							const lastSessionID = (index>0) ? sessions[index-1].SessionID : null
+							const nextSessionID = (index<(sessions.length-1)) ? sessions[index+1].SessionID : null
 							if((sessionID == nextSessionID)||(sessionID.includes(nextSessionID))||((nextSessionID!=null)&&(nextSessionID.includes(sessionID)))){
 								var returnObject = {}
-								returnObject["SessionID"]=data.Sessions.SessionID
-								returnObject["UserMessage"]= data.Sessions.Message == null ? "" : decodeURIComponent(data.Sessions.Message)
-								returnObject["Reply"]= data.Sessions.Reply == null ? "" : decodeURIComponent(data.Sessions.Reply)
-								if((index>0) && (data.Sessions.Mobile == sessions[index-1].Sessions.Mobile) && (sessionID == lastSessionID)){
-									returnObject["LastMessage"] = decodeURIComponent(sessions[index-1].Sessions.Message)
-									returnObject["LastReply"] = decodeURIComponent(sessions[index-1].Sessions.Reply)
+								returnObject["SessionID"]=data.SessionID
+								returnObject["UserMessage"]= data.Message == null ? "" : decodeURIComponent(data.Message)
+								returnObject["Reply"]= data.Reply == null ? "" : decodeURIComponent(data.Reply)
+								if((index>0) && (data.Mobile == sessions[index-1].Mobile) && (sessionID == lastSessionID)){
+									returnObject["LastMessage"] = decodeURIComponent(sessions[index-1].Message)
+									returnObject["LastReply"] = decodeURIComponent(sessions[index-1].Reply)
 								}
 								else{
 									returnObject["LastMessage"] = ""
 									returnObject["LastReply"] = ""
 								}
-								if((index<(sessions.length-1)) && (data.Sessions.Mobile == sessions[index+1].Sessions.Mobile) && (sessionID == nextSessionID))
-									returnObject["NextMessage"] = decodeURIComponent(sessions[index+1].Sessions.Message)
+								if((index<(sessions.length-1)) && (data.Mobile == sessions[index+1].Mobile) && (sessionID == nextSessionID))
+									returnObject["NextMessage"] = decodeURIComponent(sessions[index+1].Message)
 								else
 									returnObject["NextMessage"] = ""
 								return returnObject
@@ -1897,152 +2183,233 @@ app.get("/sessionabandoned", (req, res) => {
 
 app.get("/wordleattempts", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
-
-	const executionID = Math.random().toString(36).slice(2)
-    
-    //Prepare text to prepend with logs
-    const params = ["Reports",req.url,executionID,""]
-    const prependToLog = params.join(" | ")
-    
-    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
-
-	let zcql = catalystApp.zcql()
-
-	const mobile = req.query.mobile ? req.query.mobile.slice(-10) : null
-	const startDate = req.query.startDate ? req.query.startDate : '1970-01-01'
-	var today = new Date()
-	today.setHours(today.getHours()+5)
-	today.setMinutes(today.getMinutes()+30)
-	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
-	const dataLimit = req.query.limit ? req.query.limit : null
-
-	let query = "Select {} "+
-					"from WordleAttempts "+
-					"left join Users on WordleAttempts.UserROWID = Users.ROWID "+
-					"left join WordleConfiguration on WordleAttempts.WordleROWID = WordleConfiguration.ROWID "+
-					"where WordleAttempts.CREATEDTIME >='"+startDate+" 00:00:00' and WordleAttempts.CREATEDTIME <= '"+endDate+" 23:59:59' "+
-					(mobile !=null ? (" and Users.Mobile="+mobile+" "):"")+
-					"order by WordleAttempts.UserROWID, WordleAttempts.CREATEDTIME asc"
-	console.info((new Date()).toString()+"|"+prependToLog,"Getting Wordle Attempts Data")
-	getAllRows("WordleConfiguration.ROWID, WordleConfiguration.MaxAttempts, WordleConfiguration.Word, WordleConfiguration.RecommendedTopic, Users.Mobile, WordleAttempts.ROWID, WordleAttempts.CREATEDTIME, WordleAttempts.IsCorrect, WordleAttempts.Answer, WordleAttempts.Source",query,zcql,dataLimit)
-	.then((cfuAttempts)=>{
-		if(cfuAttempts.length>0){
-			const mobiles = cfuAttempts.map(data=>data.Users.Mobile).filter(unique)
-			query = "Select {} from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID where Sessions.Mobile in ("+mobiles.join(",")+")"
-			console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
-			getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, SystemPrompts.Name, SystemPrompts.Persona",query,zcql,dataLimit)
-			.then((sessions)=>{
-				const wordleROWIDs = cfuAttempts.map(data=>data.WordleConfiguration.ROWID).filter(unique)
-				query = "Select {} from SessionEvents where SessionID in ('"+wordleROWIDs.join("','")+"') and Mobile in ("+mobiles.join(",")+")"
-				console.info((new Date()).toString()+"|"+prependToLog,"Getting Session Events Data")
-				getAllRows("Mobile, SessionID, CREATEDTIME, Event",query,zcql,dataLimit)
-				.then((events)=>{
-					var report = []
-					//For each mobile which played Wordle
-					for(var i = 0; i<mobiles.length; i++){
-						const mobile = mobiles[i]
-						//Get the list of wordles played
-						const wordlesPlayed = cfuAttempts.filter(data=>data.Users.Mobile == mobile).map(data=>data.WordleConfiguration.ROWID).filter(unique)
-						//For each wordle played
-						for(var j=0; j<wordlesPlayed.length; j++){
-							var userReport = {
-								Mobile: mobile
-							}	
-							const wordlePlayed = wordlesPlayed[j]
-							//Get the wordle attempt data
-							const wordleAttemptData = cfuAttempts.filter(data=>(data.WordleConfiguration.ROWID==wordlePlayed)&&(data.Users.Mobile == userReport['Mobile']))
-							//Get the wordle attempt timestamps
-							const wordleAttemptTimeStamps = wordleAttemptData.map(data=>data.WordleAttempts.CREATEDTIME).filter(unique).sort()
-							userReport['SessionStartedTime'] = wordleAttemptTimeStamps[0].slice(0,19)
-							userReport['SessionEndTime'] = wordleAttemptTimeStamps[wordleAttemptTimeStamps.length-1].slice(0,19)
-							//Get the total attempts
-							userReport['NumberOfGuesses'] = wordleAttemptData.length
-							//If wordle has been answered correctly or max attempts has been reached
-							userReport['CompletedWordle'] = (wordleAttemptData.some(data=>data.WordleAttempts.IsCorrect == true)) || (parseInt(userReport['NumberOfGuesses'])==parseInt(wordleAttemptData[0]['WordleConfiguration']['MaxAttempts'])) ? "Yes" : "No"
-							userReport['GuessedCorrect'] = wordleAttemptData.some(data=>data.WordleAttempts.IsCorrect == true) ? "Yes" : "No"
-							userReport['Guessedwords'] = wordleAttemptData.map(data=>data.WordleAttempts.Answer).join(",")
-							userReport['WordOfDay'] = wordleAttemptData[0]['WordleConfiguration']['Word']
-							userReport['RecommendedTopic'] = wordleAttemptData[0]['WordleConfiguration']['RecommendedTopic']
-							const wordleSource = wordleAttemptData.map(data=>data.WordleAttempts.Source).filter(unique).filter(data=>data!=null)
-							userReport['WordleSource'] = wordleSource.length > 0 ? wordleSource.join(","):null
-							
-							var sessionStartedTimeStamp = new Date(userReport['SessionStartedTime'])
-							const sessionStartedTime = ('0'+sessionStartedTimeStamp.getHours()).slice(-2)+":"+('0'+sessionStartedTimeStamp.getMinutes()).slice(-2)
-							if(sessionStartedTime>=process.env.WordleStartTime){
-								sessionStartedTimeStamp.setDate(sessionStartedTimeStamp.getDate()+1)
-							}
-							var endTimeStamp = new Date(sessionStartedTimeStamp.getFullYear(),sessionStartedTimeStamp.getMonth(),sessionStartedTimeStamp.getDate(),20,45)
-							const sessionData = sessions.filter(session=>(session.Sessions.Mobile==userReport['Mobile'])
-															&&(session.Sessions.CREATEDTIME >= userReport['SessionStartedTime'])
-															&&((new Date(session.Sessions.CREATEDTIME)) < endTimeStamp))
-												.map(session=>session.SystemPrompts.Name +"-"+session.SystemPrompts.Persona +"-"+ session.Sessions.SessionID)
-												.filter(unique)
-							userReport['NextTopicAttemptedBeforeReminder'] = sessionData.length > 0 ? sessionData.join(",") :  null
-
-							const wordleAttemptEvents = events.filter(data=>(data.SessionEvents.Mobile == userReport['Mobile'])&&
-																			(data.SessionEvents.SessionID == wordleAttemptData[0]['WordleConfiguration']['ROWID']) &&
-																			((data.SessionEvents.Event == 'How to Play')||(data.SessionEvents.Event.startsWith('Start Wordle')))
-																	).map(data=>data.SessionEvents.Event).filter(unique).filter(data=>data!=null)
-							
-							userReport['ButtonClick'] = wordleAttemptEvents.length > 0 ? wordleAttemptEvents.join(",") : null
-							userReport['WordleID'] = wordleAttemptData[0]['WordleAttempts']['ROWID']
-
-							report.push(userReport)
-						}
-					}
-					report = report.sort((a, b)=>{
-						if((a['Mobile'] == b['Mobile']) && (a.SessionStartTime < b.SessionStartTime)) {
-							return -1;
-						}
-						if((a['Mobile'] == b['Mobile']) && (a.SessionStartTime > b.SessionStartTime)) {
-							return 1;
-						}
-						if((a['Mobile'] == b['Mobile'])) {
-							return 0;
-						}
-						if((a['Mobile'] < b['Mobile'])) {
-							return -1;
-						}
-						if((a['Mobile'] > b['Mobile'])) {
-							return 1;
-						}
-						// a must be equal to b
-						return 0;
-					})
-					var attempted = 0
-					for(var m = 0; m < report.length; m++){
-						if((m>0)&&(report[m-1]['Mobile']!=report[m]['Mobile'])){
-							attempted = 0
-						}
-						report[m]['Attempt'] = ++attempted
-					}
-					console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Report Length = ",report.length)
-					res.status(200).json(report)
-				})
-				.catch((err) => {
-					console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
-					console.error((new Date()).toString()+"|"+prependToLog,err);
-					res.status(500).send(err);
-				});
-			})
-			.catch((err) => {
-				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
-				console.error((new Date()).toString()+"|"+prependToLog,err);
-				res.status(500).send(err);
-			});
+	let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+  
+  const executionID = Math.random().toString(36).slice(2)
+	
+	//Prepare text to prepend with logs
+	const params = ["Reports",req.url,executionID,""]
+	const prependToLog = params.join(" | ")
+	
+	console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
+  let zcql = catalystApp.zcql()
+  
+  const mobile = req.query.mobile ? req.query.mobile.slice(-10) : null
+  const startDate = req.query.startDate ? req.query.startDate : '1970-01-01'
+  var today = new Date()
+  today.setHours(today.getHours()+5)
+  today.setMinutes(today.getMinutes()+30)
+  const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
+  const dataLimit = req.query.limit ? req.query.limit : null
+  
+  // let query = "Select {} "+
+  // 				"from WordleAttempts "+
+  // 				"left join Users on WordleAttempts.UserROWID = Users.ROWID "+
+  // 				"left join WordleConfiguration on WordleAttempts.WordleROWID = WordleConfiguration.ROWID "+
+  // 				"where WordleAttempts.CREATEDTIME >='"+startDate+" 00:00:00' and WordleAttempts.CREATEDTIME <= '"+endDate+" 23:59:59' "+
+  // 				(mobile !=null ? (" and Users.Mobile="+mobile+" "):"")+
+  // 				"order by WordleAttempts.UserROWID, WordleAttempts.CREATEDTIME asc"
+  // getAllRows("WordleConfiguration.ROWID, WordleConfiguration.MaxAttempts, WordleConfiguration.Word, WordleConfiguration.RecommendedTopic, Users.Mobile, WordleAttempts.ROWID, WordleAttempts.CREATEDTIME, WordleAttempts.IsCorrect, WordleAttempts.Answer, WordleAttempts.Source",query,zcql,dataLimit)
+  console.info((new Date()).toString()+"|"+prependToLog,"Getting Wordle Attempts Data")
+  const condition = {
+	'WordleAttempts.CREATEDTIME': {
+	  $gte: new Date(startDate + ' 00:00:00'),
+	  $lte: new Date(endDate + ' 23:59:59'),
+	},
+  };
+  
+  if (mobile) {
+	condition['Users.Mobile'] = mobile;
+  }	
+  WordleAttempt.aggregate([
+	{
+	  $match: condition,
+	},
+	{
+	  $lookup: {
+		from: 'Users', // Replace with the actual name of the Users collection
+		localField: 'UserROWID',
+		foreignField: '_id',
+		as: 'Users',
+	  },
+	},
+	{
+	  $lookup: {
+		from: 'WordleConfiguration', // Replace with the actual name of the WordleConfiguration collection
+		localField: 'WordleROWID',
+		foreignField: '_id',
+		as: 'WordleConfiguration',
+	  },
+	},
+	{
+	  $unwind: '$Users',
+	},
+	{
+	  $unwind: '$WordleConfiguration',
+	},
+	{
+	  $project: {
+		'WordleConfiguration.ROWID': 1,
+		'WordleConfiguration.MaxAttempts': 1,
+		'WordleConfiguration.Word': 1,
+		'WordleConfiguration.RecommendedTopic': 1,
+		'Users.Mobile': 1,
+		'WordleAttempts.ROWID': 1,
+		'WordleAttempts.CREATEDTIME': 1,
+		'WordleAttempts.IsCorrect': 1,
+		'WordleAttempts.Answer': 1,
+		'WordleAttempts.Source': 1,
+	  },
+	},
+	{
+	  $sort: {
+		'WordleAttempts.UserROWID': 1,
+		'WordleAttempts.CREATEDTIME': 1,
+	  },
+	},
+  ])
+  .then((cfuAttempts)=>{
+	if(cfuAttempts.length>0){
+	  const mobiles = cfuAttempts.map(data=>data.Mobile).filter(unique)
+	  // query = "Select {} from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID where Sessions.Mobile in ("+mobiles.join(",")+")"
+	  // getAllRows("Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, SystemPrompts.Name, SystemPrompts.Persona",query,zcql,dataLimit)
+	  console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
+	  Session.aggregate([
+		{
+		$match: {
+		  Mobile: { $in: mobiles }
 		}
-		else{
-			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. No Wordle Attempt found")
-			res.status(200).json([])
+		},
+		{
+		$lookup: {
+		  from: "SystemPrompts", 
+		  localField: 'SystemPromptsROWID',
+		  foreignField: '_id',
+		  as: 'systemPromptData'
 		}
-	})
-	.catch((err) => {
+		},
+		{
+		$project: {
+		  Mobile: 1,
+		  SessionID: 1,
+		  CREATEDTIME: 1,
+		  'systemPromptData.Name': 1,
+		  'systemPromptData.Persona': 1
+		}
+		}
+	  ])
+	  .then((sessions)=>{
+		const wordleROWIDs = cfuAttempts.map(data=>data._id).filter(unique)
+		// query = "Select {} from SessionEvents where SessionID in ('"+wordleROWIDs.join("','")+"') and Mobile in ("+mobiles.join(",")+")"
+		// getAllRows("Mobile, SessionID, CREATEDTIME, Event",query,zcql,dataLimit)
+		SessionEvents.find({SessionID : { $in : wordleROWIDs},Mobile: {$in : mobiles}})
+		.then((events)=>{
+		  var report = []
+		  //For each mobile which played Wordle
+		  for(var i = 0; i<mobiles.length; i++){
+			const mobile = mobiles[i]
+			//Get the list of wordles played
+			const wordlesPlayed = cfuAttempts.filter(data=>data.Mobile == mobile).map(data=>data._id).filter(unique)
+			//For each wordle played
+			for(var j=0; j<wordlesPlayed.length; j++){
+			  var userReport = {
+				Mobile: mobile
+			  }	
+			  const wordlePlayed = wordlesPlayed[j]
+			  //Get the wordle attempt data
+			  const wordleAttemptData = cfuAttempts.filter(data=>(data.ROWID==wordlePlayed)&&(data.Mobile == userReport['Mobile']))
+			  //Get the wordle attempt timestamps
+			  const wordleAttemptTimeStamps = wordleAttemptData.map(data=>data.CREATEDTIME).filter(unique).sort()
+			  userReport['SessionStartedTime'] = wordleAttemptTimeStamps[0].slice(0,19)
+			  userReport['SessionEndTime'] = wordleAttemptTimeStamps[wordleAttemptTimeStamps.length-1].slice(0,19)
+			  //Get the total attempts
+			  userReport['NumberOfGuesses'] = wordleAttemptData.length
+			  //If wordle has been answered correctly or max attempts has been reached
+			  userReport['CompletedWordle'] = (wordleAttemptData.some(data=>data.IsCorrect == true)) || (parseInt(userReport['NumberOfGuesses'])==parseInt(wordleAttemptData[0]['WordleConfiguration']['MaxAttempts'])) ? "Yes" : "No"
+			  userReport['GuessedCorrect'] = wordleAttemptData.some(data=>data.IsCorrect == true) ? "Yes" : "No"
+			  userReport['Guessedwords'] = wordleAttemptData.map(data=>data.Answer).join(",")
+			  userReport['WordOfDay'] = wordleAttemptData[0]['Word']
+			  userReport['RecommendedTopic'] = wordleAttemptData[0]['RecommendedTopic']
+			  const wordleSource = wordleAttemptData.map(data=>data.Source).filter(unique).filter(data=>data!=null)
+			  userReport['WordleSource'] = wordleSource.length > 0 ? wordleSource.join(","):null
+			  
+			  var sessionStartedTimeStamp = new Date(userReport['SessionStartedTime'])
+			  const sessionStartedTime = ('0'+sessionStartedTimeStamp.getHours()).slice(-2)+":"+('0'+sessionStartedTimeStamp.getMinutes()).slice(-2)
+			  if(sessionStartedTime>=process.env.WordleStartTime){
+				sessionStartedTimeStamp.setDate(sessionStartedTimeStamp.getDate()+1)
+			  }
+			  var endTimeStamp = new Date(sessionStartedTimeStamp.getFullYear(),sessionStartedTimeStamp.getMonth(),sessionStartedTimeStamp.getDate(),20,45)
+			  const sessionData = sessions.filter(session=>(session.Mobile==userReport['Mobile'])
+							  &&(session.CREATEDTIME >= userReport['SessionStartedTime'])
+							  &&((new Date(session.CREATEDTIME)) < endTimeStamp))
+						.map(session=>session.Name +"-"+session.Persona +"-"+ session.SessionID)
+						.filter(unique)
+			  userReport['NextTopicAttemptedBeforeReminder'] = sessionData.length > 0 ? sessionData.join(",") :  null
+  
+			  const wordleAttemptEvents = events.filter(data=>(data.Mobile == userReport['Mobile'])&&
+									  (data.SessionID == wordleAttemptData[0]['_id']) &&
+									  ((data.Event == 'How to Play')||(data.Event.startsWith('Start Wordle')))
+								  ).map(data=>data.Event).filter(unique).filter(data=>data!=null)
+			  
+			  userReport['ButtonClick'] = wordleAttemptEvents.length > 0 ? wordleAttemptEvents.join(",") : null
+			  userReport['WordleID'] = wordleAttemptData[0]['_id']
+  
+			  report.push(userReport)
+			}
+		  }
+		  report = report.sort((a, b)=>{
+			if((a['Mobile'] == b['Mobile']) && (a.SessionStartTime < b.SessionStartTime)) {
+			  return -1;
+			}
+			if((a['Mobile'] == b['Mobile']) && (a.SessionStartTime > b.SessionStartTime)) {
+			  return 1;
+			}
+			if((a['Mobile'] == b['Mobile'])) {
+			  return 0;
+			}
+			if((a['Mobile'] < b['Mobile'])) {
+			  return -1;
+			}
+			if((a['Mobile'] > b['Mobile'])) {
+			  return 1;
+			}
+			// a must be equal to b
+			return 0;
+		  })
+		  var attempted = 0
+		  for(var m = 0; m < report.length; m++){
+			if((m>0)&&(report[m-1]['Mobile']!=report[m]['Mobile'])){
+			  attempted = 0
+			}
+			report[m]['Attempt'] = ++attempted
+		  }
+		  console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Report Length = ",report.length)
+		  res.status(200).json(report)
+		})
+		.catch((err) => {
+		  console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+		  console.error((new Date()).toString()+"|"+prependToLog,err);
+		  res.status(500).send(err);
+		});
+	  })
+	  .catch((err) => {
 		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
 		console.error((new Date()).toString()+"|"+prependToLog,err);
 		res.status(500).send(err);
-	});
-});
+	  });
+	}
+	else{
+	  console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. No Wordle Attempt found")
+	  res.status(200).json([])
+	}
+  })
+  .catch((err) => {
+	console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+	console.error((new Date()).toString()+"|"+prependToLog,err);
+	res.status(500).send(err);
+  });
+  });
 
 app.get("/cfuattempts", (req, res) => {
 
@@ -2065,28 +2432,122 @@ app.get("/cfuattempts", (req, res) => {
 	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
 	const dataLimit = req.query.limit ? req.query.limit : null
 
-	let query = "select {} "+
-				"from Users "+	
-				"left join UserAssessmentLogs on Users.ROWID = UserAssessmentLogs.UserROWID "+
-				"left join UserAssessment on UserAssessment.UserAssessmentLogROWID = UserAssessmentLogs.ROWID "+
-				"left join QuestionBank on UserAssessment.QuestionROWID = QuestionBank.ROWID "+
-				"left join SystemPrompts on QuestionBank.SystemPromptROWID = SystemPrompts.ROWID "+
-				"where ((UserAssessment.ErrorInResponse = '') or (UserAssessment.ErrorInResponse is null)) and "+
-				"UserAssessmentLogs.CREATEDTIME >='"+startDate+" 00:00:00' and "+
-				"UserAssessmentLogs.CREATEDTIME <= '"+endDate+" 23:59:59' "+
-				"order by Users.Mobile, UserAssessmentLogs.ROWID, UserAssessmentLogs.CREATEDTIME, QuestionBank.AskingOrder ASC "
+	// let query = "select {} "+
+	// 			"from Users "+	
+	// 			"left join UserAssessmentLogs on Users.ROWID = UserAssessmentLogs.UserROWID "+
+	// 			"left join UserAssessment on UserAssessment.UserAssessmentLogROWID = UserAssessmentLogs.ROWID "+
+	// 			"left join QuestionBank on UserAssessment.QuestionROWID = QuestionBank.ROWID "+
+	// 			"left join SystemPrompts on QuestionBank.SystemPromptROWID = SystemPrompts.ROWID "+
+	// 			"where ((UserAssessment.ErrorInResponse = '') or (UserAssessment.ErrorInResponse is null)) and "+
+	// 			"UserAssessmentLogs.CREATEDTIME >='"+startDate+" 00:00:00' and "+
+	// 			"UserAssessmentLogs.CREATEDTIME <= '"+endDate+" 23:59:59' "+
+	// 			"order by Users.Mobile, UserAssessmentLogs.ROWID, UserAssessmentLogs.CREATEDTIME, QuestionBank.AskingOrder ASC "
+
+	// getAllRows("Name, Mobile,UserAssessmentLogs.SessionID, "+
+	// 		"UserAssessmentLogs.ROWID, UserAssessmentLogs.IsAssessmentComplete, "+
+	// 		"UserAssessmentLogs.AssessmentCompletionReason, UserAssessmentLogs.CREATEDTIME, "+
+	// 		"UserAssessmentLogs.MODIFIEDTIME, QuestionBank.AskingOrder, QuestionBank.Question, QuestionBank.Answers, "+
+	// 		"UserAssessment.ResponseText, UserAssessment.ResponseAVURL, UserAssessment.IsCorrectResponse, "+
+	// 		"SystemPrompts.Name, SystemPrompts.Persona "
+	// ,query,zcql,dataLimit)
 	console.info((new Date()).toString()+"|"+prependToLog,"Getting Users Assessment Data")
-	getAllRows("Name, Mobile,UserAssessmentLogs.SessionID, "+
-			"UserAssessmentLogs.ROWID, UserAssessmentLogs.IsAssessmentComplete, "+
-			"UserAssessmentLogs.AssessmentCompletionReason, UserAssessmentLogs.CREATEDTIME, "+
-			"UserAssessmentLogs.MODIFIEDTIME, QuestionBank.AskingOrder, QuestionBank.Question, QuestionBank.Answers, "+
-			"UserAssessment.ResponseText, UserAssessment.ResponseAVURL, UserAssessment.IsCorrectResponse, "+
-			"SystemPrompts.Name, SystemPrompts.Persona "
-	,query,zcql,dataLimit)
+	
+User.aggregate([
+  {
+    $match: {
+      $and: [
+        {
+          'UserAssessment.ErrorInResponse': { $in: ['', null] },
+        },
+        {
+          'UserAssessmentLogs.CREATEDTIME': {
+            $gte: new Date(startDate + ' 00:00:00'),
+            $lte: new Date(endDate + ' 23:59:59'),
+          },
+        },
+      ],
+    },
+  },
+  {
+    $lookup: {
+      from: 'UserAssessmentLogs',
+      localField: '_id',
+      foreignField: 'UserROWID',
+      as: 'UserAssessmentLogs',
+    },
+  },
+  {
+    $unwind: '$UserAssessmentLogs',
+  },
+  {
+    $lookup: {
+      from: 'UserAssessment',
+      localField: 'UserAssessmentLogs._id',
+      foreignField: 'UserAssessmentLogROWID',
+      as: 'UserAssessment',
+    },
+  },
+  {
+    $unwind: { path: '$UserAssessment', preserveNullAndEmptyArrays: true },
+  },
+  {
+    $lookup: {
+      from: 'QuestionBank',
+      localField: 'UserAssessment.QuestionROWID',
+      foreignField: '_id',
+      as: 'QuestionBank',
+    },
+  },
+  {
+    $unwind: { path: '$QuestionBank', preserveNullAndEmptyArrays: true },
+  },
+  {
+    $lookup: {
+      from: 'SystemPrompts',
+      localField: 'QuestionBank.SystemPromptROWID',
+      foreignField: '_id',
+      as: 'SystemPrompts',
+    },
+  },
+  {
+    $unwind: { path: '$SystemPrompts', preserveNullAndEmptyArrays: true },
+  },
+  {
+    $project: {
+      Name: 1,
+      Mobile: 1,
+      'UserAssessmentLogs.SessionID': 1,
+      'UserAssessmentLogs._id': 1,
+      'UserAssessmentLogs.IsAssessmentComplete': 1,
+      'UserAssessmentLogs.AssessmentCompletionReason': 1,
+      'UserAssessmentLogs.CREATEDTIME': 1,
+      'UserAssessmentLogs.MODIFIEDTIME': 1,
+      'QuestionBank.AskingOrder': 1,
+      'QuestionBank.Question': 1,
+      'QuestionBank.Answers': 1,
+      'UserAssessment.ResponseText': 1,
+      'UserAssessment.ResponseAVURL': 1,
+      'UserAssessment.IsCorrectResponse': 1,
+      'SystemPrompts.Name': 1,
+      'SystemPrompts.Persona': 1,
+    },
+  },
+  {
+    $sort: {
+      Mobile: 1,
+      'UserAssessmentLogs._id': 1,
+      'UserAssessmentLogs.CREATEDTIME': 1,
+      'QuestionBank.AskingOrder': 1,
+    },
+  },
+])
+  .exec()
 	.then((cfuAttempts)=>{
+		console.log("++++++++++++++++",cfuAttempts)
 		if(!Array.isArray(cfuAttempts))
 			throw new Error(cfuAttempts)
 		else if(cfuAttempts.length>0){
+			console.log("++++++++++++++++",cfuAttempts)
 			var report = cfuAttempts.map(record=>{
 				return {
 					Mobile:record.Users.Mobile,

@@ -4,7 +4,10 @@ const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
-
+const Sessions = require("./models/Sessions.js");
+const User = require("./models/Users.js");
+const UserAssessmentLog = require("./models/UserAssessmentLogs.js");
+const UsersReport = require("./models/UsersReport.js");
 // const app = express();
 // app.use(express.json());
 const app = express.Router();
@@ -39,7 +42,7 @@ const getAllRows = (fields,query,zcql,prependToLog,dataLimit) => {
 }
 
 app.post("/pendingpractices", (req, res) => {
-  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+ // let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
   let startTimeStamp = new Date();
 
   const executionID = Math.random().toString(36).slice(2)
@@ -65,14 +68,16 @@ app.post("/pendingpractices", (req, res) => {
       OperationStatus: "SUCCESS",
     };
     mobile = mobile.slice(-10);
-    let zcql = catalystApp.zcql();
-    zcql
-      .executeZCQLQuery(
-        "Select distinct ROWID, RegisteredTime from Users where IsActive=true and Mobile = '" +
-          mobile +
-          "'"
-      )
+    // let zcql = catalystApp.zcql();
+    // zcql
+    //   .executeZCQLQuery(
+    //     "Select distinct ROWID, RegisteredTime from Users where IsActive=true and Mobile = '" +
+    //       mobile +
+    //       "'"
+    //   )
+    User.distinct('ROWID', { IsActive: true, Mobile: mobile })
       .then((users) => {
+        console.log("+++++++++++++++++",users[0])
         if (users.length == 0) {
           responseObject["OperationStatus"] = "USR_NT_FND";
           responseObject["StatusDescription"] =
@@ -83,13 +88,46 @@ app.post("/pendingpractices", (req, res) => {
         else {
           const today = new Date();
 
-          let query = "Select {} from Sessions where Mobile = "+mobile+" group by Sessions.SessionID, Sessions.IsActive"
-          const sessionQuery = getAllRows("Sessions.SessionID, Sessions.IsActive, max(Sessions.CREATEDTIME)",query,zcql,prependToLog)
-          const learningQuery = "Select {} from UserAssessmentLogs left join Users on Users.ROWID = UserAssessmentLogs.UserROWID where UserAssessmentLogs.IsAssessmentComplete = true and Users.Mobile = "+mobile
-          const userAssessmentQuery = getAllRows("distinct ROWID, MODIFIEDTIME",learningQuery,zcql,prependToLog)
+          // let query = "Select {} from Sessions where Mobile = "+mobile+" group by Sessions.SessionID, Sessions.IsActive"
+          // const sessionQuery = getAllRows("Sessions.SessionID, Sessions.IsActive, max(Sessions.CREATEDTIME)",query,zcql,prependToLog)
+          const sessionQuery = Sessions.aggregate([
+            { $match: { Mobile: mobile } },
+            {
+              $group: {
+                _id: { SessionID: '$SessionID', IsActive: '$IsActive' }
+              }
+            }
+          ]);
+          // const learningQuery = "Select {} from UserAssessmentLogs left join Users on Users.ROWID = UserAssessmentLogs.UserROWID where UserAssessmentLogs.IsAssessmentComplete = true and Users.Mobile = "+mobile
+          // const userAssessmentQuery = getAllRows("distinct ROWID, MODIFIEDTIME",learningQuery,zcql,prependToLog)
+          const userAssessmentQuery = UserAssessmentLog.aggregate([
+            {
+              $lookup: {
+                from: "Users", // Name of the collection to join with
+                localField: 'UserROWID',
+                foreignField: 'ROWID',
+                as: 'user'
+              }
+            },
+            {
+              $unwind: '$user'
+            },
+            {
+              $match: {
+                IsAssessmentComplete: true,
+                'user.Mobile': mobile
+              }
+            },
+            {
+              $project: {
+                ROWID: 1,
+                MODIFIEDTIME: 1
+              }
+            }
+          ])
           const axios = require("axios");
           const gameQuery = axios.get(process.env.WordleReportURL+mobile)
-          const userReportQuery = getAllRows("LastActiveDate, DeadlineDate","select {} from UsersReport where Mobile = "+mobile,zcql,prependToLog)
+          const userReportQuery = UsersReport.findOne({ Mobile: mobile }, 'LastActiveDate DeadlineDate')
           const learningStartQuery = "Select {} from SessionEvents where Event = 'Learn Session Start' and Mobile = "+mobile
           const runLearningStartQuery = getAllRows("distinct ROWID, CREATEDTIME",learningStartQuery,zcql,prependToLog)
     
@@ -229,6 +267,7 @@ app.post("/pendingpractices", (req, res) => {
       });
   }
 });
+
 
 app.all("/", (req, res) => {
   res.status(403).send("Resource not found.");

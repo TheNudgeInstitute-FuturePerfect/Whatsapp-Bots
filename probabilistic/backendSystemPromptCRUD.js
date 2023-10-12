@@ -35,6 +35,7 @@ app.post("/backendprompt", (req, res) => {
 	
 	setSystemPrompt(argument)
 		.then((result) => {
+			console.log("result ........",result);
 			const responseJSON = JSON.parse(result)
 			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution : " + responseJSON);
 			res.status(200).json(responseJSON);
