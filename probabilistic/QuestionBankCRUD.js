@@ -2,8 +2,9 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const questionBank = require("./models/questionBank.js");
+const systemPrompts = require("./models/SystemPrompts.js");
 const mongoose = require('mongoose');
 const ObjectId = mongoose.Types.ObjectId;
 
@@ -164,7 +165,7 @@ const getAllRows = (fields,query,zcql,prependToLog,dataLimit) => {
 
 app.post("/", async (req, res) => {
     
-    let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+    //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
     
     const requestBody = req.body;
  
@@ -289,9 +290,9 @@ app.post("/", async (req, res) => {
         var returnArray = []
         for(var i=0; i<insertData.length; i++){
             try{
-                console.log("hello..............................")
+                console.info((new Date()).toString()+"|"+prependToLog,"hello..............................")
                 const rowReturned = await questionBank.create(insertData[i])
-                console.log('inserted................',rowReturned);
+                console.info((new Date()).toString()+"|"+prependToLog,'inserted................',rowReturned);
                 if(typeof rowReturned._id!=='undefined'){
                     console.info((new Date()).toString()+"|"+prependToLog,"Records Inserted")
                     console.debug((new Date()).toString()+"|"+prependToLog,"Inserted Record: "+JSON.stringify(rowReturned));
@@ -329,9 +330,9 @@ app.post("/", async (req, res) => {
 })
 
 
-app.patch("/", (req, res) => {
+app.patch("/", async (req, res) => {
     
-    let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+    //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
     
     const requestBody = req.body;
  
@@ -359,6 +360,7 @@ app.patch("/", (req, res) => {
             console.info((new Date()).toString()+"|"+prependToLog,"Parsing Row Index "+rowIndex)
 
             var finalData = {
+                _id:row['questionID']
             }
 			
 			const responseTypePresent = (typeof row['responseType'] === 'undefined') ? false : row['responseType']==null ? false : row['responseType'].length > 0 ? true:false
@@ -406,7 +408,7 @@ app.patch("/", (req, res) => {
 			if(typeof row['answers'] !== 'undefined')
 				if(Array.isArray(row['answers']))
 				{
-					const answerValues = row['answers'].filter(answer=>answer.length>0)
+					const answerValues = row['answers'].filter(answer=>answer.toString().length>0)
 					finalData['Answers']= answerValues.length==0?null:encodeURI(answerValues.join("\n"))
 				}
 
@@ -493,29 +495,50 @@ app.patch("/", (req, res) => {
 		console.debug((new Date()).toString()+"|"+prependToLog,`Record being updated in table=${JSON.stringify(updateData)}`)
 		// let datastore = catalystApp.datastore();
 		// let table = datastore.table('QuestionBank');
-        console.log("..................",updateData);
-		questionBank.findOneAndUpdate({_id:requestBody['questionID']},{$set:updateData})
-        .then((rowReturned) => {
-            if(Array.isArray(rowReturned)){
-                console.info((new Date()).toString()+"|"+prependToLog,"Records Updated")
-                console.debug((new Date()).toString()+"|"+prependToLog,"Updated Record: "+JSON.stringify(rowReturned));
+        var returnArray = []
+        for(var i=0; i<updateData.length; i++){
+            try{
+                console.info((new Date()).toString()+"|"+prependToLog,"hello..............................")
+                const rowReturned = await questionBank.findByIdAndUpdate(updateData[i]['_id'],updateData[i])
+                console.info((new Date()).toString()+"|"+prependToLog,'updated................',rowReturned);
+                if(typeof rowReturned._id!=='undefined'){
+                    console.info((new Date()).toString()+"|"+prependToLog,"Records Updated")
+                    console.debug((new Date()).toString()+"|"+prependToLog,"Updated Record: "+JSON.stringify(rowReturned));
+                    returnArray.push(
+                        {
+                            Question:decodeURIComponent(rowReturned['Question']),
+                            QuestionID:rowReturned._id
+                        }
+                    )
+                }
+                else{
+                    returnArray.push(
+                        {
+                            Question:decodeURIComponent(updateData[i]['Question']),
+                            QuestionID:rowReturned
+                        }
+                    )
+                }
             }
-            else{
-                responseObject['OperationStatus']='APP_ERR'
-                responseObject['StatusDescription']=rowReturned
+            catch(err){
+                console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with error")
+                console.error((new Date()).toString()+"|"+prependToLog,'Encountered error while inserting record in Question Bank: '+err)
+                returnArray.push(
+                    {
+                        Question:decodeURIComponent(insertData[i]['Question']),
+                        QuestionID:rowReturned
+                    }
+                )
             }
-            console.info((new Date()).toString()+"|"+prependToLog,"End of Execution:",responseObject)
-            res.status(200).json(responseObject)
-        }).catch(err => {
-            console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with error")
-            console.error((new Date()).toString()+"|"+prependToLog,'Encountered error while updating record in Question Bank: '+err)
-            res.status(500).send(err)
-        });
+        }
+        responseObject['QuestionsUpdated'] = returnArray
+        console.info((new Date()).toString()+"|"+prependToLog,"End of Execution:",responseObject)
+        res.status(200).json(responseObject)
     }
 })
 
 app.get("/",(req, res) => {
-	let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+	//let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
     const executionID = Math.random().toString(36).slice(2)
     
@@ -525,7 +548,7 @@ app.get("/",(req, res) => {
     
     console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
     	
-    let zcql = catalystApp.zcql();
+    //let zcql = catalystApp.zcql();
 	var conditionList = []
     var filterParams = {};
 	const topic = req.query.topic ? req.query.topic : req.query.prompt ? req.query.prompt : ''
@@ -536,22 +559,22 @@ app.get("/",(req, res) => {
     }
 	if(topic!=''){
         //conditionList.push("SystemPrompts.Name='"+topic+"'")
-        filterParams = {'SystemPrompts.Name':topic};
+        filterParams = {'Name':topic};
     }
 		
 	if(persona!=''){
         var personaList = Array.isArray(persona) ? persona : persona.split(",")
 		personaList = personaList.map(data=>data.toString().trim())
         //conditionList.push("SystemPrompts.Persona in ('"+persona.replace(/,/g,"','")+"')")
-        filterParams = {'SystemPrompts.Persona':{ $in: personaList }};
+        filterParams = {'Persona':{ $in: personaList }};
     }
 
     if((persona!='')&&(topic!='')){
         var personaList = Array.isArray(persona) ? persona : persona.split(",")
 		personaList = personaList.map(data=>data.toString().trim())
 		filterParams = {
-            'SystemPrompts.Name':topic,
-            'SystemPrompts.Persona':{ $in: personaList }
+            'Name':topic,
+            'Persona':{ $in: personaList }
         }
     }
     
@@ -559,99 +582,122 @@ app.get("/",(req, res) => {
 	// 			+"left join SystemPrompts on SystemPrompts.ROWID = QuestionBank.SystemPromptROWID "
 	// 			+"where "+conditionList.join(" and ")
 	// 			+" order by SystemPrompts.Name, SystemPrompts.Persona, QuestionBank.AskingOrder ASC"
-	// console.log("++++++++++++++++++++++",query);
+	// console.info((new Date()).toString()+"|"+prependToLog,"++++++++++++++++++++++",query);
 	// getAllRows("SystemPrompts.ROWID, SystemPrompts.Name, SystemPrompts.Persona, QuestionBank.AskingOrder,"
     //             +"QuestionBank.ROWID, QuestionBank.QuestionType, QuestionBank.Question, QuestionBank.ResponseValidations,"
     //             +"QuestionBank.avURL,QuestionBank.ResponseFormat, QuestionBank.Options,"
     //             +"QuestionBank.Answers, QuestionBank.Feedback, QuestionBank.ImageURL,QuestionBank.Tags,"
     //             +"QuestionBank.ResponseTimeOut, QuestionBank.IsEvaluative,QuestionBank.IsActive,Questionbank.SkipLogic",query,zcql,prependToLog)
-    console.log(".................",filterParams); 
-    questionBank.find({})
-    .populate(
-        {
-            path: 'SystemPromptROWID',
-            select: '_id Name Persona -_id'
-          }
-    )
-    .select(
-      'SystemPromptROWID Name Persona AskingOrder _id QuestionType ' +
-      'Question ResponseValidations avURL ResponseFormat Options Answers ' +
-      'Feedback ImageURL Tags ResponseTimeOut IsEvaluative IsActive SkipLogic'
-    )
-    .sort('SystemPromptROWID.Name SystemPromptROWID.Persona AskingOrder')
-    .then((allJsonReport)=>{
-        console.log("allJson...",allJsonReport);
-        if(Array.isArray(allJsonReport)){
-            console.info((new Date()).toString()+"|"+prependToLog,"Fetched "+allJsonReport.length+" records from QuestionBank")
-            
-            var jsonReport = allJsonReport
-            console.debug((new Date()).toString()+"|"+prependToLog,'Retrieved Report of length: '+jsonReport.length+" | "+JSON.stringify(jsonReport))
-
-            var responseJSON = jsonReport.map(record => {
-                var feedback = ((record['Feedback']==null) || (record['Feedback'].length==0)) ? null:(record['Feedback'].length > 0 ? JSON.parse(record['Feedback']):null)
-                if((typeof feedback['onSuccess'] === 'undefined')||(typeof feedback['onSuccessAVURL'] === 'undefined')||(typeof feedback['onError'] === 'undefined')||(typeof feedback['onErrorAVURL'] === 'undefined'))
-                    feedback = JSON.parse(feedback)
-
-                var responsevalidation = ((record['ResponseValidations']==null) || (record['ResponseValidations'].length==0)) ? null:(record['ResponseValidations'].length>0 ? JSON.parse(record['ResponseValidations']):null)
-                var constraint = null
-                var constraintMessage = null
-                if(responsevalidation!=null){
-                    const constraintList = responsevalidation.map(validation=>{
-                        if ((validation.responseType=="Audio")&&(validation.operandLHS=="original_duration")&&(validation.operation==">="))
-                            return "min_audio_len "+validation.operandRHS
-                        if ((validation.responseType=="Audio")&&(validation.operandLHS=="original_duration")&&(validation.operation=="<="))
-                            return "max_audio_len "+validation.operandRHS
-                        else
-                            return validation.operation +" " +validation.operandRHS
-                    })
-                    constraint = constraintList.join(",")
-                    constraintMessage = responsevalidation != null ? responsevalidation[0]['errorMessage'] :null
-                }
-
-                return {
-                    topicID: record.SystemPromptROWID._id,
-                    topic: record.SystemPromptROWID.Name,
-                    persona: record.SystemPromptROWID.Persona,
-                    displaySequence: record.AskingOrder,
-                    questionID: record._id,
-                    questionType: record.QuestionType,
-                    question: decodeURI(record.Question),
-                    audioURL: record.avURL,
-                    imageURL:record.ImageURL,
-                    responseType: record.ResponseFormat,
-                    options: ((record.Options!=null)&&(record.Options.length>0))?(decodeURI(record.Options)).toString().split("\n"):[],
-                    answers: ((record.Answers!=null)&&(record.Answers.length>0))?(decodeURI(record.Answers)).toString().split("\n"):[],
-                    tags: ((record.Tags!=null)&&(record.Tags.length>0))?(decodeURI(record.Tags)).toString().split(","):[],
-                    successMessage : feedback==null?null:decodeURI(feedback['onSuccess'])=="null"?null:decodeURI(feedback['onSuccess']),
-                    errorMessage : feedback==null?null:decodeURI(feedback['onError'])=="null"?null:decodeURI(feedback['onError']),
-                    successAVURL : feedback==null?null:decodeURI(feedback['onSuccessAVURL'])=="null"?null:decodeURI(feedback['onSuccessAVURL']),
-                    errorAVURL : feedback==null?null:decodeURI(feedback['onErrorAVURL'])=="null"?null:decodeURI(feedback['onErrorAVURL']),
-                    constraints : constraint,
-                    constraintMessage:constraintMessage,
-                    questionTimeOut : record.ResponseTimeOut,
-                    isEvaluative:record.IsEvaluative,
-                    skipLogic:record.SkipLogic != null ? JSON.parse(record.SkipLogic) : null,
-                    isActive:record.IsActive,
-                }
-            })
+    console.info((new Date()).toString()+"|"+prependToLog,".................",filterParams); 
+    systemPrompts.findOne(filterParams).select("_id")
+    .then((systemPrompt)=>{
+        if(systemPrompt==null){
+            let responseJSON = {
+                OperationStatus:"NO_TOPIC",
+                Status:"No such topic and(or) persona"
+            }
             console.info((new Date()).toString()+"|"+prependToLog,`End of Execution. Returned ${responseJSON.length} questions`)
             res.status(200).json(responseJSON)
         }
         else{
-            console.info((new Date()).toString()+"|"+prependToLog,`End of Execution. No record satisfying the query params`)
-            res.status(200).json([])
+            console.info((new Date()).toString()+"|"+prependToLog,`Found System Prompt Record:`+systemPrompt["_id"])
+            questionBank.find({SystemPromptROWID:systemPrompt["_id"]})
+            .populate(
+                {
+                    path: 'SystemPromptROWID',
+                    select: '_id Name Persona -_id'
+                }
+            )
+            .select(
+            'SystemPromptROWID Name Persona AskingOrder _id QuestionType ' +
+            'Question ResponseValidations avURL ResponseFormat Options Answers ' +
+            'Feedback ImageURL Tags ResponseTimeOut IsEvaluative IsActive SkipLogic'
+            )
+            .sort('SystemPromptROWID.Name SystemPromptROWID.Persona AskingOrder')
+            .then((allJsonReport)=>{
+                console.info((new Date()).toString()+"|"+prependToLog,"allJson...",allJsonReport);
+                if(allJsonReport.length==0){
+                    let responseJSON = {
+                        OperationStatus:"NO_QSTN_CFG",
+                        Status:"No question configured for the topic and(or) persona"
+                    }
+                    console.info((new Date()).toString()+"|"+prependToLog,`End of Execution. Returned ${responseJSON.length} questions`)
+                    res.status(200).json(responseJSON)
+                }
+                else{
+                    console.info((new Date()).toString()+"|"+prependToLog,"Fetched "+allJsonReport.length+" records from QuestionBank")
+                    
+                    var jsonReport = allJsonReport
+                    console.debug((new Date()).toString()+"|"+prependToLog,'Retrieved Report of length: '+jsonReport.length+" | "+JSON.stringify(jsonReport))
+
+                    var responseJSON = jsonReport.map(record => {
+                        var feedback = ((record['Feedback']==null) || (record['Feedback'].length==0)) ? null:(record['Feedback'].length > 0 ? JSON.parse(record['Feedback']):null)
+                        if((typeof feedback['onSuccess'] === 'undefined')||(typeof feedback['onSuccessAVURL'] === 'undefined')||(typeof feedback['onError'] === 'undefined')||(typeof feedback['onErrorAVURL'] === 'undefined'))
+                            feedback = JSON.parse(feedback)
+
+                        var responsevalidation = ((record['ResponseValidations']==null) || (record['ResponseValidations'].length==0)) ? null:(record['ResponseValidations'].length>0 ? JSON.parse(record['ResponseValidations']):null)
+                        var constraint = null
+                        var constraintMessage = null
+                        if(responsevalidation!=null){
+                            const constraintList = responsevalidation.map(validation=>{
+                                if ((validation.responseType=="Audio")&&(validation.operandLHS=="original_duration")&&(validation.operation==">="))
+                                    return "min_audio_len "+validation.operandRHS
+                                if ((validation.responseType=="Audio")&&(validation.operandLHS=="original_duration")&&(validation.operation=="<="))
+                                    return "max_audio_len "+validation.operandRHS
+                                else
+                                    return validation.operation +" " +validation.operandRHS
+                            })
+                            constraint = constraintList.join(",")
+                            constraintMessage = responsevalidation != null ? responsevalidation[0]['errorMessage'] :null
+                        }
+
+                        return {
+                            topicID: record.SystemPromptROWID._id,
+                            topic: record.SystemPromptROWID.Name,
+                            persona: record.SystemPromptROWID.Persona,
+                            displaySequence: record.AskingOrder,
+                            questionID: record._id,
+                            questionType: record.QuestionType,
+                            question: decodeURI(record.Question),
+                            audioURL: record.avURL,
+                            imageURL:record.ImageURL,
+                            responseType: record.ResponseFormat,
+                            options: ((record.Options!=null)&&(record.Options.length>0))?(decodeURI(record.Options)).toString().split("\n"):[],
+                            answers: ((record.Answers!=null)&&(record.Answers.length>0))?(decodeURI(record.Answers)).toString().split("\n"):[],
+                            tags: ((record.Tags!=null)&&(record.Tags.length>0))?(decodeURI(record.Tags)).toString().split(","):[],
+                            successMessage : feedback==null?null:decodeURI(feedback['onSuccess'])=="null"?null:decodeURI(feedback['onSuccess']),
+                            errorMessage : feedback==null?null:decodeURI(feedback['onError'])=="null"?null:decodeURI(feedback['onError']),
+                            successAVURL : feedback==null?null:decodeURI(feedback['onSuccessAVURL'])=="null"?null:decodeURI(feedback['onSuccessAVURL']),
+                            errorAVURL : feedback==null?null:decodeURI(feedback['onErrorAVURL'])=="null"?null:decodeURI(feedback['onErrorAVURL']),
+                            constraints : constraint,
+                            constraintMessage:constraintMessage,
+                            questionTimeOut : record.ResponseTimeOut,
+                            isEvaluative:record.IsEvaluative,
+                            skipLogic:record.SkipLogic != null ? JSON.parse(record.SkipLogic) : null,
+                            isActive:record.IsActive,
+                        }
+                    })
+                    console.info((new Date()).toString()+"|"+prependToLog,`End of Execution. Returned ${responseJSON.length} questions`)
+                    res.status(200).json(responseJSON)
+                }
+            })
+            .catch(err => {
+                console.info((new Date()).toString()+"|"+prependToLog,'End of Execution with Error')
+                console.error((new Date()).toString()+"|"+prependToLog,'Encountered Error: '+err)
+                res.status(500).send(err)
+            })
         }
     })
     .catch(err => {
         console.info((new Date()).toString()+"|"+prependToLog,'End of Execution with Error')
-		console.error((new Date()).toString()+"|"+prependToLog,'Encountered Error: '+err)
-		res.status(500).send(err)
-	})
+        console.error((new Date()).toString()+"|"+prependToLog,'Encountered Error: '+err)
+        res.status(500).send(err)
+    })
 })
 
 app.delete("/*", (req, res) => {
     let startTimeStamp = new Date();
-    let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+    //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
     
     const requestBody = req.body;
   

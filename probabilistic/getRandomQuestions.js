@@ -2,7 +2,7 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
 const Configurations = require("./models/Configurations");
 const User = require("./models/Users.js");
@@ -49,7 +49,7 @@ const sendResponse = (prependToLog,responseJSON,startTimeStamp,requestBody,res) 
             }),
         })
         .then((glificResponse) => {})
-        .catch((err) => console.log("Error returned from Glific: ", err));
+        .catch((err) => console.info((new Date()).toString()+"|"+prependToLog,"Error returned from Glific: ", err));
     }
     return true
 }
@@ -57,7 +57,7 @@ const sendResponse = (prependToLog,responseJSON,startTimeStamp,requestBody,res) 
 app.post("/updateassessmentquestion", (req, res) => {
     
     let startTimeStamp = new Date();
-    //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+    ////let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
     
     const requestBody = req.body;
  
@@ -108,7 +108,7 @@ app.post("/updateassessmentquestion", (req, res) => {
                 else{
                     const questionID = requestBody["QuestionIdentifier"]
                     var questionsAsked = logs.QuestionsAsked
-                    console.log('List of questions asked = ',questionsAsked)
+                    console.info((new Date()).toString()+"|"+prependToLog,'List of questions asked = ',questionsAsked)
                     questionsAsked = questionsAsked + (questionsAsked.length == 0 ? '' : ',') + questionID
                     console.info((new Date()).toString()+"|"+prependToLog,'List of questions updated = ',questionsAsked)
                     // query = "UPDATE UserAssessmentLogs set QuestionsAsked = '"+questionsAsked+"' where ROWID='"+requestBody['AssessmentCompletionReason']+"'"
@@ -141,7 +141,7 @@ app.post("/updateassessmentquestion", (req, res) => {
 app.post("/closeassessment", (req, res) => {
     
     let startTimeStamp = new Date();
-    //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+    ////let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
     
     const requestBody = req.body;
  
@@ -210,7 +210,7 @@ app.post("/closeassessment", (req, res) => {
 app.post("/", async (req, res) => {
     
     let startTimeStamp = new Date();
-    //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+    ////let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
     
     const requestBody = req.body;
  
@@ -254,14 +254,14 @@ app.post("/", async (req, res) => {
 		// zcql.executeZCQLQuery(query)
         User.find({ Mobile: mobile, IsActive: { $ne: false } }, '_id')
         .then(async (user) => {
-            console.log("user.................",user);
+            console.info((new Date()).toString()+"|"+prependToLog,"user.................",user);
             if(!user){
                 responseJSON['OperationStatus']='FAILED_TO_GET_USER'
                 responseJSON['StatusDescription']=user
                 sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody,res)
             }
             else{
-                console.log("Object.values(user).length",Object.keys(user).length,typeof user);
+                console.info((new Date()).toString()+"|"+prependToLog,"Object.values(user).length",Object.keys(user).length,typeof user);
 			    //If there is no record, then the mobile number does not exist in system. Return error
                 if(Object.keys(user).length == 0){
                     responseJSON['OperationStatus']='USER_NOT_FOUND';
@@ -279,7 +279,7 @@ app.post("/", async (req, res) => {
                     
                     await Configurations.find({"Name" : { $in : ["MaxCFUAttempts", "MaxCFUQuestions"]},SystemPromptROWID:requestBody["TopicID"]})
                     .then((topicConfiguration) => {
-                        console.log("topicConfiguration",topicConfiguration);
+                        console.info((new Date()).toString()+"|"+prependToLog,"topicConfiguration",topicConfiguration);
                         if(!Array.isArray(topicConfiguration) && (topicConfiguration!=null)){
                             responseJSON['OperationStatus']='FAILED_TO_GET_TOPIC_CFG'
                             responseJSON['StatusDescription']=topicConfiguration
@@ -360,13 +360,13 @@ app.post("/", async (req, res) => {
                                                         SystemPromptROWID: requestBody['TopicID'],
                                                         IsAssessmentComplete: false,
                                                         AssessmentCompletionReason: null,
-                                                        NextQuestionROWID: questionRecord[0]['_id'], //If answer of 1st question could not be saved, ask the 1st question again
+                                                        NextQuestionROWID: questionRecord[0]['id'], //If answer of 1st question could not be saved, ask the 1st question again
                                                         SessionID: requestBody['SessionID']
                                                     }
                                                     try{
-                                                        //let table = catalystApp.datastore().table('UserAssessmentLogs')
+                                                        ////let table = catalystApp.datastore().table('UserAssessmentLogs')
                                                         const inserted = await UserAssessmentLog.create(newUserAssessmentLogData)
-                                                        console.log("inserted",inserted);
+                                                        console.info((new Date()).toString()+"|"+prependToLog,"inserted",inserted);
                                                         if(typeof inserted['_id']==='undefined')
                                                             console.info((new Date()).toString()+"|"+prependToLog,'Status of New User Assessment Log Creation =',inserted)
                                                         else{
@@ -409,21 +409,21 @@ app.post("/", async (req, res) => {
                                                             ],
                                                           })
 
-                                                          console.log("++++++++++++ram++++++++++++",previousResponsesResult)
+                                                          console.info((new Date()).toString()+"|"+prependToLog,"++++++++++++ram++++++++++++",previousResponsesResult)
 
                                                         if(!Array.isArray(previousResponsesResult)){
                                                             console.info((new Date()).toString()+"|"+prependToLog,'Failed to get the responses for the assessment =')
                                                             responseJSON['OperationStatus']='FAILED_TO_GET_PREV_ANS'
                                                         }
                                                         else{
-                                                            const previousQuestions = previousResponsesResult.map(data=>data.UserAssessment.QuestionROWID).filter(unique)
+                                                            const previousQuestions = previousResponsesResult//.map(data=>data.UserAssessment.QuestionROWID).filter(unique)
                                                             if((maxQuestions!=-1)&&(previousResponsesResult.length >= maxQuestions)){
                                                                 console.info((new Date()).toString()+"|"+prependToLog,"Max "+maxQuestions+" already answered by User")
                                                                 responseJSON['OperationStatus']='END_OF_ASSESSMENT'
                                                             }
                                                             else{
                                                                 //Get the data of next question to be asked
-                                                                questionRecord = questionBank.filter(record=>record._id==pendingUserAssessmentLogs[0]['NextQuestionROWID'])
+                                                                questionRecord = questionBank.filter(record=>record.id==pendingUserAssessmentLogs[0]['NextQuestionROWID'])
                                                                 responseJSON['OperationStatus']='CONTINUED_ASSESSMENT'
                                                                 responseJSON['QuestionNumber']=previousQuestions.length+1
                                                             }
@@ -619,7 +619,7 @@ app.post("/", async (req, res) => {
                     //                                     SessionID: requestBody['SessionID']
                     //                                 }
                     //                                 try{
-                    //                                     let table = catalystApp.datastore().table('UserAssessmentLogs')
+                    //                                     //let table = catalystApp.datastore().table('UserAssessmentLogs')
                     //                                     const inserted = await table.insertRow(newUserAssessmentLogData)
                     //                                     if(typeof inserted['ROWID']==='undefined')
                     //                                         console.info((new Date()).toString()+"|"+prependToLog,'Status of New User Assessment Log Creation =',inserted)
