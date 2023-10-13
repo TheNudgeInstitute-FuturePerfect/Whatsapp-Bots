@@ -2,7 +2,7 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const Sessions = require("./models/Sessions.js");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
 
@@ -12,7 +12,7 @@ const app = express.Router();
 
 app.post("/gethintmessage", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const requestBody = req.body;
 
@@ -45,7 +45,7 @@ app.post("/gethintmessage", (req, res) => {
 			SessionID: `${sessionID} - Hint`
 		  })
 		.then((hintcount)=>{
-			if((typeof hintcount !== 'undefined')&&(hintcount!=null)&&(parseInt(hintcount[0]['Sessions']['ROWID'])>=parseInt(process.env.MaxHints))){
+			if((typeof hintcount !== 'undefined')&&(hintcount!=null)&&(parseInt(hintcount)>=parseInt(process.env.MaxHints))){
 				result['OperationStatus'] = "MAX_HINTS_RCHD"
 				result['StatusDescription'] = "Maximum Number of Hints Reached"
 				console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ",result)
@@ -85,9 +85,9 @@ app.post("/gethintmessage", (req, res) => {
 								"User:"+decodeURIComponent(sessiondata[i]['Sessions']['Message'])+
 								(i>0 ? ("\n"+"Ramya:"+decodeURIComponent(sessiondata[i]['Sessions']['Reply'])) : "")
 						}*/
-						result['Message'] = "User:"+decodeURIComponent(sessiondata[0]['Sessions']['Message'])+
-											"\n"+"Ramya:"+decodeURIComponent(sessiondata[0]['Sessions']['Reply'])
-						result['PendingHints'] = process.env.MaxHints - hintcount[0]['Sessions']['ROWID']
+						result['Message'] = "User:"+decodeURIComponent(sessiondata['Message'])+
+											"\n"+"Ramya:"+decodeURIComponent(sessiondata['Reply'])
+						result['PendingHints'] = process.env.MaxHints - hintcount
 						console.info((new Date()).toString()+"|"+prependToLog,"End of Execution: ",result)
 						res.status(200).json(result)
 						//Send Reponse to Glific
@@ -121,7 +121,7 @@ app.post("/gethintmessage", (req, res) => {
 
 app.post("/tokenizehintmessage", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
+    //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
 	const requestBody = req.body;
 
