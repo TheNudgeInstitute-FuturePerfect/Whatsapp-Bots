@@ -1,8 +1,15 @@
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
+const dotenv = require("dotenv");
+dotenv.config();
+const mongoose = require('mongoose')
+mongoose.connect(process.env.MongoDBConnStrng + "whatsapp-bots", {
+  useNewUrlParser: true,
+});
 const SessionEvents = require(".././models/SessionEvents.js");
 const User = require(".././models/Users.js");
+const SystemPrompts = require("../models/SystemPrompts.js");
 
-const catalystApp = catalyst.initialize();
+//const catalystApp = catalyst.initialize();
 
 const executionID = Math.random().toString(36).slice(2)
   
@@ -13,7 +20,7 @@ const prependToLog = params.join(" | ")
 console.info((new Date()).toString()+"|"+prependToLog,"Execution Started")
 
 
-let zcql = catalystApp.zcql();
+//let zcql = catalystApp.zcql();
 
 //Get the current time
 let currentDate = new Date();
@@ -67,37 +74,13 @@ endDt =
     ? "December"
     : "");
 
-let query = "select {} from SessionEvents where SessionID = 'Welcome Message'";
+let query = {SessionID:'Welcome Message'}//"select {} from SessionEvents where SessionID = 'Welcome Message'";
 //console.debug((new Date()).toString()+"|"+prependToLog,query)
-const getAllRows = (fields) => {
-  return new Promise(async (resolve) => {
-    var jsonReport = [];
-    const dataQuery = query.replace("{}", fields);
-    var i = 0;
-    while (true) {
-      query = dataQuery + " LIMIT " + i + ", 300";
-      console.info((new Date()).toString()+"|"+prependToLog,
-        "Fetching records from " +
-        i +
-        " to " +
-        (i + 300 - 1) +
-        "\nQuery: " +
-        query
-      );
-      const queryResult = await zcql.executeZCQLQuery(query);
-      //console.debug((new Date()).toString()+"|"+prependToLog,queryResult)
-      if (queryResult.length == 0) break;
-      jsonReport = jsonReport.concat(queryResult);
-      i = i + 300;
-    }
-    resolve(jsonReport);
-  });
-};
 // getAllRows("distinct Mobile")
-SessionEvents.find({SessionID:'Welcome Message'})
+SessionEvents.find(query)
 .then(async (events) => {
-  const mobiles = events.length > 0 ? events.map(data=>data.SessionEvents.Mobile) : []
-  let query = { Tags: { $ne: null } };
+  const mobiles = events.length > 0 ? events.map(data=>data.Mobile) : []
+  query = { Tags: { $ne: null } };
 
   if (mobiles.length > 0) {
     query.Mobile = { $nin: mobiles };
@@ -125,11 +108,10 @@ SessionEvents.find({SessionID:'Welcome Message'})
         });
       };
 
-      // let table = catalystApp.datastore().table("SessionEvents");
-      const systemPrompt = await zcql.executeZCQLQuery(
-        "Select ROWID from SystemPrompts where Name = 'Dummy' and IsActive = true"
-      );
-      const topicID = systemPrompt[0]["SystemPrompts"]["ROWID"];
+      // //let table = catalystApp.datastore().table("SessionEvents");
+      query = {Name:'Dummy',IsActive:true}
+      const systemPrompt = await SystemPrompts.findOne(query) //zcql.executeZCQLQuery("Select ROWID from SystemPrompts where Name = 'Dummy' and IsActive = true");
+      const topicID = systemPrompt["_id"];
       const axios = require("axios");
       const request = require("request");
 
@@ -280,23 +262,23 @@ SessionEvents.find({SessionID:'Welcome Message'})
       users
         .forEach(async (record, i) => {
           var messageID = process.env.CohortWelcomeMsg;
-          var param = [decodeURIComponent(record.Users.Name), endDt];
+          var param = [decodeURIComponent(record.Name), endDt];
           var cohort = null;
 
           if (
-            record.Users.Tags.includes("Cohort-2") &&
-            record.Users.Tags.includes(currentDt)
+            record.Tags.includes("Cohort-2") &&
+            record.Tags.includes(currentDt)
           ) {
             param.push("7");
             cohort = 2;
           } else if (
-            record.Users.Tags.includes("Cohort-1") &&
-            record.Users.Tags.includes(currentDt)
+            record.Tags.includes("Cohort-1") &&
+            record.Tags.includes(currentDt)
           ) {
             const pendingPractices = await axios.post(
               process.env.PendingPracticesURL,
               {
-                Mobile: record.Users.Mobile,
+                Mobile: record.Mobile,
               },
               {
                 "Content-Type": "application/json",
@@ -305,11 +287,11 @@ SessionEvents.find({SessionID:'Welcome Message'})
             );
             if (["SUCCESS","SSN_ABV_PERIOD","MIN_SSN_RCHD"].includes(pendingPractices.data.OperationStatus)==false)
               console.info((new Date()).toString()+"|"+prependToLog,
-                i + ":Failed to get pending practices for " + record.Users.Mobile
+                i + ":Failed to get pending practices for " + record.Mobile
               );
             else if (typeof pendingPractices.data.PendingPracticeCount <= 0) {
               console.info((new Date()).toString()+"|"+prependToLog,
-                i + ":No pending practices for " + record.Users.Mobile
+                i + ":No pending practices for " + record.Mobile
               );
               try {
                 let eventData = {
@@ -319,14 +301,14 @@ SessionEvents.find({SessionID:'Welcome Message'})
                     cohort +
                     " Welcome Message Not Sent (No Pending Practice)",
                   SystemPromptROWID: topicID,
-                  Mobile: record.Users.Mobile,
+                  Mobile: record.Mobile,
                 };
                 await SessionEvents.create(eventData);
               } catch (e) {
                 console.error((new Date()).toString()+"|"+prependToLog,
                 i +
                   ": Could not update event table for " +
-                  record.Users.Mobile
+                  record.Mobile
                 );
               }
             }
@@ -342,13 +324,13 @@ SessionEvents.find({SessionID:'Welcome Message'})
                 ": Nudge to be sent to Cohort " +
                 cohort +
                 " User " +
-                record.Users.Mobile
+                record.Mobile
             );
             for (var index = 0; index < 100; index++) {
               try {
                 const output = await invokeGlificAPI(
                   messageID,
-                  record.Users.GlificID,
+                  record.GlificID,
                   param
                 );
                 /* sendGlificHSMMsg({
@@ -364,7 +346,7 @@ SessionEvents.find({SessionID:'Welcome Message'})
                       ":Nudge sent to Cohort " +
                       cohort +
                       " User " +
-                      record.Users.Mobile
+                      record.Mobile
                   );
                   try {
                     let eventData = {
@@ -374,14 +356,14 @@ SessionEvents.find({SessionID:'Welcome Message'})
                         cohort +
                         " Welcome Message Sent (HSM Message)",
                       SystemPromptROWID: topicID,
-                      Mobile: record.Users.Mobile,
+                      Mobile: record.Mobile,
                     };
                     await SessionEvents.create(eventData);
                   } catch (e) {
                     console.error((new Date()).toString()+"|"+prependToLog,
                       i +
                         ": Could not update event table for " +
-                        record.Users.Mobile
+                        record.Mobile
                     );
                   }
                   break;
@@ -389,7 +371,7 @@ SessionEvents.find({SessionID:'Welcome Message'})
                   console.info((new Date()).toString()+"|"+prependToLog,
                     i +
                       ":Nudge not sent to " +
-                      record.Users.Mobile +
+                      record.Mobile +
                       " as OperationStatus = " +
                       nudgeStatus["OperationStatus"]
                   );
@@ -398,7 +380,7 @@ SessionEvents.find({SessionID:'Welcome Message'})
               } catch (err) {
                 if (err.toString().includes("TOO_MANY_REQUEST")) {
                   await timer(Math.max(500, (i * 1000) / users.length));
-                  console.info((new Date()).toString()+"|"+prependToLog,i + ":Retrying Nudge for " + record.Users.Mobile);
+                  console.info((new Date()).toString()+"|"+prependToLog,i + ":Retrying Nudge for " + record.Mobile);
                 } else if (
                   [
                     "GLFC_AUTH_API_ERR",
@@ -407,12 +389,12 @@ SessionEvents.find({SessionID:'Welcome Message'})
                   ].includes(err)
                 ) {
                   await timer(Math.max(500, (i * 1000) / users.length));
-                  console.info((new Date()).toString()+"|"+prependToLog,i + ":Retrying Nudge for " + record.Users.Mobile);
+                  console.info((new Date()).toString()+"|"+prependToLog,i + ":Retrying Nudge for " + record.Mobile);
                 } else {
                   console.error((new Date()).toString()+"|"+prependToLog,
                     i +
                       ":Nudge not sent to " +
-                      record.Users.Mobile +
+                      record.Mobile +
                       " due to error: ",
                     err
                   );
@@ -424,9 +406,9 @@ SessionEvents.find({SessionID:'Welcome Message'})
             console.info((new Date()).toString()+"|"+prependToLog,
               i +
                 ": Nudge not to be sent to " +
-                record.Users.Mobile +
+                record.Mobile +
                 " with Tags = " +
-                record.Users.Tags
+                record.Tags
             );
           }
         })
