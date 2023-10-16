@@ -21,6 +21,9 @@ const schema = new Schema({
   Feedback:{type:String},
   Tags:{type:String},
   QuestionType:{type:String}
+},
+{
+  timestamps: true,
 });
 
 module.exports = model("QuestionBank", schema);

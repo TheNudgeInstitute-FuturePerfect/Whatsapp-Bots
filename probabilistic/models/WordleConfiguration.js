@@ -14,6 +14,9 @@ const schema = new Schema({
   RecommendedTopic : {type: String},
   MaxAttempts : {type: Number},
   EnglishLevel : {type: String}
+},
+{
+  timestamps: true,
 });
 
 module.exports = model("WordleConfiguration", schema);

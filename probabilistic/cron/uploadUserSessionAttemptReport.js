@@ -467,8 +467,7 @@ UserSessionAttemptReport.find({}, '_id SessionID IsActive EndOfSession')
                                     userReport["PerformanceReportURL"] =
                                       userReport["OptedForPerformanceReport"] ==
                                         "Yes"
-                                        ? perfReport[0].Sessions
-                                          .PerformanceReportURL
+                                        ? perfReport[0].PerformanceReportURL
                                         : "";
                                     const feedback = feedbacks.filter(
                                       (record) =>

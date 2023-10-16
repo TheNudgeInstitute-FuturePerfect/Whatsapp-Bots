@@ -34,6 +34,9 @@ const schema = new Schema({
   ProgressBarMsgSent: { type: String },
   ActiveDays: { type: Number },
   Completed: { type: Number }
+},
+{
+  timestamps: true,
 });
 
 module.exports = model("UserSessionAttemptReport", schema);
