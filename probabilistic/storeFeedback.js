@@ -2,7 +2,7 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const storeAudioFileinGCS = require("./common/storeAudioFileinGCS.js");
 const convertSpeechToText = require("./common/convertSpeechToText.js");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
@@ -13,9 +13,17 @@ const SessionFeedback = require("./models/SessionFeedback.js")
 const app = express.Router();
 
 app.post("/feedback/store", async (req, res) => {
-  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+  //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
   const requestBody = req.body;
+  const executionID = Math.random().toString(36).slice(2)
+        
+  //Prepare text to prepend with logs
+  const params = ["Store Feedback",req.url,executionID,""]
+  const prependToLog = params.join(" | ")
+  
+  console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+    
   const responseJSON = {
     OperationStatus: "SUCCESS",
   };
@@ -36,7 +44,7 @@ app.post("/feedback/store", async (req, res) => {
     (responseJSON["OperationStatus"] = "REQ_ERR"),
       (responseJSON["StatusDescription"] =
         "Mandatory paramaters missing :" + requiredFields.join(" or "));
-    console.log("End of Execution:", responseJSON);
+    console.info((new Date()).toString()+"|"+prependToLog,"End of Execution:", responseJSON);
     res.status("200").json(responseJSON);
   } else {
     var feedbackRecord = {
@@ -79,11 +87,11 @@ app.post("/feedback/store", async (req, res) => {
         );
         if (gcsResponse["OperationStatus"] == "SUCCESS") {
           feedbackRecord["FeedbackURL"] = gcsResponse["PublicURL"];
-          console.log(
+          console.info((new Date()).toString()+"|"+prependToLog,
             "Stored the audio feedback file in GCS : ",
             feedbackRecord["FeedbackURL"]
           );
-        } else console.log("Couldn't stored the audio feedback file in GCS");
+        } else console.info((new Date()).toString()+"|"+prependToLog,"Couldn't stored the audio feedback file in GCS");
 
         //Convert Speech to text
         const transcription = JSON.parse(
@@ -93,13 +101,13 @@ app.post("/feedback/store", async (req, res) => {
         );
         if (transcription["OperationStatus"] == "SUCCESS") {
           feedbackRecord["Feedback"] = transcription["AudioTranscript"];
-          console.log(
+          console.info((new Date()).toString()+"|"+prependToLog,
             "Converted the audio feedback to text : ",
             feedbackRecord["Feedback"]
           );
-        } else console.log("Couldn't convert the audio feedback to text");
+        } else console.info((new Date()).toString()+"|"+prependToLog,"Couldn't convert the audio feedback to text");
       } catch (e) {
-        console.log("Error in converting the audio feedback to text:", e);
+        console.info((new Date()).toString()+"|"+prependToLog,"Error in converting the audio feedback to text:", e);
       }
     }
 
@@ -119,12 +127,12 @@ app.post("/feedback/store", async (req, res) => {
         );
         if (gcsResponse["OperationStatus"] == "SUCCESS") {
           feedbackRecord["GPTFeedbackURL"] = gcsResponse["PublicURL"];
-          console.log(
+          console.info((new Date()).toString()+"|"+prependToLog,
             "Stored the audio gpt feedback file in GCS : ",
             feedbackRecord["GPTFeedbackURL"]
           );
         } else
-          console.log("Couldn't stored the audio gpt feedback file in GCS");
+          console.info((new Date()).toString()+"|"+prependToLog,"Couldn't stored the audio gpt feedback file in GCS");
 
         //Convert Speech to text
         const transcription = JSON.parse(
@@ -134,25 +142,25 @@ app.post("/feedback/store", async (req, res) => {
         );
         if (transcription["OperationStatus"] == "SUCCESS") {
           feedbackRecord["GPTFeedback"] = transcription["AudioTranscript"];
-          console.log(
+          console.info((new Date()).toString()+"|"+prependToLog,
             "Converted the audio gpt feedback to text : ",
             feedbackRecord["GPTFeedback"]
           );
-        } else console.log("Couldn't convert the audio gpt feedback to text");
+        } else console.info((new Date()).toString()+"|"+prependToLog,"Couldn't convert the audio gpt feedback to text");
       } catch (e) {
-        console.log("Error in converting the audio gpt feedback to text:", e);
+        console.info((new Date()).toString()+"|"+prependToLog,"Error in converting the audio gpt feedback to text:", e);
       }
     }
 
     //Get table meta object without details.
-    // let table = catalystApp.datastore().table("SessionFeedback");
+    // //let table = catalystApp.datastore().table("SessionFeedback");
 
     //Use Table Meta Object to insert the row which returns a promise
     // let insertPromise = table.insertRow(feedbackRecord);
     // insertPromise
     SessionFeedback.create(feedbackRecord)
       .then((row) => {
-        console.log("\nInserted Row : " + JSON.stringify(row));
+        console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Inserted Row : " + JSON.stringify(row));
         res.status(200).json(responseJSON);
         sendResponseToGlific({
           flowID: requestBody["flowId"],
@@ -163,7 +171,8 @@ app.post("/feedback/store", async (req, res) => {
         });
       })
       .catch((err) => {
-        console.log(err);
+        console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error.")
+        console.error((new Date()).toString()+"|"+prependToLog,"End of Execution with Error: ",err);
         res.status(500).send(err);
       });
   }

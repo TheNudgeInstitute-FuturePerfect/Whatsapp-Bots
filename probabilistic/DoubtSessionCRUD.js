@@ -2,10 +2,11 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const userDoubtSession = require("./models/userDoubtSession.js");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
 const Session = require("./models/Sessions.js");
+const SessionEvent = require("./models/SessionEvents.js");
 const User = require("./models/Users.js");
 const SystemPrompts = require("./models/SystemPrompts.js");
 
@@ -38,7 +39,7 @@ const sendResponse = (prependToLog,responseJSON,startTimeStamp,requestBody,res) 
 
 app.get("/", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+    //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
     const startTimeStamp = new Date();
 
@@ -64,30 +65,32 @@ app.get("/", (req, res) => {
             Event : "User Requested for Doubt Session",
             Mobile: 0
         }
-        let table = catalystApp.datastore().table("SessionEvents")
+        //let table = catalystApp.datastore().table("SessionEvents")
 
-        let zcql = catalystApp.zcql()
+        //let zcql = catalystApp.zcql()
         // zcql.executeZCQLQuery("Select distinct Mobile,SystemPromptsROWID from Sessions where SessionID ='"+sessionID+"'")
-        Session.distinct('Mobile SystemPromptsROWID', { SessionID: sessionID })
+        Session.find({ SessionID: sessionID })
         .then((session)=>{
             if(!Array.isArray(session))
                 throw new Error(session)
+            else if(session.length==0)
+                throw new Error("No such session by id: "+sessionID)
             else{
                 console.info((new Date()).toString()+"|"+prependToLog,"Fetched Session Details")
-                eventData["SystemPromptROWID"]= session[0]['Sessions']['SystemPromptsROWID']
-                eventData['Mobile']=session[0]['Sessions']['Mobile']
+                eventData["SystemPromptROWID"]= session[0]['SystemPromptsROWID']
+                eventData['Mobile']=session[0]['Mobile']
                 // zcql.executeZCQLQuery("Select distinct ROWID, GlificID from Users where Mobile ='"+session[0]['Sessions']['Mobile']+"'")
-                User.distinct('ROWID', { Mobile: sessionMobile })
+                User.find({ Mobile: session[0]['Mobile']})
                 .then(async (user)=>{
                     if(!Array.isArray(user))
                         throw new Error(user)
                     else{
                         console.info((new Date()).toString()+"|"+prependToLog,"Fetched User Details")
                         const fltr = {
-                            "UserROWID":user[0]['Users']['ROWID']
+                            "UserROWID":user[0]['_id']
                         }
                         const updateData = {
-                            "UserROWID":user[0]['Users']['ROWID'],
+                            "UserROWID":user[0]['_id'],
                             "SessionID":sessionID
                         }
                         const updatedRow = await userDoubtSession.updateOne(fltr,updateData,{upsert: true})
@@ -98,22 +101,22 @@ app.get("/", (req, res) => {
                         const backOff = require("exponential-backoff")
                         const flowStatus = JSON.parse(await backOff.backOff(()=>startGlificFlow({
                                                 flowID:process.env.DoubtSessionFlowID,
-                                                contactID:user[0]['Users']['GlificID']
+                                                contactID:user[0]['GlificID']
                                             })))
                         if(flowStatus['OperationStatus']!='SUCCESS')
                             throw new Error(flowStatus)
                         console.info((new Date()).toString()+"|"+prependToLog,"Doubt Session Flow Started for User")
                         eventData['Event']="Doubt Session Flow Started"
-                        const insertResult = await table.insertRow(eventData)
-                        if(typeof insertResult['ROWID']==='undefined')
+                        const insertResult = await SessionEvent.create(eventData)// table.insertRow(eventData)
+                        if(typeof insertResult['_id']==='undefined')
                             throw new Error(insertResult)
                         console.info((new Date()).toString()+"|"+prependToLog,"End of Execution")
                     }
                 })
                 .catch(async (error)=>{
                     eventData['Event']="Technical Error in Starting Doubt Session"
-                    const insertResult = await table.insertRow(eventData)
-                    if(typeof insertResult['ROWID']!=='undefined')
+                    const insertResult = await SessionEvent.create(eventData)
+                    if(typeof insertResult['_id']!=='undefined')
                         console.info((new Date()).toString()+"|"+prependToLog,"Session Event Table Updated for error = "+eventData['Event'])
                     else
                         console.info((new Date()).toString()+"|"+prependToLog,"Session Event Table Not Updated for error = ",insertResult)        
@@ -124,8 +127,8 @@ app.get("/", (req, res) => {
         })
         .catch(async (error)=>{
             eventData['Event']="Technical Error in Starting Doubt Session"
-            const insertResult = await table.insertRow(eventData)
-            if(typeof insertResult['ROWID']!=='undefined')
+            const insertResult = await SessionEvent.create(eventData)
+            if(typeof insertResult['_id']!=='undefined')
                 console.info((new Date()).toString()+"|"+prependToLog,"Session Event Table Updated for error = "+eventData['Event'])
             else
                 console.info((new Date()).toString()+"|"+prependToLog,"Session Event Table Not Updated for error = ",insertResult)
@@ -137,7 +140,7 @@ app.get("/", (req, res) => {
 
 app.post("/getsessiondetails", async (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+    //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
     const startTimeStamp = new Date();
 
@@ -155,40 +158,43 @@ app.post("/getsessiondetails", async (req, res) => {
         OperationStatus: "SUCCESS",
     };
 
-    const mobile = requestBody['Mobile'].toString().slice(-10)
+    const mobile = parseInt(requestBody['Mobile'].toString().slice(-10))
 
-    let zcql = catalystApp.zcql()
+    //let zcql = catalystApp.zcql()
     // zcql.executeZCQLQuery('Select ROWID from Users where Mobile = '+mobile)
 
-    User.findOne({ Mobile: mobile }).select('ROWID')
+    User.findOne({ Mobile: mobile }).select('_id')
     .then(async (user)=>{
-        if(!Array.isArray(user))
-            throw new Error(user)
+        //if(!Array.isArray(user))
+        if(user==null){
+            responseJSON['OperationStatus']="NO_USR"
+            responseJSON['StatusDescription']='No such user'
+            console.info((new Date()).toString()+"|"+prependToLog,"End of Execution.",responseJSON)
+            sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody,res)
+        }
         else{
             console.info((new Date()).toString()+"|"+prependToLog,"Fetched User's Record")
             const filter = {
-                UserROWID: user[0]['Users']['ROWID']
+                UserROWID: user['id']
             }
             const rowReturned = await userDoubtSession.find(filter)
             if(rowReturned.length==0){
                 responseJSON['OperationStatus']="NO_DBT_SSN_RECORD"
                 responseJSON['StatusDescription']="There is no Doubt Session record for the user"
-                console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. No record in UserDoubtSession for User ROWID :"+user[0]['Users']['ROWID'])
+                console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. No record in UserDoubtSession for User _id :"+user['id'])
                 sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody,res)
             }
             else{
-                console.info((new Date()).toString()+"|"+prependToLog,"Returned "+rowReturned.length+" Records from UserDoubtSession matching User ROWID :"+user[0]['Users']['ROWID'])
+                console.info((new Date()).toString()+"|"+prependToLog,"Returned "+rowReturned.length+" Records from UserDoubtSession matching User _id :"+user['id'])
                 responseJSON['SessionID']=rowReturned[0]['SessionID']
                 // zcql.executeZCQLQuery("Select ROWID from SystemPrompts where Name = 'SLF Doubts'")
-                SystemPrompts.findOne({ Name: queryName }, 'ROWID')
+                SystemPrompts.findOne({ Name: 'SLF Doubts' }, '_id')
                 .then((systemPrompt)=>{
-                    if(!Array.isArray(systemPrompt))
-                        throw new Error(systemPrompt)
-                    else if(systemPrompt.length==0)
+                    if(systemPrompt==null)
                         throw new Error("No System Prompt Defined")
                     else{
                         console.info((new Date()).toString()+"|"+prependToLog,"Fetched SystemPrompt Record")
-                        responseJSON['TopicID']=systemPrompt[0]['SystemPrompts']['ROWID']
+                        responseJSON['TopicID']=systemPrompt['_id']
                         responseJSON['Topic']='SLF Doubts'
                         console.info((new Date()).toString()+"|"+prependToLog,"End of Execution.",responseJSON)
                         sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody,res)
