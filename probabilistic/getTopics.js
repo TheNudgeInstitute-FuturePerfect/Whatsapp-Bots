@@ -286,16 +286,16 @@ app.post("/allocatetopic", (req, res) => {
               // let query = "Select ROWID from Users where IsActive = true and Users.Mobile="+mobile
               // console.debug("Checking status of Topic for the user:",query)
               // zcql.executeZCQLQuery(query)
-              User.findOne({ Mobile: mobile, IsActive: { $ne: false } }, 'ROWID')
+              User.findOne({ Mobile: parseInt(mobile), IsActive: { $ne: false } })
               .then(async (user)=>{
-                if(!Array.isArray(user)){
+                if(user==null){
                   console.info((new Date()).toString()+"|"+prependToLog,"Error in query for getting user info")
-                  reject(user)
+                  reject("Error in query for getting user info")
                 }
                 else{
                   //Get the topic subscriptions initiated by the user
                   const unlockCourseAttemptsFilter = {
-                    UserROWID:user[0]['_id'],
+                    UserROWID:user['_id'],
                     SystemPromptROWID:systemPrompts[0]["_id"]
                   }
                   console.info((new Date()).toString()+"|"+prependToLog,'Fetching Topic Subscription Status of User for '+JSON.stringify(unlockCourseAttemptsFilter))
