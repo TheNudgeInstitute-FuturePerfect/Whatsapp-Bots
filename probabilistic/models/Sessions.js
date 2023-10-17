@@ -9,7 +9,7 @@ const schema = new Schema({
   IsActive: {type: Boolean,default: true},
   SystemPromptsROWID: { type: Schema.Types.ObjectId, ref: 'SystemPrompts' },
   Reply: { type: String },
-  Message: { type: Number },
+  Message: { type: String },
   Mobile: { type: String },
   ReplyAudioURL: { type: String },
   MessageAudioURL: { type: String },
