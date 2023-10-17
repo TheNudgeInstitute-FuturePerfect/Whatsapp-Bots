@@ -55,7 +55,7 @@ app.post("/latestsession", (req, res) => {
 		.populate({
 			path: 'SystemPromptsROWID',
 			model: SystemPrompt,
-			select: 'Name Module -_id', // Select Name and Module fields, exclude _id
+			select: 'Name Module _id', // Select Name and Module fields, exclude _id
 			//match: module ? { Module: module } : {} // Apply Module filter if provided
 			match:(module)&&(module != 'All') ? { Module: module } : {} // Apply Module filter if provided
 		})
@@ -119,7 +119,7 @@ app.post("/latestsession", (req, res) => {
 								responseBody['SessionID']=activeOnboardingSessionData[0]['SessionID']
 								responseBody['LastReply']=activeOnboardingSessionData[0]['Reply'] == null ? "Let's continue our conversation." : decodeURIComponent(activeOnboardingSessionData[0]['Reply'])
 								responseBody['Topic']=activeOnboardingSessionData[0]['SystemPromptsROWID']['Name']
-								responseBody['TopicID']=activeOnboardingSessionData[0]['SystemPromptsROWID']
+								responseBody['TopicID']=activeOnboardingSessionData[0]['SystemPromptsROWID']['_id']
 							}
 							else
 								responseBody['OperationStatus']='ONBRD_PNDNG' //Send a non success status
@@ -135,7 +135,7 @@ app.post("/latestsession", (req, res) => {
 								responseBody['SessionID']=activeOnboardingSessionData[0]['SessionID']
 								responseBody['LastReply']=activeOnboardingSessionData[0]['Reply'] == null ? "Let's continue our conversation." : decodeURIComponent(activeOnboardingSessionData[0]['Reply'])
 								responseBody['Topic']=activeOnboardingSessionData[0]['SystemPromptsROWID']['Name']
-								responseBody['TopicID']=activeOnboardingSessionData[0]['SystemPromptsROWID']
+								responseBody['TopicID']=activeOnboardingSessionData[0]['SystemPromptsROWID']['_id']
 							}
 							else
 								responseBody['OperationStatus']='ONBRD_PNDNG' //Send a non success status
@@ -160,7 +160,7 @@ app.post("/latestsession", (req, res) => {
 								responseBody['SessionID']=activeQueryResult[0]['SessionID']
 								responseBody['LastReply']=activeQueryResult[0]['Reply'] == null ? "Let's continue our conversation." : decodeURIComponent(activeQueryResult[0]['Reply'])
 								responseBody['Topic']=activeQueryResult[0]['SystemPromptsROWID']['Name']
-								responseBody['TopicID']=activeQueryResult[0]['SystemPromptsROWID']
+								responseBody['TopicID']=activeQueryResult[0]['SystemPromptsROWID']['_id']
 								const lastReply = activeQueryResult.filter(record=>((record.Reply!=null))||(record.ReplyAudioURL!=null))
 								responseBody['ReplyFormat'] = lastReply.length == 0 ? "Text" : lastReply[0]["ReplyAudioURL"]!=null ? "Audio" : "Text"
 								responseBody['NewSessionID'] = Math.random().toString(36).slice(2)
