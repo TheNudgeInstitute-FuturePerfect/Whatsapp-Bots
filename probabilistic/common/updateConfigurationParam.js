@@ -1,9 +1,11 @@
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
+
+const Configurations = require(".././models/Configurations");
 
 module.exports = async (basicIO) => {
 
-	const catalystApp = catalyst.initialize();
+	//const catalystApp = catalyst.initialize();
 
 	const executionID = Math.random().toString(36).slice(2)
 
@@ -45,12 +47,20 @@ module.exports = async (basicIO) => {
 			}
 			else{
 				var description = basicIO["description"];
-				var updateQuery = "Update Configurations set Value = '"+encodeURI(val.replace(/'/g,"''"))+"' "+
-									((typeof description !== 'undefined') && (description!=null) && (description.length>0) ? ", Description = '"+encodeURI(description)+"' ":"")+
-									"where Name = '"+encodeURI(name)+"' and SystemPromptROWID="+systemPromptROWID
-				let zcql = catalystApp.zcql()
+
+				// var updateQuery = "Update Configurations set Value = '"+encodeURI(val.replace(/'/g,"''"))+"' "+
+				// 					((typeof description !== 'undefined') && (description!=null) && (description.length>0) ? ", Description = '"+encodeURI(description)+"' ":"")+
+				// 					"where Name = '"+encodeURI(name)+"' and SystemPromptROWID="+systemPromptROWID
+				// let zcql = catalystApp.zcql()
 				try{
-                 const updateQueryResult = await zcql.executeZCQLQuery(updateQuery);
+				 const updateQuery = { Name: encodeURI(name),SystemPromptROWID : systemPromptROWID }; 
+				 const UpdateQueryString = {
+					"Value" : encodeURI(val.replace(/'/g,"''"))
+				 }
+				 if((typeof description !== 'undefined') && (description!=null) && (description.length>0))
+				 	UpdateQueryString["Description"]=encodeURI(description)
+				 const updateOperation = { $set: UpdateQueryString }; // Set status to 'active'
+                 const updateQueryResult = await Configurations.updateMany(updateQuery, updateOperation);
 				 if((typeof updateQueryResult !== 'undefined')&&(updateQueryResult!=null)){
 						result['OperationStatus']="SUCCESS"
 						//result['Value']=updateQueryResult[0].Configurations.Value

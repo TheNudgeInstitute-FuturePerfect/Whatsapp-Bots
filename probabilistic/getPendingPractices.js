@@ -2,9 +2,13 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
-
+const Sessions = require("./models/Sessions.js");
+const SessionEvents = require("./models/SessionEvents.js");
+const User = require("./models/Users.js");
+const UserAssessmentLog = require("./models/UserAssessmentLogs.js");
+const UsersReport = require("./models/UsersReport.js");
 // const app = express();
 // app.use(express.json());
 const app = express.Router();
@@ -13,33 +17,12 @@ const app = express.Router();
 const unique = (value, index, self) => {
   return self.indexOf(value) === index;
 };
-
-const getAllRows = (fields,query,zcql,prependToLog,dataLimit) => {
-	return new Promise(async (resolve) => {			
-		var jsonReport = []
-		const dataQuery = query.replace("{}",fields)
-		const lmt = dataLimit ? dataLimit : 300
-		var i = 1
-		while(true){
-			query = dataQuery+" LIMIT "+i+", "+lmt
-			console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+300-1)+
-						'\nQuery: '+query)
-			const queryResult = await zcql.executeZCQLQuery(query)
-			console.info((new Date()).toString()+"|"+prependToLog,queryResult.length)
-			if((queryResult.length == 0)||(!Array.isArray(queryResult))){
-				if(!Array.isArray(queryResult))
-					console.info((new Date()).toString()+"|"+prependToLog,"Error in query - ",queryResult)
-				break;
-			}
-			jsonReport = jsonReport.concat(queryResult)					
-			i=i+300
-		}
-		resolve(jsonReport)
-	})
+const getYYYYMMDDDate = (date) => {
+	return date.getFullYear()+"-"+('0'+(date.getMonth()+1)).slice(-2)+"-"+('0'+date.getDate()).slice(-2)
 }
 
 app.post("/pendingpractices", (req, res) => {
-  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+ // //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
   let startTimeStamp = new Date();
 
   const executionID = Math.random().toString(36).slice(2)
@@ -65,14 +48,16 @@ app.post("/pendingpractices", (req, res) => {
       OperationStatus: "SUCCESS",
     };
     mobile = mobile.slice(-10);
-    let zcql = catalystApp.zcql();
-    zcql
-      .executeZCQLQuery(
-        "Select distinct ROWID, RegisteredTime from Users where IsActive=true and Mobile = '" +
-          mobile +
-          "'"
-      )
+    // let zcql = catalystApp.zcql();
+    // zcql
+    //   .executeZCQLQuery(
+    //     "Select distinct ROWID, RegisteredTime from Users where IsActive=true and Mobile = '" +
+    //       mobile +
+    //       "'"
+    //   )
+    User.distinct('_id', { IsActive: true, Mobile: parseInt(mobile) })
       .then((users) => {
+        console.info((new Date()).toString()+"|"+prependToLog,"+++++++++++++++++",users[0])
         if (users.length == 0) {
           responseObject["OperationStatus"] = "USR_NT_FND";
           responseObject["StatusDescription"] =
@@ -83,15 +68,68 @@ app.post("/pendingpractices", (req, res) => {
         else {
           const today = new Date();
 
-          let query = "Select {} from Sessions where Mobile = "+mobile+" group by Sessions.SessionID, Sessions.IsActive"
-          const sessionQuery = getAllRows("Sessions.SessionID, Sessions.IsActive, max(Sessions.CREATEDTIME)",query,zcql,prependToLog)
-          const learningQuery = "Select {} from UserAssessmentLogs left join Users on Users.ROWID = UserAssessmentLogs.UserROWID where UserAssessmentLogs.IsAssessmentComplete = true and Users.Mobile = "+mobile
-          const userAssessmentQuery = getAllRows("distinct ROWID, MODIFIEDTIME",learningQuery,zcql,prependToLog)
+          // let query = "Select {} from Sessions where Mobile = "+mobile+" group by _id.SessionID, _id.IsActive"
+          // const sessionQuery = getAllRows("_id.SessionID, _id.IsActive, max(Sessions.CREATEDTIME)",query,zcql,prependToLog)
+          const sessionQuery = Sessions.aggregate([
+            { $match: { Mobile: mobile.toString() } },
+            {
+              $group: {
+                _id: { 
+                  SessionID: '$SessionID', 
+                  IsActive: '$IsActive' 
+                },
+                CREATEDTIME: {
+                  $max: "$CREATEDTIME"
+                }
+              }
+            },
+            {
+              $project:{
+                _id:0,
+                SessionID:"$_id.SessionID",
+                IsActive:"$_id.IsActive",
+                CREATEDTIME:1
+              }
+            }
+          ]);
+          // const learningQuery = "Select {} from UserAssessmentLogs left join Users on Users.ROWID = UserAssessmentLogs.UserROWID where UserAssessmentLogs.IsAssessmentComplete = true and Users.Mobile = "+mobile
+          // const userAssessmentQuery = getAllRows("distinct ROWID, MODIFIEDTIME",learningQuery,zcql,prependToLog)
+          const userAssessmentQuery = UserAssessmentLog.aggregate([
+            {
+              $lookup: {
+                from: "users", // Name of the collection to join with
+                localField: 'UserROWID',
+                foreignField: '_id',
+                as: 'User'
+              }
+            },
+            {
+              $unwind: {
+                path:'$user',
+                preserveNullAndEmptyArrays:true
+              }
+            },
+            {
+              $match: {
+                IsAssessmentComplete: true,
+                'User.Mobile': parseInt(mobile)
+              }
+            },
+            {
+              $project: {
+                _id: 1,
+                MODIFIEDTIME: 1
+              }
+            }
+          ])
           const axios = require("axios");
           const gameQuery = axios.get(process.env.WordleReportURL+mobile)
-          const userReportQuery = getAllRows("LastActiveDate, DeadlineDate","select {} from UsersReport where Mobile = "+mobile,zcql,prependToLog)
-          const learningStartQuery = "Select {} from SessionEvents where Event = 'Learn Session Start' and Mobile = "+mobile
-          const runLearningStartQuery = getAllRows("distinct ROWID, CREATEDTIME",learningStartQuery,zcql,prependToLog)
+          const userReportQuery = UsersReport.find({ Mobile: mobile }, 'LastActiveDate DeadlineDate')
+          const learningStartQuery = {
+            Event: 'Learn Session Start',
+            Mobile: mobile
+          }//"Select {} from SessionEvents where Event = 'Learn Session Start' and Mobile = "+mobile
+          const runLearningStartQuery = SessionEvents.find(learningStartQuery)//getAllRows("distinct ROWID, CREATEDTIME",learningStartQuery,zcql,prependToLog)
     
           
           Promise.all([sessionQuery,userAssessmentQuery,gameQuery,userReportQuery,runLearningStartQuery])
@@ -106,26 +144,26 @@ app.post("/pendingpractices", (req, res) => {
                 throw new Error(learningStart)
               else{
                 const wordleAttemptsReport = wordleAttempts.data
-                const openSessions = userSessions.filter(data=>data.Sessions.IsActive==true).map(data=>data.Sessions.SessionID)
-                const sessions = userSessions.filter(data=>openSessions.includes(data.Sessions.SessionID)==false).filter(
+                const openSessions = userSessions.filter(data=>data.IsActive==true).map(data=>data.SessionID)
+                const sessions = userSessions.filter(data=>openSessions.includes(data.SessionID)==false).filter(
                   (data) =>
                     !(
-                      data.Sessions.SessionID.endsWith("Hint") ||
-                      data.Sessions.SessionID.endsWith("Translation") ||
-                      data.Sessions.SessionID.endsWith("ObjectiveFeedback") ||
-                      data.Sessions.SessionID.startsWith("Onboarding") ||
-                      data.Sessions.SessionID.endsWith("Onboarding") ||
-                      data.Sessions.SessionID.startsWith("onboarding") ||
-                      data.Sessions.SessionID.endsWith("onboarding")
+                      data.SessionID.endsWith("Hint") ||
+                      data.SessionID.endsWith("Translation") ||
+                      data.SessionID.endsWith("ObjectiveFeedback") ||
+                      data.SessionID.startsWith("Onboarding") ||
+                      data.SessionID.endsWith("Onboarding") ||
+                      data.SessionID.startsWith("onboarding") ||
+                      data.SessionID.endsWith("onboarding")
                     )
                 );
-                let practiceDates = sessions.map(data=>data.Sessions.CREATEDTIME)
-                responseObject["ConversationCompletionDays"] = practiceDates.map(data=>data.toString().slice(0,10)).filter(unique).length
-                responseObject["ConversationAttemptDays"] = userSessions.map(data=>data.Sessions.CREATEDTIME.toString().slice(0,10)).filter(unique).length
+                let practiceDates = sessions.map(data=>data.CREATEDTIME)
+                responseObject["ConversationCompletionDays"] = practiceDates.map(data=>getYYYYMMDDDate(data)).filter(unique).length
+                responseObject["ConversationAttemptDays"] = userSessions.map(data=>getYYYYMMDDDate(data.CREATEDTIME)).filter(unique).length
                 console.info((new Date()).toString()+"|"+prependToLog,"Fetched Conversation TimeStamps:",practiceDates)
-                responseObject["LearningAttemptDays"] = learningStart.map(data=>data.SessionEvents.CREATEDTIME.toString().slice(0,10)).filter(unique).length
-                responseObject["LearningCompletionDays"] = userAssessmentLogs.map(data=>data.UserAssessmentLogs.MODIFIEDTIME.toString().slice(0,10)).filter(unique).length
-                practiceDates =  practiceDates.concat(userAssessmentLogs.map(data=>data.UserAssessmentLogs.MODIFIEDTIME))
+                responseObject["LearningAttemptDays"] = learningStart.map(data=>getYYYYMMDDDate(data.CREATEDTIME)).filter(unique).length
+                responseObject["LearningCompletionDays"] = userAssessmentLogs.map(data=>getYYYYMMDDDate(data.MODIFIEDTIME)).filter(unique).length
+                practiceDates =  practiceDates.concat(userAssessmentLogs.map(data=>getYYYYMMDDDate(data.MODIFIEDTIME)))
                 console.info((new Date()).toString()+"|"+prependToLog,"Fetched Learning TimeStamps:",practiceDates)
                 responseObject["GameCompletionDays"] = wordleAttemptsReport.filter(data=>data.CompletedWordle=="Yes").map(data=>data.SessionEndTime.toString().slice(0,10)).filter(unique).length
                 responseObject["GameAttemptDays"] = wordleAttemptsReport.map(data=>data.SessionEndTime.toString().slice(0,10)).filter(unique).length
@@ -133,9 +171,9 @@ app.post("/pendingpractices", (req, res) => {
                 console.info((new Date()).toString()+"|"+prependToLog,"Fetched Game TimeStamps:",practiceDates)
 
                 if(userReport.length > 0)
-                  responseObject["DeadlineDate"] = userReport[0]['UsersReport']['DeadlineDate'].toString().slice(0,10)
+                  responseObject["DeadlineDate"] = getYYYYMMDDDate(userReport[0]['DeadlineDate'])//.toString().slice(0,10)
                 else{
-                  let regDate = new Date(users[0]['Users']['RegisteredTime'])
+                  let regDate = new Date(users[0]['RegisteredTime'])
                   regDate.setDate(regDate.getDate()+parseInt(process.env.Period))
                   responseObject["DeadlineDate"] = regDate.getFullYear()+"-"+('0'+(regDate.getMonth()+1)).slice(-2)+"-"+('0'+regDate.getDate()).slice(-2)
                 }      
@@ -229,6 +267,7 @@ app.post("/pendingpractices", (req, res) => {
       });
   }
 });
+
 
 app.all("/", (req, res) => {
   res.status(403).send("Resource not found.");

@@ -1,9 +1,19 @@
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
+const User = require(".././models/Users.js");
 
 module.exports = async (basicIO) => {
 
-	const catalystApp = catalyst.initialize();
+	const executionID = basicIO['ExecutionID'] ? basicIO['ExecutionID'] : Math.random().toString(36).slice(2)
+    
+	//Prepare text to prepend with logs
+	const params = ["Search User Data by Mobile",executionID,""]
+	const prependToLog = params.join(" | ")
+	
+	console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
+
+	//const catalystApp = catalyst.initialize();
 
 	var responseJSON = {
 		OperationStatus:"SUCCESS"
@@ -24,9 +34,12 @@ module.exports = async (basicIO) => {
 		}
 		else{
 			mobile = mobile.toString().slice(-10)
-			let zcql = catalystApp.zcql()
+			//let zcql = catalystApp.zcql()
 			try{
-               const user = await zcql.executeZCQLQuery("Select ROWID from Users where IsActive = true and Mobile = "+mobile)
+			    const user = await User.find(
+					{ IsActive: true, Mobile: mobile }, // Conditions to match
+					'_id'); 	
+               //const user = await zcql.executeZCQLQuery("Select ROWID from Users where IsActive = true and Mobile = "+mobile)
                if(user==null){
 					responseJSON['OperationStatus'] = "NO_DATA"
 					responseJSON['StatusDescription'] = 'No record found with given mobile'
@@ -46,15 +59,15 @@ module.exports = async (basicIO) => {
 					return JSON.stringify(responseJSON);
 				}
 				else{
-					responseJSON['UserROWID']=user[0]['Users']['ROWID']
+					responseJSON['UserROWID']=user[0]['_id']
 					console.log("End of Execution:", responseJSON)
 					return JSON.stringify(responseJSON);
 				}
 			} catch(error){
-				result['OperationStatus']="ZCQL_ERR"
-				result['ErrorDescription']="Error in search prompts"
-				console.log("Execution Completed: ",result,error);
-				return JSON.stringify(result);
+				responseJSON['OperationStatus']="ZCQL_ERR"
+				responseJSON['ErrorDescription']="Error in search prompts"
+				console.log("Execution Completed: ",responseJSON,error);
+				return JSON.stringify(responseJSON);
 			}
 			
 		}

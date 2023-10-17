@@ -3,6 +3,7 @@
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
 const catalyst = require("zoho-catalyst-sdk");
+const Sessions = require("./models/Sessions.js");
 
 // const app = express();
 // app.use(express.json());

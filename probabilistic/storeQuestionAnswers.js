@@ -2,10 +2,15 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const storeAudioFileinGCS = require("./common/storeAudioFileinGCS.js");
 const convertSpeechToText = require("./common/convertSpeechToText.js");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
+const UserAssessmentLog = require("./models/UserAssessmentLogs.js");
+const UserAssessment = require("./models/UserAssessment.js");
+const Question = require("./models/questionBank.js");
+const mongoose = require('mongoose');
+const ObjectId = mongoose.Types.ObjectId;
 // const app = express();
 // app.use(express.json());
 const bodyParser = require('body-parser')
@@ -57,9 +62,9 @@ const sendResponse = (prependToLog,responseJSON,startTimeStamp,requestBody, res)
 app.post("/", (req, res) => {
     
     let startTimeStamp = new Date();
-    let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+   // //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
     
-    const requestBody = req.body;
+    let requestBody = req.body;
  
     //Prepare text to prepend with logs
     const params = ["storeQuestionAnswers",requestBody["UserAssessmentLogID"],""]
@@ -83,39 +88,80 @@ app.post("/", (req, res) => {
 
         const contactName = requestBody["contact"] ? requestBody["contact"]["name"] : ""
 	    const wrongAnswers = parseInt(requestBody["Attempt"])
+        requestBody['UserAssessmentLogID'] = new ObjectId(requestBody['UserAssessmentLogID']);
+        requestBody['QuestionIdentifier'] = new ObjectId(requestBody['QuestionIdentifier']);
 
-        let zcql = catalystApp.zcql()
+       // let zcql = catalystApp.zcql()
 
-        let query = "SELECT UserAssessmentLogs.UserROWID, UserAssessmentLogs.SystemPromptROWID, UserAssessmentLogs.QuestionsAsked, "
-                    +"UserAssessment.QuestionROWID, UserAssessment.ErrorInResponse, UserAssessment.ResponseText "
-                    +"FROM UserAssessmentLogs "
-                    +"left join UserAssessment on UserAssessmentLogs.ROWID = UserAssessment.UserAssessmentLogROWID "
-                    +"where IsAssessmentComplete = false and ROWID='"+requestBody["UserAssessmentLogID"]+"'"
 
-        console.debug((new Date()).toString()+"|"+prependToLog,"Get Assessment Details: "+query);
+        // let query = "SELECT UserAssessmentLogs.UserROWID, UserAssessmentLogs.SystemPromptROWID, UserAssessmentLogs.QuestionsAsked, "
+        //             +"UserAssessment.QuestionROWID, UserAssessment.ErrorInResponse, UserAssessment.ResponseText "
+        //             +"FROM UserAssessmentLogs "
+        //             +"left join UserAssessment on UserAssessmentLogs.ROWID = UserAssessment.UserAssessmentLogROWID "
+        //             +"where IsAssessmentComplete = false and ROWID='"+requestBody["UserAssessmentLogID"]+"'"
 
-        zcql.executeZCQLQuery(query)
+        // console.debug((new Date()).toString()+"|"+prependToLog,"Get Assessment Details: "+query);
+
+        // zcql.executeZCQLQuery(query)\
+      
+        UserAssessmentLog.aggregate([
+            {
+              $match: {
+                IsAssessmentComplete: false,
+                _id: new ObjectId(requestBody['UserAssessmentLogID']),
+              },
+            },
+            {
+              $lookup: {
+                from: 'UserAssessments',
+                localField: '_id',
+                foreignField: 'UserAssessmentLogROWID',
+                as: 'UserAssessment',
+              },
+            },
+            {
+              $unwind: {
+                'path': '$UserAssessment', 
+                'preserveNullAndEmptyArrays': true
+              }
+            },
+            {
+              $project: {
+                UserROWID: '$UserROWID',
+                SystemPromptROWID: '$SystemPromptROWID',
+                QuestionsAsked: '$QuestionsAsked',
+                QuestionROWID: '$UserAssessment.QuestionROWID',
+                ErrorInResponse: '$UserAssessment.ErrorInResponse',
+                ResponseText: '$UserAssessment.ResponseText',
+              },
+            },
+          ])
+          
         .then((userAssessmentLog)=>{
-            if(!Array.isArray(userAssessmentLog) && (userAssessmentLog!=null)){
+            console.info((new Date()).toString()+"|"+prependToLog,"userAssessmentLog",requestBody['UserAssessmentLogID'],userAssessmentLog);
+            if(Object.keys(userAssessmentLog).length === 0){
                 responseJSON['OperationStatus']='FAILED_TO_GET_ASSMNTLOG'
                 responseJSON['StatusDescription']=userAssessmentLog
                 sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)
             }
             else{
-                let questionsAsked = userAssessmentLog[0]['UserAssessmentLogs']['QuestionsAsked'] == null ? []:userAssessmentLog[0]['UserAssessmentLogs']['QuestionsAsked'].split(",")
-                const userROWID = userAssessmentLog[0]["UserAssessmentLogs"]['UserROWID']
-                const topicID = userAssessmentLog[0]["UserAssessmentLogs"]['SystemPromptROWID']
+                let questionsAsked = userAssessmentLog[0]['QuestionsAsked'] == null ? []:userAssessmentLog[0]['QuestionsAsked'].split(",")
+                const userROWID = userAssessmentLog[0]['UserROWID']
+                const topicID = userAssessmentLog[0]['SystemPromptROWID']
                 console.info((new Date()).toString()+"|"+prependToLog,"Total Assessment Records: "+userAssessmentLog.length," | Questions Asked: ",questionsAsked," | User ID: "+userROWID," | SystemPrompt ID: "+topicID);
-                var previousResponses = userAssessmentLog.filter(data=>((data.UserAssessment.ErrorInResponse == '') || (data.UserAssessment.ErrorInResponse == null))&&(data.UserAssessment.QuestionROWID!=null))
+                var previousResponses = userAssessmentLog.filter(data=>((data.ErrorInResponse == '') || (data.ErrorInResponse == null))&&(data.QuestionROWID!=null))
                 if(previousResponses.length==0)
                     console.info((new Date()).toString()+"|"+prependToLog,"Either it's first question or no correct response could be captured at all")
                 
-                query = "Select ROWID, AskingOrder, SkipLogic, ResponseValidations, ResponseFormat, Question, "
-                        +"Answers, Options, Feedback, IsEvaluative "
-                        +"from QuestionBank where SystemPromptROWID='"+topicID+"' order by AskingOrder asc"
-                console.debug((new Date()).toString()+"|"+prependToLog,"Fetching questions configured for SystemPromptROWID = "+topicID+" : "+query);
-                zcql.executeZCQLQuery(query)
-                .then((questionBank)=>{
+                // query = "Select ROWID, AskingOrder, SkipLogic, ResponseValidations, ResponseFormat, Question, "
+                //         +"Answers, Options, Feedback, IsEvaluative "
+                //         +"from QuestionBank where SystemPromptROWID='"+topicID+"' order by AskingOrder asc"
+                // console.debug((new Date()).toString()+"|"+prependToLog,"Fetching questions configured for SystemPromptROWID = "+topicID+" : "+query);
+                // zcql.executeZCQLQuery(query)
+                Question.find({ SystemPromptROWID: topicID })
+                .sort({ AskingOrder: 1 })
+                .select('ROWID AskingOrder SkipLogic ResponseValidations ResponseFormat Question Answers Options Feedback IsEvaluative')
+                 .then((questionBank)=>{
                     if(!Array.isArray(questionBank) && (questionBank!=null)){
                         responseJSON['OperationStatus']='FAILED_TO_GET_QUEST'
                         responseJSON['StatusDescription']=questionBank
@@ -124,18 +170,18 @@ app.post("/", (req, res) => {
                     else{
                         console.info((new Date()).toString()+"|"+prependToLog,"Fetched questions configured for SystemPromptROWID = "+topicID);
                         //Get the current question fields
-                        const currentQuestion = questionBank.filter(record=>record.QuestionBank.ROWID == requestBody['QuestionIdentifier'])
-                        const currentQuestionAskingOrder = currentQuestion[0]['QuestionBank']['AskingOrder']                                                
-                        const skipLogic = JSON.parse((currentQuestion[0].QuestionBank)['SkipLogic'])
-                        const validations = JSON.parse((currentQuestion[0].QuestionBank)['ResponseValidations'])
-                        const responseFormat = (currentQuestion[0].QuestionBank)['ResponseFormat']
-                        const question = decodeURI((currentQuestion[0].QuestionBank)['Question'])
-                        const answers = (currentQuestion[0].QuestionBank)['Answers']==null?'':decodeURI((currentQuestion[0].QuestionBank)['Answers'])
-                        const buttonOptions = (currentQuestion[0].QuestionBank)['Options']==null?'':decodeURI((currentQuestion[0].QuestionBank)['Options'])
+                        const currentQuestion = questionBank.filter(record=>record.id == requestBody['QuestionIdentifier'])
+                        const currentQuestionAskingOrder = currentQuestion[0]['AskingOrder']                                                
+                        const skipLogic = JSON.parse((currentQuestion[0])['SkipLogic'])
+                        const validations = JSON.parse((currentQuestion[0])['ResponseValidations'])
+                        const responseFormat = (currentQuestion[0])['ResponseFormat']
+                        const question = decodeURI((currentQuestion[0])['Question'])
+                        const answers = (currentQuestion[0])['Answers']==null?'':decodeURI((currentQuestion[0])['Answers'])
+                        const buttonOptions = (currentQuestion[0])['Options']==null?'':decodeURI((currentQuestion[0])['Options'])
                         const responseAudioURL = (typeof requestBody['ResponseAVURL']==='undefined') ? "":requestBody['ResponseAVURL']
                         const responseText = (typeof requestBody['ResponseText']==='undefined') ? "":requestBody['ResponseText']
                         const typeOfResponse = responseAudioURL.length != 0 ? 'Audio':(responseText.length != 0 ? (requestBody['ResponseFormat'] == "None" ? "Text" : requestBody['ResponseFormat']) : null)
-                        var feedback = (((currentQuestion[0].QuestionBank)['Feedback']==null) || ((currentQuestion[0].QuestionBank)['Feedback'].length==0)) ?'None':((currentQuestion[0].QuestionBank)['Feedback'].length>0 ? JSON.parse((currentQuestion[0].QuestionBank)['Feedback']):null)
+                        var feedback = (((currentQuestion[0])['Feedback']==null) || ((currentQuestion[0])['Feedback'].length==0)) ?'None':((currentQuestion[0])['Feedback'].length>0 ? JSON.parse((currentQuestion[0])['Feedback']):null)
                         
                         
                         console.debug((new Date()).toString()+"|"+prependToLog,"Feedback:",feedback)
@@ -157,7 +203,7 @@ app.post("/", (req, res) => {
                             successFeedback = (successFeedback.length>0)&&(successFeedback!="null")?successFeedback:'None'
                             successAVURL = feedback==null?'None':(('onSuccessAVURL' in feedback) ? (feedback['onSuccessAVURL']==null ? 'None':decodeURI(feedback['onSuccessAVURL'])):'None')
                         }
-    					const isEvaluative = (currentQuestion[0].QuestionBank)['IsEvaluative']
+    					const isEvaluative = currentQuestion[0]['IsEvaluative']
 		    			
                         const validateResponse = (validations,data,typeOfResponse,studentAssessmentLogID,questionsAsked,studentID,previousResponses,questionsInOrder) => {
                             return new Promise((resolve, reject)=>{
@@ -201,7 +247,7 @@ app.post("/", (req, res) => {
                                                 if(askingOrder.length==0)
                                                     return data
                                                 else{
-                                                    const questionRecord = questionsInOrder.filter(record=>record.QuestionBank.AskingOrder == askingOrder)
+                                                    const questionRecord = questionsInOrder.filter(record=>record.AskingOrder == askingOrder)
                                                     var answers = previousResponses.filter(record=>record.UserAssessment.QuestionROWID == questionRecord[0]['QuestionBank']['QuestionROWID'])
                                                     try{
                                                         return data.replace(askingOrder,answers[0]['UserAssessment']['ResponseText'])
@@ -400,16 +446,22 @@ app.post("/", (req, res) => {
                                         resolve(null)
                                     }
                                     else{
-                                        const remainingQuestions = questionBank.filter(record=>!questionsAsked.includes(record.QuestionBank.ROWID))
-                                        const sequentialQuestions = remainingQuestions.filter(record=>record.QuestionBank.AskingOrder>0)
+                                        const remainingQuestions = questionBank.filter(record=>!questionsAsked.includes(record.id))
+                                        const sequentialQuestions = remainingQuestions.filter(record=>record.AskingOrder>0)
                                         if(sequentialQuestions.length==0){//Only random questions remaining
-                                            const randomIndex = Math.floor(Math.random()*(remainingQuestions.length-1))
-                                            nextAskingOrder = [remainingQuestions[randomIndex]]
-                                            console.info((new Date()).toString()+"|"+prependToLog,"Remianing questions to be asked randonly. Selected Question ROWID = ",nextAskingOrder);
+                                            if(remainingQuestions.length>0){//There are questions to be asked
+                                                const randomIndex = Math.floor(Math.random()*(remainingQuestions.length-1))
+                                                nextAskingOrder = [remainingQuestions[randomIndex]]
+                                                console.info((new Date()).toString()+"|"+prependToLog,"Remianing questions to be asked randonly. Selected Question _id = ",nextAskingOrder);
+                                            }
+                                            else{
+                                                console.info((new Date()).toString()+"|"+prependToLog,"No next question in sequence")
+                                                resolve(null)
+                                            }      
                                         }
                                         else{//Sequential question to be asked
-                                            nextAskingOrder = remainingQuestions.filter(record=>record.QuestionBank.AskingOrder==(currentAskingOrder+1))
-                                            console.info((new Date()).toString()+"|"+prependToLog,"Next question in sequence to be asked. Selected Question ROWID = ",nextAskingOrder);
+                                            nextAskingOrder = remainingQuestions.filter(record=>record.AskingOrder==(currentAskingOrder+1))
+                                            console.info((new Date()).toString()+"|"+prependToLog,"Next question in sequence to be asked. Selected Question _id = ",nextAskingOrder);
                                         }
 
                                         if(!((nextAskingOrder!=null)&&(nextAskingOrder.length>0))){
@@ -418,7 +470,7 @@ app.post("/", (req, res) => {
                                         }
                                         else if(skipLogic == null){
                                             console.info((new Date()).toString()+"|"+prependToLog,"No skip logic. Next question to be asked")
-                                            resolve(nextAskingOrder[0].QuestionBank.ROWID)
+                                            resolve(nextAskingOrder[0]._id)
                                         }
                                         else{
                                             var isConditionFulfilled = false
@@ -441,7 +493,7 @@ app.post("/", (req, res) => {
                                                             if(askingOrder.length==0)
                                                                 return userAssessmentLog
                                                             else{
-                                                                const questionRecord = questionBank.filter(record=>record.QuestionBank.AskingOrder == askingOrder)
+                                                                const questionRecord = questionBank.filter(record=>record.AskingOrder == askingOrder)
                                                                 var answers = previousResponses.filter(record=>record.UserAssessment.QuestionROWID == questionRecord[0]['QuestionBank']['QuestionROWID'])
                                                                 try{
                                                                     return userAssessmentLog.replace(askingOrder+'}',answers[0]['UserAssessment']['ResponseText'])
@@ -465,9 +517,9 @@ app.post("/", (req, res) => {
                                                         }
                                                         else{
                                                             console.log(i,". Skip logic expression applied. Q"+conditionTokens[1]+" to be asked")
-                                                            nextAskingOrder = questionBank.filter(record=>record.QuestionBank.AskingOrder==parseInt(conditionTokens[1]))
+                                                            nextAskingOrder = questionBank.filter(record=>record.AskingOrder==parseInt(conditionTokens[1]))
                                                             isConditionFulfilled = true
-                                                            resolve(nextAskingOrder[0].QuestionBank.ROWID)
+                                                            resolve(nextAskingOrder[0]._id)
                                                         }
                                                     }
                                                     else
@@ -477,12 +529,12 @@ app.post("/", (req, res) => {
                                             if(!isConditionFulfilled){
                                                 if(typeof skipLogic[responseText] === 'undefined'){
                                                     console.info((new Date()).toString()+"|"+prependToLog,"No question to skip on value :",responseText, ". Next question to be asked")
-                                                    resolve(nextAskingOrder[0].QuestionBank.ROWID)
+                                                    resolve(nextAskingOrder[0]._id)
                                                 }
                                                 else{
                                                     console.info((new Date()).toString()+"|"+prependToLog,"Skip logic applied. Q"+skipLogic[responseText]+" to be asked")
-                                                    nextAskingOrder = questionBank.filter(record=>record.QuestionBank.AskingOrder==parseInt(skipLogic[responseText]))
-                                                    resolve(nextAskingOrder[0].QuestionBank.ROWID)
+                                                    nextAskingOrder = questionBank.filter(record=>record.AskingOrder==parseInt(skipLogic[responseText]))
+                                                    resolve(nextAskingOrder[0]._id)
                                                 }
                                             }
                                         }
@@ -496,15 +548,15 @@ app.post("/", (req, res) => {
                             getNextQuestionROWID(skipLogic,responseText,true,currentQuestionAskingOrder,questionBank,previousResponses,requestBody['QuestionIdentifier'])
                             .then((nextQuestionId) => {
                                 let updateData = {
-                                    ROWID:requestBody["UserAssessmentLogID"],
+                                    //_id:requestBody["UserAssessmentLogID"],
                                     QuestionsAsked:questionsAsked.push(requestBody["QuestionIdentifier"]),
                                     NextQuestionROWID:nextQuestionId,
                                     SessionID:requestBody["SessionID"]
                                 }
-                                let table = catalystApp.datastore().table("UserAssessmentLogs")
-                                table.updateRow(updateData)
+                                //let table = catalystApp.datastore().table("UserAssessmentLogs")
+                                UserAssessmentLog.findByIdAndUpdate(requestBody["UserAssessmentLogID"],updateData)
                                 .then((updated)=>{
-                                    if(typeof updated['ROWID']==='undefined'){
+                                    if(typeof updated['_id'] === 'undefined'){
                                         responseJSON['OperationStatus'] = 'CONTINUED_ASSESSMENT'
                                         responseJSON['StatusDescription'] = "Failed to update instruction question asked in User's Assessment Logs: "+updated
                                         sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)
@@ -538,7 +590,6 @@ app.post("/", (req, res) => {
                                 IsCorrectResponse: null,
                                 ConfidenceInterval: null
                             }
-                            let assessmentTable = catalystApp.datastore().table('UserAssessment')
                                             
                             validationResult() //Apply validation check on response
                             .then((validationResultResponse)=> {
@@ -682,9 +733,9 @@ app.post("/", (req, res) => {
                                             
                                             getNextQuestionROWID(skipLogic,responseText,isCorrectAnswer,currentQuestionAskingOrder,questionBank,previousResponses,requestBody['QuestionIdentifier'])
                                             .then((nextQuestionId) => {
-                                                assessmentTable.insertRow(userAssessmentRecord)
+                                                UserAssessment.create(userAssessmentRecord)
                                                 .then((storeResponseResult)=>{
-                                                    if(typeof storeResponseResult['ROWID']==='undefined'){
+                                                    if(typeof storeResponseResult['_id']==='undefined'){
                                                         responseJSON['OperationStatus'] = 'STR_ANS_ERR'
                                                         responseJSON['StatusDescription'] = "Failed to store the response of User: "+storeResponseResult
                                                         sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)
@@ -692,25 +743,32 @@ app.post("/", (req, res) => {
                                                     else{     
                                                         questionsAsked.push(requestBody["QuestionIdentifier"])                        
                                                         let updateData = {
-                                                            ROWID:requestBody["UserAssessmentLogID"],
+                                                            //_id:requestBody["UserAssessmentLogID"],
                                                             QuestionsAsked:questionsAsked.join(","),
                                                             NextQuestionROWID:nextQuestionId,
                                                             SessionID:requestBody["SessionID"]
                                                         }
-                                                        let table = catalystApp.datastore().table("UserAssessmentLogs")
-                                                        table.updateRow(updateData)
+                                                        //let table = catalystApp.datastore().table("UserAssessmentLogs")
+                                                        UserAssessmentLog.findByIdAndUpdate(requestBody["UserAssessmentLogID"],updateData)
                                                         .then(async(updated)=>{
-                                                            if(typeof updated['ROWID']==='undefined'){
+                                                            if(typeof updated['_id']==='undefined'){
                                                                 responseJSON['OperationStatus'] = 'CONTINUED_ASSESSMENT'
                                                                 responseJSON['StatusDescription'] = "Failed to update question asked in User's Assessment Logs: "+updated
                                                                 sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)
                                                             }
                                                             else{
                                                                 console.info((new Date()).toString()+"|"+prependToLog,"Updated Question asked in User Assessmet Log")
-                                                                responseJSON['QuestionResponseID'] = storeResponseResult['ROWID'];//Response element to be sent
+                                                                responseJSON['QuestionResponseID'] = storeResponseResult['_id'];//Response element to be sent
                                                                 var alwaysSucccessFeedback = successFeedback.replace("@contacts.name",contactName)
-                                                                const correctAnswers=(await zcql.executeZCQLQuery("select distinct QuestionROWID from UserAssessment where StudentAssessmentLogID = '"+requestBody["UserAssessmentLogID"]+"' and IsCorrectResponse=true")).length
-                                                                const totalQuestions=(await zcql.executeZCQLQuery("select distinct QuestionROWID from UserAssessment where StudentAssessmentLogID = '"+requestBody["UserAssessmentLogID"]+"'")).length
+                                                                // const correctAnswers=(await zcql.executeZCQLQuery("select distinct QuestionROWID from UserAssessment where StudentAssessmentLogID = '"+requestBody["UserAssessmentLogID"]+"' and IsCorrectResponse=true")).length
+                                                                // const totalQuestions=(await zcql.executeZCQLQuery("select distinct QuestionROWID from UserAssessment where StudentAssessmentLogID = '"+requestBody["UserAssessmentLogID"]+"'")).length
+                                                                const correctAnswers=(await UserAssessment.distinct('QuestionROWID', {
+                                                                    StudentAssessmentLogID: requestBody["UserAssessmentLogID"],
+                                                                    IsCorrectResponse: true
+                                                                  })).length
+                                                                const totalQuestions=(await UserAssessment.distinct('QuestionROWID', {
+                                                                    StudentAssessmentLogID: requestBody["UserAssessmentLogID"]
+                                                                  })).length
                                                                 
                                                                 const correctAnswerTokens = ["@correctAnswers","@correctanswers","@correctanswer"]
                                                                 for(var i=0;i<correctAnswerTokens.length;i++){
@@ -798,7 +856,7 @@ app.post("/", (req, res) => {
                                             }).catch(error=> {
                                                 userAssessmentRecord["ErrorInResponse"] = responseJSON["OperationStatus"]
                                                 userAssessmentRecord["ErrorDescription"] = error
-                                                assessmentTable.insertRow(userAssessmentRecord).then()
+                                                UserAssessment.create(userAssessmentRecord).then()
                                                 console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error in Getting Next Question");
                                                 console.error((new Date()).toString()+"|"+prependToLog,"End of Execution with Error: ",error)
                                                 res.status(500).send(error);
@@ -806,7 +864,7 @@ app.post("/", (req, res) => {
                                         }).catch(error=> {
                                             userAssessmentRecord["ErrorInResponse"] = responseJSON["OperationStatus"]
                                             userAssessmentRecord["ErrorDescription"] = error
-                                            assessmentTable.insertRow(userAssessmentRecord).then()
+                                            UserAssessment.create(userAssessmentRecord).then()
                                             console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error in Getting Questions");
                                             console.error((new Date()).toString()+"|"+prependToLog,"End of Execution with Error: ",error)
                                             sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)
@@ -815,7 +873,7 @@ app.post("/", (req, res) => {
                                     .catch(error=> {
                                         userAssessmentRecord["ErrorInResponse"] = responseJSON["OperationStatus"]
                                         userAssessmentRecord["ErrorDescription"] = error
-                                        assessmentTable.insertRow(userAssessmentRecord).then()
+                                        UserAssessment.create(userAssessmentRecord).then()
                                         console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error in Converting Speech to Text");
                                         console.error((new Date()).toString()+"|"+prependToLog,"End of Execution with Error: ",error)
                                         sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)
@@ -824,7 +882,7 @@ app.post("/", (req, res) => {
                                 .catch(error=> {
                                     userAssessmentRecord["ErrorInResponse"] = responseJSON["OperationStatus"]
                                     userAssessmentRecord["ErrorDescription"] = error
-                                    assessmentTable.insertRow(userAssessmentRecord).then()
+                                    UserAssessment.create(userAssessmentRecord).then()
                                     console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error in Storing Audio Response in GCS");
                                     console.error((new Date()).toString()+"|"+prependToLog,"End of Execution with Error: ",error)
                                     sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)
@@ -833,7 +891,7 @@ app.post("/", (req, res) => {
                             .catch((error)=> {
                                 userAssessmentRecord["ErrorInResponse"] = responseJSON["OperationStatus"]
                                 userAssessmentRecord["ErrorDescription"] = error
-                                assessmentTable.insertRow(userAssessmentRecord).then()
+                                UserAssessment.create(userAssessmentRecord).then()
                                 console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error in Getting Questions");
                                 console.error((new Date()).toString()+"|"+prependToLog,"End of Execution with Error: ",error)
                                 sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)

@@ -1,7 +1,14 @@
 const request = require("request");
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
+const dotenv = require("dotenv");
+dotenv.config();
+const mongoose = require('mongoose')
+mongoose.connect(process.env.MongoDBConnStrng + "whatsapp-bots", {
+  useNewUrlParser: true,
+});
+const SystemPrompt = require(".././models/SystemPrompts.js");
 
-const catalystApp = catalyst.initialize();
+//const catalystApp = catalyst.initialize();
 
 const executionID = Math.random().toString(36).slice(2)
 
@@ -19,9 +26,10 @@ const timer = (sleepTime) => {
     });
   };
 
-let zcql = catalystApp.zcql()
+//let zcql = catalystApp.zcql()
 
-zcql.executeZCQLQuery("Select distinct ROWID, Name from SystemPrompts where Type = 'Topic Prompt'")
+// zcql.executeZCQLQuery("Select distinct ROWID, Name from SystemPrompts where Type = 'Topic Prompt'")
+SystemPrompt.find({ Type: "Topic Prompt" })
 .then(async (rowids)=>{
     for(var i = 0; i<rowids.length; i++){
         data = rowids[i]
@@ -30,9 +38,9 @@ zcql.executeZCQLQuery("Select distinct ROWID, Name from SystemPrompts where Type
             url:process.env.ConfigurationCRUDurl,
             headers:{"Content-Type": "application/json"},
             body:JSON.stringify({
-                "id":data.SystemPrompts.ROWID,
+                "id":data._id,
                 "param":"progressbarat",
-                "value":data.SystemPrompts.Name == "Mock Interview" ? "4,8":"3",
+                "value":data.Name == "Mock Interview" ? "4,8":"3",
                 "description":"number of lines of chat after which msg needs to be sent"
             })
         }

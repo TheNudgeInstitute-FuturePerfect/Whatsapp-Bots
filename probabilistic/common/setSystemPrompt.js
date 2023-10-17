@@ -1,5 +1,7 @@
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
+const SystemPrompts = require(".././models/SystemPrompts.js");
+
 
 module.exports = async (basicIO) => {
   /*
@@ -16,7 +18,7 @@ module.exports = async (basicIO) => {
 	}
 	*/
 
-  const catalystApp = catalyst.initialize();
+  //const catalystApp = catalyst.initialize();
 
   const executionID = Math.random().toString(36).slice(2)
 
@@ -66,7 +68,7 @@ module.exports = async (basicIO) => {
         if (typeof content === "undefined") {
           result["OperationStatus"] = "REQ_ERR";
           result["StatusDescription"] = "Missing parameter: content";
-          console.log("Execution Completed: ", result);
+          console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ", result);
           return JSON.stringify(result);
         } else {
           var seqNO = basicIO["sequence"];
@@ -137,124 +139,138 @@ module.exports = async (basicIO) => {
                   console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ", result, isActive);
                   return JSON.stringify(result);
                 } else {
-                  var insertQuery = {
-                    Name: prompt,
-                    Content: content,
-                    IsActive: isActive,
-                    SupportingText: supportingText,
-                    SupportingAVURL: supportingAVURL,
-                    SupportingImageURL: supportingImageURL,
-                    Sequence: seqNO,
-                    PrimaryKey: prompt + "-" + seqNO,
-                    Persona: persona,
-                    ObjectiveMessage: objectiveMessage,
-                    Type: typeof type === "undefined" ? "Topic Prompt" : type,
-                    ShowLearningContent : (typeof showLearningContent === "undefined") ? false : showLearningContent,
-                    IsPaid : (typeof isPaid === "undefined") ? false : isPaid,
-                    LearningObjective: learningObjective,
-                    Module: module,
-                    Game: game
-                  };
-                  const datastore = catalystApp.datastore();
-                  let table = datastore.table("SystemPrompts");
                   try {
-                    const insertQueryResult = await table.insertRow(insertQuery);
-                    if(typeof insertQueryResult['ROWID']==='undefined'){
-                        throw new Error(insertQueryResult)
+                    var filter = {
+                      Name: prompt,
+                      Sequence: seqNO
                     }
-                    const allConfig = require("./setSystemPrompt-config.json");
-                    let setConfigurationParam = require("./setConfigurationParam.js");
-                    allConfig["defaultConfig"].forEach(async (cfg) => {
-                      try {
-                        //----2023-08-03:ravi.bhushan@dhwaniris.com:GLOW 5.3 Modifiction Begin-------
-                        let cfgPayload = {
-                          param: cfg.Name,
-                          value: cfg.Value,
-                          description: cfg.Description,
-                          id: insertQueryResult["ROWID"],
+                    const existingPrompt = await SystemPrompts.find(filter)
+                    if(existingPrompt.length>0)
+                      throw new Error("DUPLICATE")
+                    else{
+                      var insertQuery = {
+                        Name: prompt,
+                        Content: content,
+                        IsActive: isActive,
+                        SupportingText: supportingText,
+                        SupportingAVURL: supportingAVURL,
+                        SupportingImageURL: supportingImageURL,
+                        Sequence: seqNO,
+                        PrimaryKey: prompt + "-" + seqNO,
+                        Persona: persona,
+                        ObjectiveMessage: objectiveMessage,
+                        Type: typeof type === "undefined" ? "Topic Prompt" : type,
+                        ShowLearningContent : (typeof showLearningContent === "undefined") ? false : showLearningContent,
+                        IsPaid : (typeof isPaid === "undefined") ? false : isPaid,
+                        LearningObjective: learningObjective,
+                        Module: module,
+                        Game: game
+                      };
+                      // const datastore = catalystApp.datastore();
+                      // let table = datastore.table("SystemPrompts");
+                    
+                      const insertQueryResult = await SystemPrompts.create(insertQuery);
+                      console.info((new Date()).toString()+"|"+prependToLog,"--------------",insertQueryResult);
+                      //if(typeof insertQueryResult['ROWID']==='undefined'){
+                        //  throw new Error(insertQueryResult)
+                      //}
+                      const allConfig = require("./setSystemPrompt-config.json");
+                      let setConfigurationParam = require("./setConfigurationParam.js");
+                      allConfig["defaultConfig"].forEach(async (cfg) => {
+                        try {
+                          //----2023-08-03:ravi.bhushan@dhwaniris.com:GLOW 5.3 Modifiction Begin-------
+                          let cfgPayload = {
+                            param: cfg.Name,
+                            value: cfg.Value,
+                            description: cfg.Description,
+                            id: insertQueryResult["id"]//["ROWID"],
+                          }
+
+                          //If it's a free topic, set subcription amount to 0
+                          if((cfg.Name=="subsciptionamt")&&(insertQueryResult['IsPaid']!=true))
+                            cfgPayload['value']=0
+                          
+                          let addedCFG = await setConfigurationParam(cfgPayload);
+                          //-----GLOW 5.3 Modifiction End-------
+                          
+                          console.info((new Date()).toString()+"|"+prependToLog," default configuration:", addedCFG);
+                        } catch (error) {
+                          console.info((new Date()).toString()+"|"+prependToLog,
+                            "Error in adding default configuration:"
+                          );
+                          console.error((new Date()).toString()+"|"+prependToLog,
+                            "Error in adding default configuration:",
+                            error
+                          );
                         }
+                      });
 
-                        //If it's a free topic, set subcription amount to 0
-                        if((cfg.Name=="subsciptionamt")&&(insertQueryResult['IsPaid']!=true))
-                          cfgPayload['value']=0
-                        
-                        let addedCFG = await setConfigurationParam(cfgPayload);
-                        //-----GLOW 5.3 Modifiction End-------
-                        
-                        console.info((new Date()).toString()+"|"+prependToLog," default configuration:", addedCFG);
-                      } catch (error) {
-                        console.info((new Date()).toString()+"|"+prependToLog,
-                          "Error in adding default configuration:"
-                        );
-                        console.error((new Date()).toString()+"|"+prependToLog,
-                          "Error in adding default configuration:",
-                          error
-                        );
-                      }
-                    });
-
-                    result["OperationStatus"] = "SUCCESS";
-                    const searchQuery =
-                      "Select ROWID from SystemPrompts where IsActive = true and Name = '" +
-                      prompt +
-                      "'";
-                    const zcql = catalystApp.zcql();
-                    try {
-                      const searchQueryResult = await zcql.executeZCQLQuery(
-                        searchQuery
-                      );
-                      if (searchQueryResult == null) {
-                        result["OperationStatus"] = "SUCCESS_NO_ACTV";
-                        result["StatusDescription"] =
-                          "Prompt added. But none of the prompts are active for the topic '" +
-                          prompt +
-                          "'.";
-                        console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ", result);
-                        return JSON.stringify(result);
-                      } else if (searchQueryResult.length == 0) {
-                        result["OperationStatus"] = "SUCCESS_NO_ACTV";
-                        result["StatusDescription"] =
-                          "Prompt added. But none of the prompts are active for the topic '" +
-                          prompt +
-                          "'.";
+                      result["OperationStatus"] = "SUCCESS";
+                      // const searchQuery =
+                      //   "Select ROWID from SystemPrompts where IsActive = true and Name = '" +
+                      //   prompt +
+                      //   "'";
+                      // const zcql = catalystApp.zcql();
+                      try {
+                        // const searchQueryResult = await zcql.executeZCQLQuery(
+                        //   searchQuery
+                        // );
+                        const searchQueryResult = await SystemPrompts.findOne({ IsActive: true, Name: prompt }, '_id');
+                        console.info((new Date()).toString()+"|"+prependToLog,"searchQueryResult................",searchQueryResult);
+                        if (searchQueryResult == null) {
+                          result["OperationStatus"] = "SUCCESS_NO_ACTV";
+                          result["StatusDescription"] =
+                            "Prompt added. But none of the prompts are active for the topic '" +
+                            prompt +
+                            "'.";
                           console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ", result);
-                        return JSON.stringify(result);
-                      } else {
-                      /*else if(searchQueryResult.length>1){
-                        var updateQuery = searchQueryResult.filter(data=>data.SystemPrompts.ROWID != insertQueryResult.ROWID)
-                        updateQuery = updateQuery.map(data=>{
-                          var returnVal = {}
-                          returnVal['ROWID']=data.SystemPrompts.ROWID
-                          returnVal['IsActive']=false
-                          return returnVal	
-                        })
-                        table.updateRows(updateQuery)
-                        .then((updateQueryResult) => {
-                          result['OperationStatus']="SUCCESS_MLTPL_ACTV"
-                          result['StatusDescription']="Prompt added. Multiple prompts were active for topic - '"+prompt+"'. Thus deactivated all other prompts except the new one."
-                          console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result);
                           return JSON.stringify(result);
-                          
-                        })
-                        .catch(error=>{
-                          result['OperationStatus']="SUCCESS_MLTPL_ACTV_ERR"
-                          result['StatusDescription']="Prompt added. Multiple prompts are active for topic - '"+prompt+"'. Please mark only one as active."
-                          console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result,error);
+                        } else if (searchQueryResult.length == 0) {
+                          result["OperationStatus"] = "SUCCESS_NO_ACTV";
+                          result["StatusDescription"] =
+                            "Prompt added. But none of the prompts are active for the topic '" +
+                            prompt +
+                            "'.";
+                            console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ", result);
                           return JSON.stringify(result);
-                          
-                        })
-                      }*/
-                        console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ", result);
+                        } else {
+                        /*else if(searchQueryResult.length>1){
+                          var updateQuery = searchQueryResult.filter(data=>data.SystemPrompts.ROWID != insertQueryResult.ROWID)
+                          updateQuery = updateQuery.map(data=>{
+                            var returnVal = {}
+                            returnVal['ROWID']=data.SystemPrompts.ROWID
+                            returnVal['IsActive']=false
+                            return returnVal	
+                          })
+                          table.updateRows(updateQuery)
+                          .then((updateQueryResult) => {
+                            result['OperationStatus']="SUCCESS_MLTPL_ACTV"
+                            result['StatusDescription']="Prompt added. Multiple prompts were active for topic - '"+prompt+"'. Thus deactivated all other prompts except the new one."
+                            console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result);
+                            return JSON.stringify(result);
+                            
+                          })
+                          .catch(error=>{
+                            result['OperationStatus']="SUCCESS_MLTPL_ACTV_ERR"
+                            result['StatusDescription']="Prompt added. Multiple prompts are active for topic - '"+prompt+"'. Please mark only one as active."
+                            console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result,error);
+                            return JSON.stringify(result);
+                            
+                          })
+                        }*/
+                          console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ", result);
+                          return JSON.stringify(result);
+                        }
+                      } catch (error) {
+                        result["OperationStatus"] = "ZCQL_ERR";
+                        result["StatusDescription"] =
+                          "Error in execution search query";
+                        console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ", result, error);
                         return JSON.stringify(result);
                       }
-                    } catch (error) {
-                      result["OperationStatus"] = "ZCQL_ERR";
-                      result["StatusDescription"] =
-                        "Error in execution search query";
-                      console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ", result, error);
-                      return JSON.stringify(result);
-                    }
-                  } catch (error) {
+                    } 
+                  }
+                  catch (error) {
                     if (error.toString().includes("DUPLICATE") != -1) {
                       result["OperationStatus"] = "DUP_ERR";
                       result["StatusDescription"] =
