@@ -3,13 +3,13 @@ const { Schema, model } = require("mongoose");
 const schema = new Schema({
   ROWID: {type: Number},
   CREATORID: {type: Number}, 
-  CREATEDTIME: {type: Date,default: Date.now},
-  MODIFIEDTIME: {type: Date,default: Date.now},
+  //CREATEDTIME: {type: Date,default: Date.now},
+  //MODIFIEDTIME: {type: Date,default: Date.now},
   SessionID: { type: String },
   IsActive: {type: Boolean,default: true},
   SystemPromptsROWID: { type: Schema.Types.ObjectId, ref: 'SystemPrompts' },
   Reply: { type: String },
-  Message: { type: String },
+  Message: { type: Number },
   Mobile: { type: String },
   ReplyAudioURL: { type: String },
   MessageAudioURL: { type: String },
@@ -28,6 +28,12 @@ const schema = new Schema({
   PromptTokens: { type: Number },
   SLFCompletionTokens: { type: Number },
   SLFPromptTokens: { type: Number },
+},
+{
+  timestamps: {
+    createdAt:'CREATEDTIME',
+    updatedAt:'MODIFIEDTIME'
+  },
 });
 
 module.exports = model("Sessions", schema);

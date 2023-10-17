@@ -31,6 +31,10 @@ const timer = (sleepTime) => {
 		setTimeout(resolve, sleepTime)
 	});
 }
+const getYYYYMMDDDate = (date) => {
+	return date.getFullYear()+"-"+('0'+(date.getMonth()+1)).slice(-2)+"-"+('0'+date.getDate()).slice(-2)
+}
+
 
 //let zcql = catalystApp.zcql()
 
@@ -199,7 +203,7 @@ UsersReport.find({})//, '_id Mobile')
 												userReport['Name'] = users[i]["Name"]
 											}
 											userReport['Mobile'] = users[i]["Mobile"]
-											userReport['UserCreatedAt'] = users[i]["CREATEDTIME"].toString().slice(0, 19)
+											userReport['UserCreatedAt'] = users[i]["CREATEDTIME"]//.toString().slice(0, 19)
 											const rowID = currentReport.length == 0 ? null : currentReport.filter(data => data['Mobile'] == userReport['Mobile'])
 											if ((rowID != null) && (rowID.length > 0))
 												userReport['_id'] = rowID[0]['_id']
@@ -224,7 +228,7 @@ UsersReport.find({})//, '_id Mobile')
 												userReport['Onboarded'] = "Yes"
 											userReport['ReminderTime'] = users[i]["NudgeTime"] == "None" ? "No Reminder" : users[i]["NudgeTime"]
 											const userSessions = sessions.filter(data => data.Mobile == userReport['Mobile'])
-											const sessionDates = userSessions.map(data => (data.CREATEDTIME).toString().slice(0, 10))
+											const sessionDates = userSessions.map(data => getYYYYMMDDDate(data.CREATEDTIME).toString())//.slice(0, 10))
 											//console.debug((new Date()).toString()+"|"+prependToLog,users[i]["Mobile"],' | sessionDates | ',sessionDates)
 											var uniqueDates = sessionDates.filter(unique)
 											//Add BQ Activity Date of User to Session Date
@@ -237,10 +241,10 @@ UsersReport.find({})//, '_id Mobile')
 											//console.debug((new Date()).toString()+"|"+prependToLog,users[i]["Mobile"],' | uniqueSessions | ',uniqueSessions)
 											const sessionDuration = uniqueSessions.map(data => {
 												const sessionData = userSessions.filter(record => record.SessionID == data)
-												var currentSessionDates = sessionData.map(record => (record.CREATEDTIME).toString().slice(0, 10))
+												var currentSessionDates = sessionData.map(record => getYYYYMMDDDate(record.CREATEDTIME).toString())//.slice(0, 10))
 												currentSessionDates = currentSessionDates.sort()
 												const sessionCompletionData = userSessions.filter(record => (record.SessionID == data) && (record.IsActive == false))
-												var sessionCompletionDates = sessionCompletionData.map(record => (record.CREATEDTIME).toString().slice(0, 10))
+												var sessionCompletionDates = sessionCompletionData.map(record => getYYYYMMDDDate(record.CREATEDTIME).toString())//.slice(0, 10))
 												sessionCompletionDates = sessionCompletionDates.sort()
 												return {
 													SessionID: data,
@@ -278,7 +282,7 @@ UsersReport.find({})//, '_id Mobile')
 													maxGap = 5
 												if (gap > maxGap) {
 													resurrected = "Yes"
-													resurrectionDate = allSessionDates[j - 1]
+													resurrectionDate = getYYYYMMDDDate(allSessionDates[j - 1])
 												}
 											}
 											uniqueDates.sort()

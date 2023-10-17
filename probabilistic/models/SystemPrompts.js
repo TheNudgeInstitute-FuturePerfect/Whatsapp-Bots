@@ -21,6 +21,9 @@ const schema = new Schema({
   Module: { type: String,require:false },
   LearningObjective: { type: String,require:false },
   Game: { type: String,require:false },
+},
+{
+  timestamps: true,
 });
 
 module.exports = model("SystemPrompts", schema);

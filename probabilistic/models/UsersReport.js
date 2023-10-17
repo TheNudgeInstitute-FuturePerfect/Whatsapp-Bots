@@ -3,20 +3,20 @@ const { Schema, model } = require("mongoose");
 const schema = new Schema({
   ROWID: {type: Number},
   CREATORID: {type: Number}, 
-  CREATEDTIME: {type: Date,default: Date.now},
-  MODIFIEDTIME: {type: Date,default: Date.now},
+  //CREATEDTIME: {type: Date,default: Date.now},
+  //MODIFIEDTIME: {type: Date,default: Date.now},
   Mobile: { type: Number },
   Consent: { type: String },
   Excluded: { type: String },
-  OnboardingDate: {type: Date,default: Date.now},
+  OnboardingDate: {type: Date},
   OnboardingVersion: { type: Number },
   Onboarded: { type: String },
-  DeadlineDate: {type: Date,default: Date.now},
+  DeadlineDate: {type: Date},
   ReminderTime: { type: String },
-  LastActiveDate: {type: Date,default: Date.now},
+  LastActiveDate: {type: Date},
   Churned: { type: String },
   Resurrected: { type: String },
-  ResurrectionDate: {type: Date,default: Date.now},
+  ResurrectionDate: {type: Date},
   RessurectionVersion: { type: Number },
   CmpltnOnOBDRSDt: { type: String },
   CmpltnOnOBDDt: { type: String },
@@ -35,7 +35,11 @@ const schema = new Schema({
   DaysAttmptdPstOBD: { type: Number },
   Name: { type: String },
   EnglishProficiency: { type: String },
-  SourcingChannel: { type: String }
+  SourcingChannel: { type: String },
+  UserCreatedAt: {type: Date}
+},
+{
+  timestamps: true,
 });
 
 module.exports = model("UsersReport", schema);

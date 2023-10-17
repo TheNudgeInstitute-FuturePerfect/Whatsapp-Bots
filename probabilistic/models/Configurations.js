@@ -10,6 +10,9 @@ const schema = new Schema({
   Value: { type: String },
   SystemPromptROWID: { type: Schema.Types.ObjectId, ref: 'SystemPrompts' },
   PrimaryKey: { type: String }
+},
+{
+  timestamps: true,
 });
 
 module.exports = model("Configurations", schema);

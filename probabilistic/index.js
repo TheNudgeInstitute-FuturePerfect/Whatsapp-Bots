@@ -4,7 +4,7 @@ const app = express.Router();
 // Advanced I/O const
 const glificChatGPTIntegrator = require("./glificChatGPTIntegrator.js");
 const getEnglishProficiency = require("./getEnglishProficiency.js");
-const reportData = require("./ReportData.js");
+//const reportData = require("./ReportData.js");
 const translateMsg = require("./translateMsg.js");
 const getHintMessage = require("./getHintMessage.js");
 const backendSystemPromptCRUD = require("./backendSystemPromptCRUD.js");
@@ -56,7 +56,7 @@ const searchUserbyMobile = require("./common/searchUserbyMobile.js");
 // Advanced I/O routes
 app.use("/glificChatGPTIntegrator",glificChatGPTIntegrator);
 app.use("/getEnglishProficiency", getEnglishProficiency);
-app.use("/ReportData", reportData);
+//app.use("/ReportData", reportData);
 app.use("/translateMsg", translateMsg);
 app.use("/getHintMessage", getHintMessage);
 app.use("/backendSystemPromptCRUD",backendSystemPromptCRUD);
