@@ -471,7 +471,7 @@ app.post("/goalachievementcalendar", (req, res) => {
               let reportRecord = ['🔲','🔲','🔲','🔲','🔲','🔲','🔲']
               const toDay = currentTimeStamp.getFullYear()+"-"+('0'+(currentTimeStamp.getMonth()+1)).slice(-2)+"-"+('0'+currentTimeStamp.getDate()).slice(-2)
               const dateToday = new Date(toDay+" 00:00:00")
-              if(practiceDates.length==0){practiceDates=[toDay]}
+              if(practiceDates.length==0){practiceDates=[new Date(toDay)]}
               let dateOfMonth = new Date(getYYYYMMDDDate(practiceDates[0]))//.toString().slice(0,10))
               let calendarEndDate = new Date()
               calendarEndDate.setDate(calendarEndDate.getDate()+((7-calendarEndDate.getDay())%7))
