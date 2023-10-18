@@ -221,7 +221,7 @@ app.post("/allocatetopic", (req, res) => {
   //   .executeZCQLQuery(query)
   SystemPrompts.find(filterParams)
     .then((systemPrompts) => {
-      console.info((new Date()).toString()+"|"+prependToLog,"+++++++++++++",systemPrompts);
+      console.info((new Date()).toString()+"|"+prependToLog,"Fetched System Prompt")//,systemPrompts);
       if (!(systemPrompts != null && systemPrompts.length > 0)) {
         responseObject["OperationStatus"] = "NO_DATA";
         responseObject["StatusDescription"] =
@@ -229,6 +229,95 @@ app.post("/allocatetopic", (req, res) => {
         console.info((new Date()).toString()+"|"+prependToLog,"End of execution:", responseObject);
         res.status(200).json(responseObject);
       } else {
+
+        const checkTopicSubscriptionStatus = (mobile, systemPromptROWID) =>{
+          return new Promise((resolve, reject)=>{
+            // let query = "Select ROWID from Users where IsActive = true and Users.Mobile="+mobile
+            // console.debug("Checking status of Topic for the user:",query)
+            // zcql.executeZCQLQuery(query)  
+            User.findOne({ Mobile: parseInt(mobile), IsActive: { $ne: false } })
+            .then(async (user)=>{
+              if(user==null){
+                console.info((new Date()).toString()+"|"+prependToLog,"Error in query for getting user info")
+                reject("Error in query for getting user info")
+              }
+              else{
+                //Get the topic subscriptions initiated by the user
+                const unlockCourseAttemptsFilter = {
+                  UserROWID:user['_id'],
+                  SystemPromptROWID:systemPromptROWID
+                }
+                console.info((new Date()).toString()+"|"+prependToLog,'Fetching Topic Subscription Status of User for '+JSON.stringify(unlockCourseAttemptsFilter))
+                const unlockCourseAttempts = await userTopicSubscriptionMapper.find(unlockCourseAttemptsFilter)
+                console.info((new Date()).toString()+"|"+prependToLog,'Total Topic Subscription Status Records of User: '+unlockCourseAttempts.length)
+                //If there is no subscription initiated, return topic to be Locked
+                if(unlockCourseAttempts.length==0){
+                  console.info((new Date()).toString()+"|"+prependToLog,"User has not attempted to unlock the topic")
+                  resolve("Locked")
+                }
+                //Otherwise,
+                else{
+                  //check if any of the record has status isUnlocked = true
+                  const unlockedCourses = unlockCourseAttempts.filter(data=>data.IsUnlocked==true)
+                  console.info((new Date()).toString()+"|"+prependToLog,'Total Topic Subscription Status = Paid for User: '+JSON.stringify(unlockedCourses))
+                  //if any such record found, return that topic is unlocked
+                  if(unlockedCourses.length>0){
+                    console.info((new Date()).toString()+"|"+prependToLog,"User has unlocked the topic")
+                    resolve("Unlocked")
+                  }
+                  //Otherwise
+                  else{
+                    //Verify payment status of all pending records for the topic
+                    console.info((new Date()).toString()+"|"+prependToLog,"Verifying Payment Status")
+                    var paymentSuccessfull = false
+                    for(var i=0; i<unlockCourseAttempts.length; i++){
+                      const paymentID = unlockCourseAttempts[i].PaymentID
+                      console.info((new Date()).toString()+"|"+prependToLog,"Verifying Payment Status of "+paymentID)
+                      try{
+                        //Call Razor Pay API to verify payment link
+                        const paymentStatus =  await instance.paymentLink.fetch(paymentID)
+                        //If payment status = captured or paid,
+                        if((paymentStatus['status']=='captured') || (paymentStatus['status']=='paid')){
+                          const filter = {
+                            PaymentID: paymentID
+                          }
+                          let paymentTracker = unlockCourseAttempts[i]['PaymentTracker']
+                          paymentTracker.push(paymentStatus)
+                          const updateData = {
+                            IsUnlocked: true,
+                            PaymentTracker: paymentTracker
+                          }
+                          //Update the isUnlocked flag to true for the records matching the payent id
+                          const updatedRow = await userTopicSubscriptionMapper.updateMany(filter,updateData)
+                          console.info((new Date()).toString()+"|"+prependToLog,"Payment Successful for "+paymentID+" | Matched Records: "+updatedRow.matchedCount+" | Modified Records: "+updatedRow.modifiedCount+" | Acknowledged Records: "+updatedRow.acknowledged)
+                          paymentSuccessfull = true
+                          //exit from loop
+                          break;
+                        }
+                      }
+                      catch(err){
+                        console.info((new Date()).toString()+"|"+prependToLog,"Failed to get Payment Status of "+paymentID+" due to ",err)
+                      }
+                    }
+                    if(paymentSuccessfull==false){
+                      console.info((new Date()).toString()+"|"+prependToLog,"User has not unlocked the topic")
+                      resolve("Locked")
+                    }
+                    else{
+                      console.info((new Date()).toString()+"|"+prependToLog,"User paid for the topic")
+                      resolve("Unlocked")
+                    }
+                  }
+                }
+              }
+
+            })
+            .catch((error)=>{
+              console.info((new Date()).toString()+"|"+prependToLog,"Error in query for getting unlock status")
+              reject(error)
+            })
+          })
+        }
 
         const checkLockStatusForUser = (isPaid, mobile, systemPromptROWID) => {
           return new Promise((resolve, reject)=>{
@@ -256,8 +345,18 @@ app.post("/allocatetopic", (req, res) => {
                       }
                       else{
                         if(sessions.length > topicConfig.Values['maxsessions']){
-                          console.info((new Date()).toString()+"|"+prependToLog,"maxsessions reached for the topic. Send Sign-Up notification")
-                          resolve('MaxSessionsReached')
+                          console.info((new Date()).toString()+"|"+prependToLog,"maxsessions "+topicConfig.Values['maxsessions']+" reached for the topic as sessions atttempted by user is "+sessions.length+". Checking Unsubscription Status")
+                          checkTopicSubscriptionStatus(mobile, systemPromptROWID)
+                          .then((subscriptionstatus)=>{
+                            if(subscriptionstatus=="Unlocked"){
+                              console.info((new Date()).toString()+"|"+prependToLog,"User has already paid for the topic.")
+                              resolve('Unlocked')
+                            }
+                            else{
+                              console.info((new Date()).toString()+"|"+prependToLog,"User has not paid for the topic. Send Sign-Up notification")
+                              resolve('MaxSessionsReached')  
+                            }
+                          })
                         }
                         else{
                           console.info((new Date()).toString()+"|"+prependToLog,"maxsessions not reached for the topic.")
@@ -283,91 +382,17 @@ app.post("/allocatetopic", (req, res) => {
             }
             else{
               console.info((new Date()).toString()+"|"+prependToLog,"Topic selected is paid. Checking status for the user")
-              // let query = "Select ROWID from Users where IsActive = true and Users.Mobile="+mobile
-              // console.debug("Checking status of Topic for the user:",query)
-              // zcql.executeZCQLQuery(query)
-              User.findOne({ Mobile: parseInt(mobile), IsActive: { $ne: false } })
-              .then(async (user)=>{
-                if(user==null){
-                  console.info((new Date()).toString()+"|"+prependToLog,"Error in query for getting user info")
-                  reject("Error in query for getting user info")
+              checkTopicSubscriptionStatus(mobile, systemPromptROWID)
+              .then((subscriptionstatus)=>{
+                if(subscriptionstatus=="Unlocked"){
+                  console.info((new Date()).toString()+"|"+prependToLog,"User has already paid for the topic.")
+                  resolve('Unlocked')
                 }
                 else{
-                  //Get the topic subscriptions initiated by the user
-                  const unlockCourseAttemptsFilter = {
-                    UserROWID:user['_id'],
-                    SystemPromptROWID:systemPrompts[0]["_id"]
-                  }
-                  console.info((new Date()).toString()+"|"+prependToLog,'Fetching Topic Subscription Status of User for '+JSON.stringify(unlockCourseAttemptsFilter))
-                  const unlockCourseAttempts = await userTopicSubscriptionMapper.find(unlockCourseAttemptsFilter)
-                  console.info((new Date()).toString()+"|"+prependToLog,'Total Topic Subscription Status Records of User: '+unlockCourseAttempts.length)
-                  //If there is no subscription initiated, return topic to be Locked
-                  if(unlockCourseAttempts.lenght==0){
-                    console.info((new Date()).toString()+"|"+prependToLog,"User has not attempted to unlock the topic")
-                    resolve("Locked")
-                  }
-                  //Otherwise,
-                  else{
-                    //check if any of the record has status isUnlocked = true
-                    const unlockedCourses = unlockCourseAttempts.filter(data=>data.IsUnlocked==true)
-                    console.info((new Date()).toString()+"|"+prependToLog,'Total Topic Subscription Status = Paid for User: '+JSON.stringify(unlockedCourses))
-                    //if any such record found, return that topic is unlocked
-                    if(unlockedCourses.length>0){
-                      console.info((new Date()).toString()+"|"+prependToLog,"User has unlocked the topic")
-                      resolve("Unlocked")
-                    }
-                    //Otherwise
-                    else{
-                      //Verify payment status of all pending records for the topic
-                      console.info((new Date()).toString()+"|"+prependToLog,"Verifying Payment Status")
-                      var paymentSuccessfull = false
-                      for(var i=0; i<unlockCourseAttempts.length; i++){
-                        const paymentID = unlockCourseAttempts[i].PaymentID
-                        console.info((new Date()).toString()+"|"+prependToLog,"Verifying Payment Status of "+paymentID)
-                        try{
-                          //Call Razor Pay API to verify payment link
-                          const paymentStatus =  await instance.paymentLink.fetch(paymentID)
-                          //If payment status = captured or paid,
-                          if((paymentStatus['status']=='captured') || (paymentStatus['status']=='paid')){
-                            const filter = {
-                              PaymentID: paymentID
-                            }
-                            let paymentTracker = unlockCourseAttempts[i]['PaymentTracker']
-                            paymentTracker.push(paymentStatus)
-                            const updateData = {
-                              IsUnlocked: true,
-                              PaymentTracker: paymentTracker
-                            }
-                            //Update the isUnlocked flag to true for the records matching the payent id
-                            const updatedRow = await userTopicSubscriptionMapper.updateMany(filter,updateData)
-                            console.info((new Date()).toString()+"|"+prependToLog,"Payment Successful for "+paymentID+" | Matched Records: "+updatedRow.matchedCount+" | Modified Records: "+updatedRow.modifiedCount+" | Acknowledged Records: "+updatedRow.acknowledged)
-                            paymentSuccessfull = true
-                            //exit from loop
-                            break;
-                          }
-                        }
-                        catch(err){
-                          console.info((new Date()).toString()+"|"+prependToLog,"Failed to get Payment Status of "+paymentID+" due to ",err)
-                        }
-                      }
-                      if(paymentSuccessfull==false){
-                        console.info((new Date()).toString()+"|"+prependToLog,"User has not unlocked the topic")
-                        resolve("Locked")
-                      }
-                      else{
-                        console.info((new Date()).toString()+"|"+prependToLog,"User paid for the topic")
-                        resolve("Unlocked")
-                      }
-                    }
-                  }
+                  console.info((new Date()).toString()+"|"+prependToLog,"User has not paid for the topic. Send Sign-Up notification")
+                  resolve('Locked')  
                 }
-
               })
-              .catch((error)=>{
-                console.info((new Date()).toString()+"|"+prependToLog,"Error in query for getting unlock status")
-                reject(error)
-              })
-
             }
           })
 
@@ -446,7 +471,7 @@ app.post("/allocatetopic", (req, res) => {
 
               //Prepare a list of SystemPrompt ROWIDs
               const systemPromptROWIDs = systemPrompts.map(
-                (record) => record.SystemPrompts.ROWID
+                (record) => record._id
               );
 
               //Get the list of all prompts of the that has been practised by user
@@ -478,7 +503,7 @@ app.post("/allocatetopic", (req, res) => {
                       for (var j = 0; j < sessionCounts.length; i++) {
                         if (
                           sessionCounts[j]["id"] ==
-                          sessions[i]["Sessions"]["SystemPromptsROWID"]
+                          sessions[i]["SystemPromptsROWID"]
                         ) {
                           sessionCounts[j]["count"] = sessionCounts[j]["count"] + 1;
                           break;
@@ -516,7 +541,7 @@ app.post("/allocatetopic", (req, res) => {
                   //Prepare the data to be returned
                   responseObject["TopicID"] = sessionCounts[index]["id"];
                   const systemPrompt = systemPrompts.filter(
-                    (data) => data.SystemPrompts.ROWID == responseObject["TopicID"]
+                    (data) => data._id == responseObject["TopicID"]
                   );
                   responseObject["SupportingText"] =
                     systemPrompt[0]["SupportingText"];
@@ -633,14 +658,14 @@ app.post("/topicpersonas", (req, res) => {
             else{
               try{
                 // const user = await zcql.executeZCQLQuery("Select ROWID from Users where Mobile = '"+requestBody["Mobile"].slice(-10)+"'")
-                const user = await User.findOne({ Mobile: requestBody["Mobile"].slice(-10)}, 'ROWID');
-                if(!Array.isArray(user))
-                  throw new Error(user)
+                const user = await User.findOne({ Mobile: requestBody["Mobile"].slice(-10)});
+                if(user==null)
+                  throw new Error("No Data")
                 console.info((new Date()).toString()+"|"+prependToLog,"Fetched User's ID")
                 //Get all the subscription attempts by the user for the topic
                 const unlockCourseAttemptsFilter = {
-                  UserROWID:user[0]['Users']['ROWID'],
-                  SystemPromptROWID:allPrompts[i]["ROWID"]
+                  UserROWID:user['_id'],
+                  SystemPromptROWID:allPrompts[i]["_id"]
                 }
                 console.info((new Date()).toString()+"|"+prependToLog,"Fetching Topic Subscription Status of User for "+JSON.stringify(unlockCourseAttemptsFilter))
                 const unlockCourseAttempts = await userTopicSubscriptionMapper.find(unlockCourseAttemptsFilter)
@@ -740,7 +765,7 @@ app.post("/topicpersonas", (req, res) => {
     });
 });
 
-app.post("/unlocktopic", (req, res) => {
+/*app.post("/unlocktopic", (req, res) => {
   
   //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
@@ -778,21 +803,21 @@ app.post("/unlocktopic", (req, res) => {
     },
     {
       $lookup: {
-        from: "UserPaidTopicMapper", 
-        localField: 'ROWID',
+        from: "userpaidtopicmapper", 
+        localField: '_id',
         foreignField: 'UserROWID',
-        as: 'paidTopicMappings'
+        as: 'UserPaidTopicMapper'
       }
     },
     {
       $project: {
-        _id: 0,
-        'Users.ROWID': 1,
-        'paidTopicMappings.ROWID': 1,
-        'paidTopicMappings.SystemPromptROWID': 1,
-        'paidTopicMappings.IsActive': 1,
-        'paidTopicMappings.TransactionID': 1,
-        'paidTopicMappings.PaymentStatus': 1
+        _id: 1,
+        //'Users.ROWID': 1,
+        'UserPaidTopicMapper.ROWID': 1,
+        'UserPaidTopicMapper.SystemPromptROWID': 1,
+        'UserPaidTopicMapper.IsActive': 1,
+        'UserPaidTopicMapper.TransactionID': 1,
+        'UserPaidTopicMapper.PaymentStatus': 1
       }
     }
   ])
@@ -815,7 +840,7 @@ app.post("/unlocktopic", (req, res) => {
         if(getCurrentPaymentRecords.length==0){
           console.info((new Date()).toString()+"|"+prependToLog,"New Record")
           record = {
-            UserROWID: paymentStatus[0]['Users']['ROWID'],
+            UserROWID: paymentStatus[0]['_id'],
             SystemPromptROWID: topicID,
             TransactionID: transactionID,
             IsActive: isActive,
@@ -890,7 +915,7 @@ app.post("/unlocktopic", (req, res) => {
       );
       res.status(200).json(responseObject);
     });
-});
+});*/
 
 
 module.exports = app;

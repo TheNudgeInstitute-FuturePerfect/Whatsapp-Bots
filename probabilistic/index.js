@@ -32,6 +32,7 @@ const flowQuestions = require("./FlowQuestionsCRUD.js");
 const getFlowQuestion = require("./getFlowQuestions.js");
 const storeFlowQuestionAnswer = require("./storeFlowQuestionAnswer.js");
 const applicationConfig = require("./ApplicationConfigCRUD.js");
+const convertSpeechToText = require("./convertSpeechToText.js");
 
 // Basic I/O const
 const addUserData = require("./common/addUserData.js");
@@ -45,7 +46,6 @@ const updateConfigurationParam = require("./common/updateConfigurationParam.js")
 const getConfigurationParam = require("./common/getConfigurationParam.js");
 const deleteSystemPrompt = require("./common/deleteSystemPrompt.js");
 const createAudioOfText = require("./common/convertTextToSpeech.js");
-const convertSpeechToText = require("./common/convertSpeechToText.js");
 const storeAudioFileinGCS = require("./common/storeAudioFileinGCS.js");
 const writeTextOnImage = require("./common/writeTextOnImage.js");
 const startGlificFlow = require("./common/startGlificFlow.js");
