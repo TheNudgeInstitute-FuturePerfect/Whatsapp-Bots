@@ -490,7 +490,6 @@ app.post("/allocatetopic", (req, res) => {
                 Mobile: mobile,
                 SystemPromptsROWID: { $in: systemPromptROWIDs }
               })
-                .sort({ CREATEDTIME: -1 })
                 .then((sessions) => {
                   var index = 0;
 
