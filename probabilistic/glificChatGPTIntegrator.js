@@ -444,7 +444,7 @@ app.post("/chatgpt", async (request, response) => {
         totalUserMessages++
       else{
         //If the next record is not a retry of current one, increase the counter
-        if(!queryOutput[j+1]["Sessions"]["MessageType"].startsWith('UserMessage - Retry'))
+        if(!queryOutput[j+1]["MessageType"].startsWith('UserMessage - Retry'))
           totalUserMessages++
         //Else the counter will be increased on next record (To handle case where there is retry on the record at mid of conversation)
       }
