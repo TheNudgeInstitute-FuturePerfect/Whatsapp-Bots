@@ -75,17 +75,42 @@ app.post("/latestsession", (req, res) => {
 				.catch(err=>console.info((new Date()).toString()+"|"+prependToLog,"Error returned from Glific: ",err))
 			}
 			//console.info((new Date()).toString()+"|"+prependToLog,"queryResult",queryResult);
-			if(queryResult==null){//If no data returned
-				responseBody['OperationStatus']='NO_DATA' //Send a non success status
-				responseBody['StatusDescription']='No session data for the user'
-				responseBody['NewSessionID'] = Math.random().toString(36).slice(2)
-				sendResponse()
-			}
-			else if(queryResult.length==0){//If no data returned
-				responseBody['OperationStatus']='NO_DATA' //Send a non success status
-				responseBody['StatusDescription']='No session data for the user'
-				responseBody['NewSessionID'] = Math.random().toString(36).slice(2)
-				sendResponse()
+			if(module == "Ask Any Doubt"){
+				if(queryResult==null){//If no data returned
+					responseBody['OperationStatus']='NO_DATA' //Send a non success status
+					responseBody['StatusDescription']='No session data for the user'
+					responseBody['NewSessionID'] = Math.random().toString(36).slice(2)
+					sendResponse()
+				}
+				else if(queryResult.length==0){//If no data returned
+					responseBody['OperationStatus']='NO_DATA' //Send a non success status
+					responseBody['StatusDescription']='No session data for the user'
+					responseBody['NewSessionID'] = Math.random().toString(36).slice(2)
+					sendResponse()
+				}
+				else{
+					const activeQueryResult = queryResult.filter(data=>(data.IsActive == true) && (data.SessionID.endsWith('AskAnyDoubt')))
+							
+					if(activeQueryResult.length==0){//Or an empty object returned
+						responseBody['OperationStatus']='NO_DATA' //Send a non success status
+						responseBody['StatusDescription']='No session data for the user'
+						const lastReply = queryResult.filter(record=>((record.Reply!=null))||(record.ReplyAudioURL!=null))
+						responseBody['ReplyFormat'] = lastReply.length == 0 ? "Text" : lastReply[0]["ReplyAudioURL"]!=null ? "Audio" : "Text"
+						responseBody['NewSessionID'] = Math.random().toString(36).slice(2)
+						sendResponse()
+					}
+					else{//Else
+						//Get the session ID from 1st record arranged in descending order of creation time
+						responseBody['SessionID']=activeQueryResult[0]['SessionID']
+						responseBody['LastReply']=activeQueryResult[0]['Reply'] == null ? "Let's continue our conversation." : decodeURIComponent(activeQueryResult[0]['Reply'])
+						responseBody['Topic']=activeQueryResult[0]['SystemPromptsROWID']['Name']
+						responseBody['TopicID']=activeQueryResult[0]['SystemPromptsROWID']['_id']
+						const lastReply = activeQueryResult.filter(record=>((record.Reply!=null))||(record.ReplyAudioURL!=null))
+						responseBody['ReplyFormat'] = lastReply.length == 0 ? "Text" : lastReply[0]["ReplyAudioURL"]!=null ? "Audio" : "Text"
+						responseBody['NewSessionID'] = Math.random().toString(36).slice(2)
+						sendResponse()
+					}
+				}
 			}
 			else{
 				// query = "select Users.OnboardingComplete, Users.OnboardingStep from Users where Users.Mobile = "+mobile+""
@@ -109,7 +134,7 @@ app.post("/latestsession", (req, res) => {
 						responseBody['StatusDescription']='No record for the user'
 						sendResponse()
 					}
-					else{
+					else {
 						///console.log(users.OnboardingComplete);
 						const activeOnboardingSessionData = queryResult.filter(data=>(data.IsActive == true) && (!data.SessionID.endsWith('ObjectiveFeedback')) && (!data.SessionID.endsWith('Hint')) && (data.SessionID.startsWith('Onboarding')))
 						
@@ -145,26 +170,40 @@ app.post("/latestsession", (req, res) => {
 							sendResponse()
 						}
 						else{
-							const activeQueryResult = queryResult.filter(data=>(data.IsActive == true) && (!data.SessionID.endsWith('ObjectiveFeedback')) && (!data.SessionID.endsWith('Hint')) && (data.SessionID!='Onboarding'))
-							
-							if(activeQueryResult.length==0){//Or an empty object returned
+							if(queryResult==null){//If no data returned
 								responseBody['OperationStatus']='NO_DATA' //Send a non success status
 								responseBody['StatusDescription']='No session data for the user'
-								const lastReply = queryResult.filter(record=>((record.Reply!=null))||(record.ReplyAudioURL!=null))
-								responseBody['ReplyFormat'] = lastReply.length == 0 ? "Text" : lastReply[0]["ReplyAudioURL"]!=null ? "Audio" : "Text"
 								responseBody['NewSessionID'] = Math.random().toString(36).slice(2)
 								sendResponse()
 							}
-							else{//Else
-								//Get the session ID from 1st record arranged in descending order of creation time
-								responseBody['SessionID']=activeQueryResult[0]['SessionID']
-								responseBody['LastReply']=activeQueryResult[0]['Reply'] == null ? "Let's continue our conversation." : decodeURIComponent(activeQueryResult[0]['Reply'])
-								responseBody['Topic']=activeQueryResult[0]['SystemPromptsROWID']['Name']
-								responseBody['TopicID']=activeQueryResult[0]['SystemPromptsROWID']['_id']
-								const lastReply = activeQueryResult.filter(record=>((record.Reply!=null))||(record.ReplyAudioURL!=null))
-								responseBody['ReplyFormat'] = lastReply.length == 0 ? "Text" : lastReply[0]["ReplyAudioURL"]!=null ? "Audio" : "Text"
+							else if(queryResult.length==0){//If no data returned
+								responseBody['OperationStatus']='NO_DATA' //Send a non success status
+								responseBody['StatusDescription']='No session data for the user'
 								responseBody['NewSessionID'] = Math.random().toString(36).slice(2)
 								sendResponse()
+							}
+							else {
+								const activeQueryResult = queryResult.filter(data=>(data.IsActive == true) && (!data.SessionID.endsWith('ObjectiveFeedback')) && (!data.SessionID.endsWith('Hint')) && (data.SessionID!='Onboarding'))
+								
+								if(activeQueryResult.length==0){//Or an empty object returned
+									responseBody['OperationStatus']='NO_DATA' //Send a non success status
+									responseBody['StatusDescription']='No session data for the user'
+									const lastReply = queryResult.filter(record=>((record.Reply!=null))||(record.ReplyAudioURL!=null))
+									responseBody['ReplyFormat'] = lastReply.length == 0 ? "Text" : lastReply[0]["ReplyAudioURL"]!=null ? "Audio" : "Text"
+									responseBody['NewSessionID'] = Math.random().toString(36).slice(2)
+									sendResponse()
+								}
+								else{//Else
+									//Get the session ID from 1st record arranged in descending order of creation time
+									responseBody['SessionID']=activeQueryResult[0]['SessionID']
+									responseBody['LastReply']=activeQueryResult[0]['Reply'] == null ? "Let's continue our conversation." : decodeURIComponent(activeQueryResult[0]['Reply'])
+									responseBody['Topic']=activeQueryResult[0]['SystemPromptsROWID']['Name']
+									responseBody['TopicID']=activeQueryResult[0]['SystemPromptsROWID']['_id']
+									const lastReply = activeQueryResult.filter(record=>((record.Reply!=null))||(record.ReplyAudioURL!=null))
+									responseBody['ReplyFormat'] = lastReply.length == 0 ? "Text" : lastReply[0]["ReplyAudioURL"]!=null ? "Audio" : "Text"
+									responseBody['NewSessionID'] = Math.random().toString(36).slice(2)
+									sendResponse()
+								}
 							}
 						}
 					}
