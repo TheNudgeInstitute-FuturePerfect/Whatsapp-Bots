@@ -486,10 +486,37 @@ app.post("/allocatetopic", (req, res) => {
               //   "order by CREATEDTIME desc";
               // zcql
               //   .executeZCQLQuery(query)
-              Session.distinct('SessionID', {
-                Mobile: mobile,
-                SystemPromptsROWID: { $in: systemPromptROWIDs }
-              })
+              Session.aggregate([
+                {
+                  Mobile: mobile,
+                  SystemPromptsROWID: { $in: systemPromptROWIDs }
+                },
+                {
+                  $group:
+                    /**
+                     * _id: The id of the group.
+                     * fieldN: The first field name.
+                     */
+                    {
+                      _id: "SessionID",
+                      SystemPromptsROWID: {
+                        $first: "$SystemPromptsROWID",
+                      },
+                    },
+                },
+                {
+                  $project:
+                    /**
+                     * specifications: The fields to
+                     *   include or exclude.
+                     */
+                    {
+                      _id: 0,
+                      SessionID: "$_id",
+                      SystemPromptsROWID: 1,
+                    },
+                }
+              ])
                 .then((sessions) => {
                   var index = 0;
 
