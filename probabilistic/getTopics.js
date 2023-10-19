@@ -324,7 +324,7 @@ app.post("/allocatetopic", (req, res) => {
             if(isPaid!=true){            
               getConfigurationParam({
                 id: systemPromptROWID,
-                param: ["maxsessions"],
+                param: ["maxsessions","subscriptionamt"],
               })
               .then((topicConfigResult)=>{
                 const topicConfig = JSON.parse(topicConfigResult);
@@ -336,38 +336,49 @@ app.post("/allocatetopic", (req, res) => {
                     resolve('Unlocked')
                   }
                   else if(typeof topicConfig.Values['maxsessions'] !== 'undefined'){
-                    // zcql.executeZCQLQuery("select distinct SessionID from Sessions where SystemPromptsROWID='"+systemPromptROWID+"'")
-                    Session.distinct('SessionID', { SystemPromptsROWID: systemPromptROWID })
-                    .then((sessions)=>{
-                      if(!Array.isArray(sessions)){
-                        console.info((new Date()).toString()+"|"+prependToLog,"Failed to get session count for the user ")
-                        reject(sessions)
-                      }
-                      else{
-                        if(sessions.length > topicConfig.Values['maxsessions']){
-                          console.info((new Date()).toString()+"|"+prependToLog,"maxsessions "+topicConfig.Values['maxsessions']+" reached for the topic as sessions atttempted by user is "+sessions.length+". Checking Unsubscription Status")
-                          checkTopicSubscriptionStatus(mobile, systemPromptROWID)
-                          .then((subscriptionstatus)=>{
-                            if(subscriptionstatus=="Unlocked"){
-                              console.info((new Date()).toString()+"|"+prependToLog,"User has already paid for the topic.")
-                              resolve('Unlocked')
-                            }
-                            else{
-                              console.info((new Date()).toString()+"|"+prependToLog,"User has not paid for the topic. Send Sign-Up notification")
-                              resolve('MaxSessionsReached')  
-                            }
-                          })
+                    //
+                    if(typeof topicConfig.Values['subscriptionamt'] === 'undefined'){
+                      console.info((new Date()).toString()+"|"+prependToLog,"No subscriptionamt configured for the topic")
+                      resolve('Unlocked')
+                    }
+                    else if((typeof topicConfig.Values['subscriptionamt'] !== 'undefined')&&(topicConfig.Values['subscriptionamt']==0)){
+                      console.info((new Date()).toString()+"|"+prependToLog,"subscriptionamt configured for the topic is 0")
+                      resolve('Unlocked')
+                    }
+                    else{
+                      // zcql.executeZCQLQuery("select distinct SessionID from Sessions where SystemPromptsROWID='"+systemPromptROWID+"'")
+                      Session.distinct('SessionID', { SystemPromptsROWID: systemPromptROWID })
+                      .then((sessions)=>{
+                        if(!Array.isArray(sessions)){
+                          console.info((new Date()).toString()+"|"+prependToLog,"Failed to get session count for the user ")
+                          reject(sessions)
                         }
                         else{
-                          console.info((new Date()).toString()+"|"+prependToLog,"maxsessions not reached for the topic.")
-                          resolve('Unlocked')
+                          if(sessions.length > topicConfig.Values['maxsessions']){
+                            console.info((new Date()).toString()+"|"+prependToLog,"maxsessions "+topicConfig.Values['maxsessions']+" reached for the topic as sessions atttempted by user is "+sessions.length+". Checking Unsubscription Status")
+                            checkTopicSubscriptionStatus(mobile, systemPromptROWID)
+                            .then((subscriptionstatus)=>{
+                              if(subscriptionstatus=="Unlocked"){
+                                console.info((new Date()).toString()+"|"+prependToLog,"User has already paid for the topic.")
+                                resolve('Unlocked')
+                              }
+                              else{
+                                console.info((new Date()).toString()+"|"+prependToLog,"User has not paid for the topic. Send Sign-Up notification")
+                                resolve('MaxSessionsReached')  
+                              }
+                            })
+                          }
+                          else{
+                            console.info((new Date()).toString()+"|"+prependToLog,"maxsessions not reached for the topic.")
+                            resolve('Unlocked')
+                          }
                         }
-                      }
-                    })
-                    .catch(error=>{
-                      console.info((new Date()).toString()+"|"+prependToLog,"Error in getting total count of sessions.")
-                      reject(error)
-                    })
+                      })
+                      .catch(error=>{
+                        console.info((new Date()).toString()+"|"+prependToLog,"Error in getting total count of sessions.")
+                        reject(error)
+                      })
+                    }
                   }
                   else if(typeof topicConfig.Values['maxsessions'] === 'undefined'){
                     console.info((new Date()).toString()+"|"+prependToLog,"No maxsessions configured for the topic")
@@ -488,8 +499,10 @@ app.post("/allocatetopic", (req, res) => {
               //   .executeZCQLQuery(query)
               Session.aggregate([
                 {
-                  Mobile: mobile,
-                  SystemPromptsROWID: { $in: systemPromptROWIDs }
+                  $match:{
+                    Mobile: mobile,
+                    SystemPromptsROWID: { $in: systemPromptROWIDs }
+                  }
                 },
                 {
                   $group:
