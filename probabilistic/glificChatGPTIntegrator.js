@@ -247,7 +247,7 @@ app.post("/chatgpt", async (request, response) => {
       MessageType: inputType,
     });
   } else {
-    storedSessionRecord.ROWID = requestBody.sessionROWID;
+    storedSessionRecord._id = requestBody.sessionROWID;
   }
   // ##############################################
 
@@ -294,7 +294,7 @@ app.post("/chatgpt", async (request, response) => {
     //   "where Sessions.ROWID='" +
     //   storedSessionRecord["ROWID"] +
     //   "'";
-     queryOutput = await Session.findOne({ ROWID: storedSessionRecord["ROWID"] })
+     queryOutput = await Session.findOne({ _id: storedSessionRecord["_id"] })
                                   .populate({
                                     path: 'SystemPromptsROWID',
                                     model: SystemPrompt,
@@ -330,7 +330,7 @@ app.post("/chatgpt", async (request, response) => {
         $lookup: {
           from: "systemprompts", // Name of the collection to join with
           localField: 'SystemPromptsROWID',
-          foreignField: 'ROWID',
+          foreignField: '_id',
           as: 'systemPromptData'
         }
       },
@@ -339,7 +339,7 @@ app.post("/chatgpt", async (request, response) => {
       },
       {
         $project: {
-          ROWID: 1,
+          _id: 1,
           Message: 1,
           MessageType: 1,
           Reply: 1,
@@ -477,17 +477,23 @@ app.post("/chatgpt", async (request, response) => {
   // )
 
   const _retry = require("async-retry");
-  const { Configuration, OpenAIApi } = require("openai");
+  /*const { Configuration, OpenAIApi } = require("openai");
   const configuration = new Configuration({
     apiKey: process.env.openAIKey,
   });
-  const openai = new OpenAIApi(configuration);
+  const openai = new OpenAIApi(configuration);*/
+
+  const OpenAI = require("openai");
+  const openai = new OpenAI({
+    apiKey: process.env.openAIKey
+  });
 
   async function completionWithBackoff(model, temperature, messages) {
-    return await openai.createChatCompletion({
+    //return await openai.createChatCompletion({
+    return await openai.chat.completions.create({
       model: model,
-      temperature,
-      messages,
+      temperature:temperature,
+      messages:messages,
     });
   }
 
@@ -506,14 +512,19 @@ app.post("/chatgpt", async (request, response) => {
     );
   }, retryOptions);
   // Read ChatGPT's Response
-  const reply = chatGPTResponse.data.choices[0].message.content;
+  //const reply = chatGPTResponse.data.choices[0].message.content;
+  const reply = chatGPTResponse.choices[0].message.content;
   console.info((new Date()).toString()+"|"+prependToLog,"Reply received from Chat GPT: " + reply);
   let completionTokens = null
   let promptTokens = null
-  if(typeof chatGPTResponse['data']['usage'] !== 'undefined'){
+  /*if(typeof chatGPTResponse['data']['usage'] !== 'undefined'){
       completionTokens = (typeof chatGPTResponse['data']['usage']['completion_tokens'] !== 'undefined') ? chatGPTResponse['data']['usage']['completion_tokens'] : 0
       promptTokens = (typeof chatGPTResponse['data']['usage']['prompt_tokens'] !== 'undefined') ? chatGPTResponse['data']['usage']['prompt_tokens'] : 0
-  }
+  }*/
+  if(typeof chatGPTResponse['usage'] !== 'undefined'){
+    completionTokens = (typeof chatGPTResponse['usage']['completion_tokens'] !== 'undefined') ? chatGPTResponse['usage']['completion_tokens'] : 0
+    promptTokens = (typeof chatGPTResponse['usage']['prompt_tokens'] !== 'undefined') ? chatGPTResponse['usage']['prompt_tokens'] : 0
+}
 
   // Initialize Public URL of audio/image of response
   let publicURL = null;
@@ -535,12 +546,12 @@ app.post("/chatgpt", async (request, response) => {
   // Convert reply to audio
 
   // If responseType configuration == Audio or Text+Audio, then create audio else not
-  if (responseType === "Audio" || responseType === "Text+Audio") {
+  if ((responseType === "Audio" || responseType === "Text+Audio")&&(sessionType !== "SentenceFeedback")) {
     let createAudioOfText = require("./common/convertTextToSpeech.js");
     const audioDetails = JSON.parse(
       await createAudioOfText({
         text: reply,
-        fileName: 'R'+storedSessionRecord.ROWID, //R=>Reply of GPT
+        fileName: 'R'+storedSessionRecord._id, //R=>Reply of GPT
         language: "English",
         SessionID: executionID
       })
@@ -641,7 +652,7 @@ app.post("/chatgpt", async (request, response) => {
     Reply: replyText,
     ReponseType: responseType,
     AudioURL: publicURL,
-    SessionROWID: storedSessionRecord.ROWID,
+    SessionROWID: storedSessionRecord._id,
     LinesOfChatConsumed: totalUserMessages,
     LinesOfChatPending: maxlinesofchat > -1 ? (maxlinesofchat - 1 - totalUserMessages) : -1,
     FeedbackPromptFlag: feedbackPromptFlag
@@ -672,10 +683,10 @@ app.post("/chatgpt", async (request, response) => {
 
   // Store message audio file in GCS
   if (messageType === "Audio") {
-    const messageAudioPublicURL = await saveContentInGCS(messageURL,'M'+storedSessionRecord.ROWID,"Audio","URL",executionID);//M=>Message of User
+    const messageAudioPublicURL = await saveContentInGCS(messageURL,'M'+storedSessionRecord._id,"Audio","URL",executionID);//M=>Message of User
     if (messageAudioPublicURL !== null) {
       Session.updateMany({
-        ROWID: storedSessionRecord.ROWID},{
+        _id: storedSessionRecord._id},{
         MessageAudioURL: messageAudioPublicURL,
       });
     } else {
@@ -688,7 +699,7 @@ app.post("/chatgpt", async (request, response) => {
   if (inputType.startsWith("UserMessage") && sessionId !== "Onboarding" && sessionType!=='Doubt') {
     const newRequestBody = {
       ...requestBody,
-      sessionROWID: storedSessionRecord.ROWID,
+      sessionROWID: storedSessionRecord._id,
       sessionId: sessionId + " - SentenceFeedback",
       topic: "Sentence Feedback",
       messageType: "Text",

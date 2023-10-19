@@ -386,7 +386,7 @@ app.get("/useronboardingreport", (req, res) => {
 		  ])
 		.then((users)=>{
 			var report = []
-			let mobiles = users.map(data=>data.Users.Mobile)
+			let mobiles = users.map(data=>data.Mobile)
 			mobiles = mobiles.filter(unique)
 			//Get Session Data
 			// query = "Select {} "+
@@ -421,7 +421,7 @@ app.get("/useronboardingreport", (req, res) => {
 					var userReport = {
 						Mobile:mobiles[i]
 					}
-					const userData = users.filter(data=>mobiles[i]==data.Users.Mobile)
+					const userData = users.filter(data=>mobiles[i]==data.Mobile)
 					try{
 						userReport['Name'] = userData[0]["Name"] == null ? "":decodeURIComponent(userData[0]["Name"])
 					}
@@ -429,7 +429,7 @@ app.get("/useronboardingreport", (req, res) => {
 						userReport['Name'] = userData[0]["Name"] == null ? "":userData[0]["Name"]
 					}
 					userReport['Excluded'] =  userData[0]["Excluded"] == true ? "Yes":"No"
-					var regTimeStamp = new Date(userData[0]['Users']["RegisteredTime"])
+					var regTimeStamp = new Date(userData[0]["RegisteredTime"])
 					regTimeStamp.setMinutes(regTimeStamp.getMinutes()+30)
 					regTimeStamp.setHours(regTimeStamp.getHours()+5)
 					const onboardingDate = regTimeStamp.getFullYear() + "-" + ('0'+(regTimeStamp.getMonth()+1)).slice(-2) + "-" + ('0'+regTimeStamp.getDate()).slice(-2)
@@ -444,9 +444,9 @@ app.get("/useronboardingreport", (req, res) => {
 					userDataCreatedTimes = userDataCreatedTimes.sort()
 					var postOnbrdngAtmpt = 0
 					if(userDataCreatedTimes[0]!=null){
-						const postOnboardingSessionsData = sessions.filter(session=>(session.Sessions.Mobile == mobiles[i]) && (session.Sessions.CREATEDTIME >= userDataCreatedTimes[0]))
+						const postOnboardingSessionsData = sessions.filter(session=>(session.Mobile == mobiles[i]) && (session.CREATEDTIME >= userDataCreatedTimes[0]))
 						if(postOnboardingSessionsData.length>0){
-							const postOnboardingSessions = postOnboardingSessionsData.map(session=>session.Sessions.SessionID)
+							const postOnboardingSessions = postOnboardingSessionsData.map(session=>session.SessionID)
 							const postOnboardingUniqueSessions = postOnboardingSessions.filter(unique)
 							postOnbrdngAtmpt =  postOnboardingUniqueSessions.length
 						}
@@ -1126,7 +1126,7 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 								var report = []
 								const emojiRegEx = emojiRegex()
 								for(var i=0; i<users.length; i++){
-									const userSessions = sessions.filter(data=>data.Mobile == users[i]['Users']['Mobile'])	
+									const userSessions = sessions.filter(data=>data.Mobile == users[i]['Mobile'])	
 									const userSessionsWC = userSessions.map(data=>{
 										var temp = data
 										var msg = ""
@@ -2059,12 +2059,12 @@ app.get("/wordleattempts", (req, res) => {
 	},  
 	{
 	  $project: {
-		'WordleConfigurations.ROWID': 1,
+		'WordleConfigurations._id': 1,
 		'WordleConfigurations.MaxAttempts': 1,
 		'WordleConfigurations.Word': 1,
 		'WordleConfigurations.RecommendedTopic': 1,
 		'Users.Mobile': 1,
-		'ROWID': 1,
+		'_id': 1,
 		'CREATEDTIME': 1,
 		'IsCorrect': 1,
 		'Answer': 1,
@@ -2382,7 +2382,7 @@ User.aggregate([
 					Topic: record.SystemPrompts ? decodeURI(record.SystemPrompts.Name) : "",
 					Persona: record.SystemPrompts ? record.SystemPrompts.Persona : "",
 					SessionID: record.UserAssessmentLogs ? record.UserAssessmentLogs.SessionID:"",
-					AssessmentID: record.UserAssessmentLogs ? record.UserAssessmentLogs.ROWID:"",
+					AssessmentID: record.UserAssessmentLogs ? record.UserAssessmentLogs._id:"",
 					AssessmentStartTime: record.UserAssessmentLogs ? getYYYYMMDDHHMMSSDate(record.UserAssessmentLogs.CREATEDTIME) : "",
 					AssessmentEndTime: record.UserAssessmentLogs ? getYYYYMMDDHHMMSSDate(record.UserAssessmentLogs.MODIFIEDTIME) : "",
 					IsAssessmentComplete: record.UserAssessmentLogs ? record.UserAssessmentLogs.IsAssessmentComplete : "",
@@ -2481,12 +2481,12 @@ app.get("/sessionfeedbacks", (req, res) => {
 			from: 'systemprompts',
 			localField: 'SystemPromptROWID',
 			foreignField: '_id',
-			as: 'systemPrompt'
+			as: 'SystemPrompts'
 		}
 	},
 	{
 	  	$unwind: {
-			path:'$systemPrompt',
+			path:'$SystemPrompts',
 			preserveNullAndEmptyArrays:true
 		}
 	},
@@ -2495,9 +2495,9 @@ app.get("/sessionfeedbacks", (req, res) => {
 		Mobile: 1,
 		SessionID: 1,
 		Event: 1,
-		'systemPrompt.Name': 1,
-		'systemPrompt.Persona': 1,
-		'systemPrompt.Module': 1,
+		'SystemPrompts.Name': 1,
+		'SystemPrompts.Persona': 1,
+		'SystemPrompts.Module': 1,
 		CREATEDTIME: 1
 	  }
 	},
@@ -2535,22 +2535,22 @@ app.get("/sessionfeedbacks", (req, res) => {
 			.then((feedbacks)=>{			
 				var report = learningEventData.map(data=>{
 					var userReport = {
-						Mobile : data.SessionEvents.Mobile,
+						Mobile : data.Mobile,
 						Topic : decodeURIComponent(data.SystemPrompts.Name),
 						Persona : decodeURIComponent(data.SystemPrompts.Persona),
 						Module : data.SystemPrompts.Module,
-						SessionID : data.SessionEvents.SessionID,
-						Event : data.SessionEvents.Event,
-						EventTimestamp : data.SessionEvents.CREATEDTIME.toString().slice(0,19)
+						SessionID : data.SessionID,
+						Event : data.Event,
+						EventTimestamp : getYYYYMMDDHHMMSSDate(data.CREATEDTIME)//.toString().slice(0,19)
 					}
 					//const user = users.filter(record=>record.Users.Mobile == data.SessionEvents.Mobile)
 					//userReport['GoalInMinutes']=user[0]['Users']['GoalInMinutes']
 					if(userReport['Event'].includes('Start')){
-						const sessionFeedbacks = feedbacks.filter(record=>record.SessionFeedback.SessionID == data.SessionEvents.SessionID).map(record=>{		
+						const sessionFeedbacks = feedbacks.filter(record=>record.SessionID == data.SessionEvents.SessionID).map(record=>{		
 							return {
-								FlowRating: (record.SessionFeedback.Rating == null) || (record.SessionFeedback.Rating.length == 0) ? ((record.SessionFeedback.GPTRating == null) || (record.SessionFeedback.GPTRating.length == 0) ? "" : record.SessionFeedback.GPTRating.toString()) : record.SessionFeedback.Rating.toString(),
-								Feedback: (record.SessionFeedback.Feedback == null) || (record.SessionFeedback.Feedback.length == 0) ? ((record.SessionFeedback.GPTFeedback == null) || (record.SessionFeedback.GPTFeedback.length == 0) ? "" : record.SessionFeedback.GPTFeedback.toString()) : record.SessionFeedback.Feedback.toString(),
-								FeedbackTimestamp : record.SessionFeedback.CREATEDTIME.toString().slice(0,19)
+								FlowRating: (record.Rating == null) || (record.Rating.length == 0) ? ((record.GPTRating == null) || (record.GPTRating.length == 0) ? "" : record.GPTRating.toString()) : record.Rating.toString(),
+								Feedback: (record.Feedback == null) || (record.Feedback.length == 0) ? ((record.GPTFeedback == null) || (record.GPTFeedback.length == 0) ? "" : record.GPTFeedback.toString()) : record.Feedback.toString(),
+								FeedbackTimestamp : getYYYYMMDDHHMMSSDate(record.CREATEDTIME)
 							}
 						})
 						const learningSessionFeedback= sessionFeedbacks.filter(data=>data.Feedback.startsWith("Learnings Started"))
@@ -2564,21 +2564,21 @@ app.get("/sessionfeedbacks", (req, res) => {
 				})
 				report = report.concat(gamesEventData.map(data=>{
 					var userReport = {
-						Mobile : data.SessionEvents.Mobile,
+						Mobile : data.Mobile,
 						Topic : decodeURIComponent(data.SystemPrompts.Name),
 						Persona : decodeURIComponent(data.SystemPrompts.Persona),
-						SessionID : data.SessionEvents.SessionID,
-						Event : data.SessionEvents.Event,
-						EventTimestamp : data.SessionEvents.CREATEDTIME.toString().slice(0,19)
+						SessionID : data.SessionID,
+						Event : data.Event,
+						EventTimestamp : getYYYYMMDDHHMMSSDate(data.CREATEDTIME)
 					}
 					//const user = users.filter(record=>record.Users.Mobile == data.SessionEvents.Mobile)
 					//userReport['GoalInMinutes']=user[0]['Users']['GoalInMinutes']
 					if(userReport['Event'].includes('End')){
-						const sessionFeedbacks = feedbacks.filter(record=>record.SessionFeedback.SessionID == data.SessionEvents.SessionID).map(record=>{		
+						const sessionFeedbacks = feedbacks.filter(record=>record.SessionID == data.SessionID).map(record=>{		
 							return {
-								FlowRating: (record.SessionFeedback.Rating == null) || (record.SessionFeedback.Rating.length == 0) ? ((record.SessionFeedback.GPTRating == null) || (record.SessionFeedback.GPTRating.length == 0) ? "" : record.SessionFeedback.GPTRating.toString()) : record.SessionFeedback.Rating.toString(),
-								Feedback: (record.SessionFeedback.Feedback == null) || (record.SessionFeedback.Feedback.length == 0) ? ((record.SessionFeedback.GPTFeedback == null) || (record.SessionFeedback.GPTFeedback.length == 0) ? "" : record.SessionFeedback.GPTFeedback.toString()) : record.SessionFeedback.Feedback.toString(),
-								FeedbackTimestamp : record.SessionFeedback.CREATEDTIME.toString().slice(0,19)
+								FlowRating: (record.Rating == null) || (record.Rating.length == 0) ? ((record.GPTRating == null) || (record.GPTRating.length == 0) ? "" : record.GPTRating.toString()) : record.Rating.toString(),
+								Feedback: (record.Feedback == null) || (record.Feedback.length == 0) ? ((record.GPTFeedback == null) || (record.GPTFeedback.length == 0) ? "" : record.GPTFeedback.toString()) : record.Feedback.toString(),
+								FeedbackTimestamp : getYYYYMMDDHHMMSSDate(record.CREATEDTIME)
 							}
 						})
 						const gameSessionFeedback= sessionFeedbacks.filter(data=>data.Feedback.startsWith("Overall Game Sessions"))
@@ -2592,21 +2592,21 @@ app.get("/sessionfeedbacks", (req, res) => {
 				}))
 				report = report.concat(conversationEventData.map(data=>{
 					var userReport = {
-						Mobile : data.SessionEvents.Mobile,
+						Mobile : data.Mobile,
 						Topic : decodeURIComponent(data.SystemPrompts.Name),
 						Persona : decodeURIComponent(data.SystemPrompts.Persona),
-						SessionID : data.SessionEvents.SessionID,
-						Event : data.SessionEvents.Event,
-						EventTimestamp : data.SessionEvents.CREATEDTIME.toString().slice(0,19)
+						SessionID : data.SessionID,
+						Event : data.Event,
+						EventTimestamp : getYYYYMMDDHHMMSSDate(data.CREATEDTIME)
 					}
 					//const user = users.filter(record=>record.Users.Mobile == data.SessionEvents.Mobile)
 					//userReport['GoalInMinutes']=user[0]['Users']['GoalInMinutes']
 					if(userReport['Event'].includes('End')){
-						const sessionFeedbacks = feedbacks.filter(record=>record.SessionFeedback.SessionID == data.SessionEvents.SessionID).map(record=>{		
+						const sessionFeedbacks = feedbacks.filter(record=>record.SessionID == data.SessionID).map(record=>{		
 							return {
-								FlowRating: (record.SessionFeedback.Rating == null) || (record.SessionFeedback.Rating.length == 0) ? ((record.SessionFeedback.GPTRating == null) || (record.SessionFeedback.GPTRating.length == 0) ? "" : record.SessionFeedback.GPTRating.toString()) : record.SessionFeedback.Rating.toString(),
-								Feedback: (record.SessionFeedback.Feedback == null) || (record.SessionFeedback.Feedback.length == 0) ? ((record.SessionFeedback.GPTFeedback == null) || (record.SessionFeedback.GPTFeedback.length == 0) ? "" : record.SessionFeedback.GPTFeedback.toString()) : record.SessionFeedback.Feedback.toString(),
-								FeedbackTimestamp : record.SessionFeedback.CREATEDTIME.toString().slice(0,19)
+								FlowRating: (record.Rating == null) || (record.Rating.length == 0) ? ((record.GPTRating == null) || (record.GPTRating.length == 0) ? "" : record.GPTRating.toString()) : record.Rating.toString(),
+								Feedback: (record.Feedback == null) || (record.Feedback.length == 0) ? ((record.GPTFeedback == null) || (record.GPTFeedback.length == 0) ? "" : record.GPTFeedback.toString()) : record.Feedback.toString(),
+								FeedbackTimestamp : getYYYYMMDDHHMMSSDate(record.CREATEDTIME)
 							}
 						})
 						const otherSessionFeedback= sessionFeedbacks.filter(data=>(data.Feedback.startsWith("Overall Game Sessions")==false)&&(data.Feedback.startsWith("Learnings Started")==false))
@@ -2820,9 +2820,9 @@ app.get("/userlifecycle", (req, res) => {
 						)
 						activityDates = activityDates.concat(
 							learning.filter(data=>
-								(data.SessionEvents.Mobile==mobile) && 
-								(data.SessionEvents.CREATEDTIME >= regDate)
-								).map(data=>this.getYYYYMMDDDate(data.SessionEvents.CREATEDTIME)
+								(data.Mobile==mobile) && 
+								(data.CREATEDTIME >= regDate)
+								).map(data=>this.getYYYYMMDDDate(data.CREATEDTIME)
 								).filter(unique).sort()
 						)
 						activityDates = activityDates.concat(
