@@ -500,7 +500,7 @@ app.post("/allocatetopic", (req, res) => {
               Session.aggregate([
                 {
                   $match:{
-                    Mobile: mobile,
+                    Mobile: mobile.toString(),
                     SystemPromptsROWID: { $in: systemPromptROWIDs }
                   }
                 },
@@ -511,7 +511,7 @@ app.post("/allocatetopic", (req, res) => {
                      * fieldN: The first field name.
                      */
                     {
-                      _id: "SessionID",
+                      _id: "$SessionID",
                       SystemPromptsROWID: {
                         $first: "$SystemPromptsROWID",
                       },
@@ -539,10 +539,9 @@ app.post("/allocatetopic", (req, res) => {
                   } else {
                     //Calculate the session count for each SystemPrompt for the user
                     for (var i = 0; i < sessions.length; i++) {
-                      for (var j = 0; j < sessionCounts.length; i++) {
+                      for (var j = 0; j < sessionCounts.length; j++) {
                         if (
-                          sessionCounts[j]["id"] ==
-                          sessions[i]["SystemPromptsROWID"]
+                          sessionCounts[j]["id"].toString() == sessions[i]["SystemPromptsROWID"].toString()
                         ) {
                           sessionCounts[j]["count"] = sessionCounts[j]["count"] + 1;
                           break;
@@ -603,6 +602,12 @@ app.post("/allocatetopic", (req, res) => {
                   //---- 2023-08-04 | GLOW 5.3 | ravi.bhushan@dhwaniris.com | Begin----
                   responseObject["LearningObjective"] = systemPrompts[0]["LearningObjective"];
                   responseObject["LearningObjectiveFlag"] = responseObject["LearningObjective"] != null;
+                  responseObject["Game"] = systemPrompts[0]["Game"];
+                  responseObject["GameFlag"] = responseObject["Game"] != null;
+                  if(lockStatus=='MaxSessionsReached'){
+                    responseObject["OperationStatus"] = "MAX_SSN_RCHD";
+                    responseObject["StatusDescription"] = "User has completed max sessions"
+                  }
                   //---- 2023-08-04 | GLOW 5.3 | ravi.bhushan@dhwaniris.com | End----
 
                   console.info((new Date()).toString()+"|"+prependToLog,"End of execution:", responseObject);
