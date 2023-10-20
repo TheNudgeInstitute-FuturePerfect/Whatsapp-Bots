@@ -7,8 +7,11 @@ const express = require("express");
 // const app = express();
 // app.use(express.json());
 const app = express.Router();
+const sendResponseToGlific = require("./common/sendResponseToGlific.js")
 
 app.post("/", (req, res) => {
+
+	let startTimeStamp = new Date()
 
     //let catalystApp = catalyst.initialize(req, {type: catalyst.type.applogic});
 
@@ -34,6 +37,21 @@ app.post("/", (req, res) => {
 			const responseJSON = JSON.parse(result)
 			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution : " + responseJSON);
 			res.status(200).json(responseJSON);
+			//Send Reponse to Glific
+			let endTimeStamp = new Date();
+			let executionDuration = (endTimeStamp - startTimeStamp) / 1000;
+			if ((executionDuration > 5) && (typeof requestBody["FlowID"]!=='undefined') && (typeof requestBody["contact"]!=='undefined')) {
+				sendResponseToGlific({
+					executionID: executionID,
+					flowID: requestBody["FlowID"],
+					contactID: requestBody["contact"]["id"],
+					resultJSON: JSON.stringify({
+						transcription: responseJSON,
+					}),
+				})
+				.then((glificResponse) => {})
+				.catch((error) => console.info((new Date()).toString()+"|"+prependToLog,"Error returned from Glific: ", error));
+			}
 		})
 		.catch((err) => {
 			console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with error")
