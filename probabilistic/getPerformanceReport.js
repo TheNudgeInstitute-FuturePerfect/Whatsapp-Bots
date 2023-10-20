@@ -362,6 +362,7 @@ app.post("/goalachievementcalendar", (req, res) => {
           res.status(200).json(responseObject);
         }
         else{
+          console.info((new Date()).toString()+"|"+prependToLog,"User Onboarded/Registered on:",users['RegisteredTime'])
           //Get the session data for the current month
           //Get the month date range
           const currentTimeStamp = new Date();
@@ -384,6 +385,7 @@ app.post("/goalachievementcalendar", (req, res) => {
                 Mobile: mobile.toString(),
                 CREATEDTIME: {
                   $gte: new Date(monthStart),
+                  $gte: users['RegisteredTime'],
                   $lt: new Date(nextMonthStartDate)
                 }
               }
@@ -412,14 +414,20 @@ app.post("/goalachievementcalendar", (req, res) => {
           
           const runAssessmentQuery = UserAssessmentLog.find({
             UserROWID: users['_id'],
-            IsAssessmentComplete: true
+            IsAssessmentComplete: true,
+            MODIFIEDTIME: {
+              $gte: new Date(monthStart),
+              $gte: users['RegisteredTime'],
+              $lt: new Date(nextMonthStartDate)
+            }
           }, '_id MODIFIEDTIME')
           const axios = require("axios");
           const runGameAttemptQuery = axios.get(process.env.WordleReportURL+mobile)          
           const runFlowQuestionAnswerQuery = userFlowQuestionLogs.find({
-            Mobile:mobile,
+            Mobile:parseInt(mobile),
             updatedAt:{
               "$gte":monthStart,
+              $gte: users['RegisteredTime'],
               "$lt":nextMonthStartDate
             }
           })
@@ -453,17 +461,19 @@ app.post("/goalachievementcalendar", (req, res) => {
               for(var i=0; i<userFlowQuestionLog.length; i++){
                 const record = userFlowQuestionLog[i]
                 const qaDates = record.QuestionAnswers.map(data=>
-                  data.CreatedTime.getFullYear()+"-"+
+                  data.CreatedTime/*.getFullYear()+"-"+
                   ('0'+(data.CreatedTime.getMonth()+1)).slice(-2)+"-"+
                   ('0'+data.CreatedTime.getDate()).slice(-2)+" "+
                   ('0'+data.CreatedTime.getHours()).slice(-2)+":"+
                   ('0'+data.CreatedTime.getMinutes()).slice(-2)+":"+
-                  ('0'+data.CreatedTime.getSeconds()).slice(-2))
+                  ('0'+data.CreatedTime.getSeconds()).slice(-2)*/)
                 practiceDates = practiceDates.concat(qaDates.filter(data=>(data>=monthStart)&&(data<nextMonthStartDate)))
               }
               console.info((new Date()).toString()+"|"+prependToLog,"Fetched Flow QuestionAnswer TimeStamps:",practiceDates)
 
+              practiceDates = practiceDates.map(record=>new Date(record))
               practiceDates.sort((date1, date2) => date1 - date2)
+              console.info((new Date()).toString()+"|"+prependToLog,"Final TimeStamps:",practiceDates)
                 
               //For each day in current month
               //const dayMapper = [ '🅼',  '🆃',  '🆆',  '🆃',  '🅵',  '🆂',  '🆂']
@@ -692,7 +702,7 @@ app.post("/dailygoalprogress", (req, res) => {
           }, 'WordleROWID CREATEDTIME')
           .sort({ CREATEDTIME: 'asc' });
           const runFlowQuestionAnswerQuery = userFlowQuestionLogs.find({
-            Mobile:mobile,
+            Mobile:parseInt(mobile),
             updatedAt:{
               "$gte":toDay+" 00:00:00",
               "$lte":toDay+" 23:59:59"
