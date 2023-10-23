@@ -2,7 +2,7 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
 
 // const app = express();
@@ -10,7 +10,7 @@ const sendResponseToGlific = require("./common/sendResponseToGlific.js");
 const app = express.Router();
 
 app.get("/sleep", (req, res) => {
-  const catalystApp = catalyst.initialize(req);
+  //const catalystApp = catalyst.initialize(req);
 
   const requestBody = req.body;
   console.log(requestBody);
@@ -44,7 +44,7 @@ app.get("/sleep", (req, res) => {
 });
 
 app.post("/sleep", (req, res) => {
-  const catalystApp = catalyst.initialize(req);
+  //const catalystApp = catalyst.initialize(req);
   const requestBody = req.body;
   console.log(requestBody);
   var sleepTime = requestBody["Seconds"] * 1000;

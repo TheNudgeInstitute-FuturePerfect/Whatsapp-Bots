@@ -2,9 +2,12 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
+const SessionEvents = require("./models/SessionEvents.js");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
-let userTopicSubscriptionMapper = require("./models/userTopicSubscriptionMapper.js")
+let userTopicSubscriptionMapper = require("./models/userTopicSubscriptionMapper.js");
+const User = require("./models/Users.js");
+const SystemPrompt = require("./models/SystemPrompts.js");
 
 // const app = express();
 // app.use(express.json());
@@ -35,7 +38,7 @@ const sendResponse = (prependToLog,responseJSON,startTimeStamp,requestBody,res) 
 
 app.post("/create", (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+    //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
     const startTimeStamp = new Date();
 
@@ -55,11 +58,12 @@ app.post("/create", (req, res) => {
 
     const mobile = requestBody['Mobile'].toString().slice(-10)
 
-    let zcql = catalystApp.zcql()
-    zcql.executeZCQLQuery("Select ROWID, Name, GlificID from Users where Mobile ='"+mobile+"'")
+    // let zcql = catalystApp.zcql()
+    // zcql.executeZCQLQuery("Select ROWID, Name, GlificID from Users where Mobile ='"+mobile+"'")
+    User.findOne({ Mobile: mobile }, '_id Name GlificID')
     .then(async (user)=>{
-        if(!Array.isArray(user))
-            throw new Error(user)
+        if(user==null)
+            throw new Error("No user matching the query")
         console.info((new Date()).toString()+"|"+prependToLog,"Fetched User's Details")
         
         let getConfigurationParam = require("./common/getConfigurationParam.js");
@@ -71,7 +75,7 @@ app.post("/create", (req, res) => {
             );
         if (topicConfig.OperationStatus != "SUCCESS")
             throw new Error(topicConfig)
-        
+
         if(topicConfig.Values==null){
             responseJSON["OperationStatus"] = "FREE_TOPIC"
             sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)
@@ -86,81 +90,90 @@ app.post("/create", (req, res) => {
         }
         else{
             console.info((new Date()).toString()+"|"+prependToLog,"Fetched Topic Subscription Amount:"+topicConfig.Values['subsciptionamt'])
-            zcql.executeZCQLQuery("Select distinct ROWID from SystemPrompts where IsPaid = true and (Name = '"+requestBody["Topic"]+"' or ROWID = '"+requestBody["TopicID"]+"')")
+            // zcql.executeZCQLQuery("Select distinct ROWID from SystemPrompts where IsPaid = true and (Name = '"+requestBody["Topic"]+"' or ROWID = '"+requestBody["TopicID"]+"')")
+            SystemPrompt.distinct('_id', {
+                IsPaid: true,
+                $or: [
+                  { Name: requestBody["Topic"] },
+                  { _id: requestBody["TopicID"] }
+                ]
+              })
             .then(async (systemPrompts)=>{
                 if(!Array.isArray(systemPrompts))
                     throw new Error(systemPrompts)
-                console.info((new Date()).toString()+"|"+prependToLog,"Fetched All Paid Personas for Topic :"+requestBody["Topic"])
-                  
-                let currentTimeStamp = new Date()
-                currentTimeStamp.setMinutes(currentTimeStamp.getMinutes()+60)
-        
-                //Call Razor Pay API to create payment link
-                const Razorpay = require("razorpay")
-                var instance = new Razorpay({
-                    key_id: process.env.RPayKeyID,
-                    key_secret: process.env.RPayKeySecret
-                });
-                const paymentLinkPayload = {
-                    "amount": parseInt(topicConfig.Values['subscriptionamt'])*100,
-                    "currency": "INR",
-                    "accept_partial": false,
-                    "first_min_partial_amount": 0,
-                    "expire_by": Math.floor(currentTimeStamp.getTime() / 1000),
-                    "reference_id": requestBody["SessionID"],
-                    "description": "Sign Up for "+requestBody["Topic"],
-                    "customer": {
-                        "name": user[0]['Users']['Name'],
-                        "email": mobile+"@noemail.com",
-                        "contact": "+"+requestBody['Mobile']
-                    },
-                    "notify": {
-                        "sms": false,
-                        "email": false
-                    },
-                    "reminder_enable": false,
-                    "notes": {
-                        "TopicID": requestBody["TopicID"],
-                        "Topic": requestBody["Topic"],
-                        "Persona": requestBody["Persona"],
-                        "SessionID": requestBody["SessionID"],
-                        "GlificID": requestBody["contact"]["id"]
-                    },
-                "callback_url": "https://wa.me/91"+process.env.GlificBotNumber,
-                "callback_method": "get"
+                else{
+                    console.info((new Date()).toString()+"|"+prependToLog,"Fetched All Paid Personas for Topic :"+requestBody["Topic"])
+                    
+                    let currentTimeStamp = new Date()
+                    currentTimeStamp.setMinutes(currentTimeStamp.getMinutes()+60)
+            
+                    //Call Razor Pay API to create payment link
+                    const Razorpay = require("razorpay")
+                    var instance = new Razorpay({
+                        key_id: process.env.RPayKeyID,
+                        key_secret: process.env.RPayKeySecret
+                    });
+                    const paymentLinkPayload = {
+                        "amount": parseInt(topicConfig.Values['subscriptionamt'])*100,
+                        "currency": "INR",
+                        "accept_partial": false,
+                        "first_min_partial_amount": 0,
+                        "expire_by": Math.floor(currentTimeStamp.getTime() / 1000),
+                        "reference_id": requestBody["SessionID"],
+                        "description": "Sign Up for "+requestBody["Topic"],
+                        "customer": {
+                            "name": user['Name'],
+                            "email": mobile+"@noemail.com",
+                            "contact": "+"+requestBody['Mobile']
+                        },
+                        "notify": {
+                            "sms": false,
+                            "email": false
+                        },
+                        "reminder_enable": false,
+                        "notes": {
+                            "TopicID": requestBody["TopicID"] ? requestBody["TopicID"] : systemPrompts[0]['_id'] ,
+                            "Topic": requestBody["Topic"],
+                            "Persona": requestBody["Persona"],
+                            "SessionID": requestBody["SessionID"],
+                            "GlificID": requestBody["contact"]["id"]
+                        },
+                        "callback_url": "https://wa.me/91"+process.env.GlificBotNumber,
+                        "callback_method": "get"
+                    }
+                    instance.paymentLink.create(paymentLinkPayload)
+                    .then(async (paymentLink)=>{
+                        if(paymentLink["status"]=='created'){
+                            console.info((new Date()).toString()+"|"+prependToLog,"Created Payment Link")
+                            responseJSON["PaymentLink"] = paymentLink["short_url"]
+                            console.info((new Date()).toString()+"|"+prependToLog,"Creating UserTopicSubscriptionMapper")
+                            const insertData = systemPrompts.map(data=>{
+                                return {
+                                    UserROWID: user['_id'].toString(),
+                                    SessionID: requestBody['SessionID'],
+                                    SystemPromptROWID: data['_id'],
+                                    IsUnlocked: false,
+                                    PaymentID: paymentLink["id"],
+                                    PaymentTracker:[paymentLink]
+                                }
+                            })
+                            const rowReturned = await userTopicSubscriptionMapper.create(insertData)
+                            console.debug((new Date()).toString()+"|"+prependToLog,"Inserted Record: "+rowReturned.map(data=>data['_id']).join(","));
+                            console.debug((new Date()).toString()+"|"+prependToLog,"Inserted Record: "+JSON.stringify(rowReturned));
+                            sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)
+                        }
+                        else{
+                            console.info((new Date()).toString()+"|"+prependToLog,"Failed to Create Payment Link")
+                            responseJSON["OperationStatus"] = "APP_ERR"
+                            sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)
+                        }
+                    })
+                    .catch((error)=>{
+                        console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error in Creating Payment Link");
+                        console.error((new Date()).toString()+"|"+prependToLog,"End of Execution with Error: ",error);
+                        res.status(500).send(error);
+                    })
                 }
-                instance.paymentLink.create(paymentLinkPayload)
-                .then(async (paymentLink)=>{
-                    if(paymentLink["status"]=='created'){
-                        console.info((new Date()).toString()+"|"+prependToLog,"Created Payment Link")
-                        responseJSON["PaymentLink"] = paymentLink["short_url"]
-                        console.info((new Date()).toString()+"|"+prependToLog,"Creating UserTopicSubscriptionMapper")
-                        const insertData = systemPrompts.map(data=>{
-                            return {
-                                UserROWID: user[0]['Users']['ROWID'].toString(),
-                                SessionID: requestBody['SessionID'],
-                                SystemPromptROWID: data['SystemPrompts']['ROWID'].toString(),
-                                IsUnlocked: false,
-                                PaymentID: paymentLink["id"],
-                                PaymentTracker:[paymentLink]
-                            }
-                        })
-                        const rowReturned = await userTopicSubscriptionMapper.create(insertData)
-                        console.debug((new Date()).toString()+"|"+prependToLog,"Inserted Record: "+rowReturned.map(data=>data['_id']).join(","));
-                        console.debug((new Date()).toString()+"|"+prependToLog,"Inserted Record: "+JSON.stringify(rowReturned));
-                        sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)
-                    }
-                    else{
-                        console.info((new Date()).toString()+"|"+prependToLog,"Failed to Create Payment Link")
-                        responseJSON["OperationStatus"] = "APP_ERR"
-                        sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody, res)
-                    }
-                })
-                .catch((error)=>{
-                    console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error in Creating Payment Link");
-                    console.error((new Date()).toString()+"|"+prependToLog,"End of Execution with Error: ",error);
-                    res.status(500).send(error);
-                })
             })
             .catch((error)=>{
                 console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error in Gettig Paid Personas for "+requestBody["Topic"]);
@@ -178,7 +191,7 @@ app.post("/create", (req, res) => {
 
 app.post("/update", async (req, res) => {
 
-    let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+    //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
     const startTimeStamp = new Date();
 
@@ -246,7 +259,7 @@ app.post("/update", async (req, res) => {
                                 SystemPromptROWID: rowReturned[0]['SystemPromptROWID'],
                                 Mobile: requestBody['payload']['payment_link']['entity']['customer']['contact'].slice(-10)
                             }
-                            let table = catalystApp.datastore().table("SessionEvents")
+                            //let table = catalystApp.datastore().table("SessionEvents")
                             
                             if(requestBody['payload']['payment_link']['entity']['status']=='paid'){
                                 hsmTemplateID = process.env.PaymentSuccessMsgID
@@ -278,8 +291,8 @@ app.post("/update", async (req, res) => {
                                 console.info((new Date()).toString()+"|"+prependToLog,"HSM Message Not to be Sent to User as Payment Status: "+requestBody['payload']['payment_link']['entity']['status'])
                             }
                             if(eventData['Event']!=null){
-                                const insertResult = await table.insertRow(eventData)
-                                if(typeof insertResult['ROWID']==='undefined')
+                                const insertResult = await SessionEvents.create(eventData)// table.insertRow(eventData)
+                                if(typeof insertResult['_id']==='undefined')
                                     throw new Error(insertResult)
                                 console.info((new Date()).toString()+"|"+prependToLog,"Session Event Table Updated for event = "+eventData['Event'])
                             }

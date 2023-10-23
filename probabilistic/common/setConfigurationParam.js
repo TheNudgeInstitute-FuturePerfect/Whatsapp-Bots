@@ -1,5 +1,8 @@
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
+
+const Configurations = require(".././models/Configurations");
+
 
 module.exports = async (basicIO) => {
 	/*
@@ -22,7 +25,7 @@ module.exports = async (basicIO) => {
 	*/
 
 
-	const catalystApp = catalyst.initialize();
+	//const catalystApp = catalyst.initialize();
 
 	const executionID = Math.random().toString(36).slice(2)
 
@@ -40,18 +43,18 @@ module.exports = async (basicIO) => {
 	if(typeof assessment === 'undefined'){
 		result['OperationStatus']="REQ_ERR"
 		result['ErrorDescription']="Missing parameter: version"
-		console.log("Execution Completed: ",result);
+		console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result);
 		return JSON.stringify(result);
 		
 	}
 	else{
-		let zcql = catalystApp.zcql()
+		//let zcql = catalystApp.zcql()
 		zcql.executeZCQLQuery("select ROWID from Assessments where Assessment = '"+assessment+"'")
 		.then(searchQueryResult => {
 			if(searchQueryResult.length == 0){
 				result['OperationStatus']="VERSN_ERR"
 				result['ErrorDescription']="Flow version not found: "+assessment
-				console.log("Execution Completed: ",result);
+				console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result);
 				return JSON.stringify(result);
 			}
 			else{
@@ -87,24 +90,35 @@ module.exports = async (basicIO) => {
 							if(typeof desc === 'undefined')
 								desc=null
 						
-							var insertQuery = {
-								Name: encodeURI(name),
-								Value: encodeURI(val),
-								Description: encodeURI(desc),
-								SystemPromptROWID: systemPromptROWID,
-								PrimaryKey:systemPromptROWID+"-"+encodeURI(name)
-							}
-
-							let table = catalystApp.datastore().table('Configurations');
 							try{
-								const insertQueryResult = await table.insertRow(insertQuery);
-                                result['OperationStatus']="SUCCESS"
-								result['Configurations']=insertQueryResult
-								console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result);
-								return JSON.stringify(result);
+								const filterQuery = {
+									Name: encodeURI(name),
+									SystemPromptROWID: systemPromptROWID
+								}
+								const filterQueryResult = await Configurations.find(filterQuery);
+								if(filterQueryResult.length>0)
+									throw new Error("DUPLICATE")
+								else{
+                                
+									var insertQuery = {
+										Name: encodeURI(name),
+										Value: encodeURI(val),
+										Description: encodeURI(desc),
+										SystemPromptROWID: systemPromptROWID,
+										PrimaryKey:systemPromptROWID+"-"+encodeURI(name)
+									}
+
+									// //let table = catalystApp.datastore().table('Configurations');
+							
+									const insertQueryResult = await Configurations.create(insertQuery);
+									result['OperationStatus']="SUCCESS"
+									result['Configurations']=insertQueryResult
+									console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result);
+									return JSON.stringify(result);
+								}
 							} catch(error){
                                 result['OperationStatus']="ZCQL_ERR"
-								if(error.includes("DUPLICATE"))
+								if(error.toString().includes("DUPLICATE"))
 									result['OperationStatus']="DUP_RCRD"
 								result['ErrorDescription']="Error in execution insert query"
 								console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result,error);
@@ -119,7 +133,7 @@ module.exports = async (basicIO) => {
 		.catch(error => {
 			result['OperationStatus']="ZCQL_ERR"
 			result['ErrorDescription']="Error in execution search query"
-			console.log("Execution Completed: ",result,error);
+			console.info((new Date()).toString()+"|"+prependToLog,"Execution Completed: ",result,error);
 			return JSON.stringify(result);
 
 		})

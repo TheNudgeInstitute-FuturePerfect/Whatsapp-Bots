@@ -2,8 +2,11 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
-
+//const catalyst = require("zoho-catalyst-sdk");
+const Session = require("./models/Sessions.js");
+const SystemPrompt = require("./models/SystemPrompts.js");
+const mongoose = require('mongoose');
+const ObjectId = mongoose.Types.ObjectId;
 // const app = express();
 // app.use(express.json());
 const app = express.Router();
@@ -84,7 +87,7 @@ const runQuery = async (query, zcql) => {
 };
 
 app.post("/chatgpt", async (request, response) => {
-  const app = catalyst.initialize(request, { type: catalyst.type.applogic });
+  //const app = catalyst.initialize(request, { type: catalyst.type.applogic });
 
   executionID = request.body.sessionId ? request.body.sessionId : Math.random().toString(36).slice(2)
     
@@ -95,20 +98,20 @@ app.post("/chatgpt", async (request, response) => {
   console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
 
 
-  const zcql = app.zcql();
+  //const zcql = app.zcql();
 
   const startTimeStamp = new Date();
 
   const requestBody = request.body;
-  console.debug((new Date()).toString()+"|"+prependToLog,"request body ......", requestBody);
-  console.info((new Date()).toString()+"|"+prependToLog,requestBody.sessionId);
+  //console.debug((new Date()).toString()+"|"+prependToLog,"request body ......", requestBody);
+  //console.info((new Date()).toString()+"|"+prependToLog,requestBody.sessionId);
   let mobile = parseInt(requestBody.mobile.slice(-10));
   
   let message = requestBody.message;
   console.info((new Date()).toString()+"|"+prependToLog,"Message: " + message);
 
   const messageType = requestBody.messageType;
-  console.info((new Date()).toString()+"|"+prependToLog,"Message Type: " + messageType);
+  //console.info((new Date()).toString()+"|"+prependToLog,"Message Type: " + messageType);
 
   let messageURL = null;
   let confidenceInterval = null;
@@ -141,24 +144,31 @@ app.post("/chatgpt", async (request, response) => {
   let systemPromptROWID = null;
   let systemPrompt = null;
   let query = null;
-  if ("topicId" in requestBody && !isNaN(requestBody.topicId)) {
-    systemPromptROWID = requestBody.topicId;
-    query =
-      "Select ROWID, Name, Content from SystemPrompts where IsActive = true and ROWID = '" +
-      systemPromptROWID +
-      "'";
+  var filterParams = {}
+  if ("topicId" in requestBody){// && !isNaN(requestBody.topicId)) {
+    console.log(requestBody.topicId,"_====================");
+    systemPromptROWID = new ObjectId(requestBody.topicId);
+    
+    // query =
+    //   "Select ROWID, Name, Content from SystemPrompts where IsActive = true and ROWID = '" +
+    //   systemPromptROWID +
+    //   "'";
+      filterParams = {IsActive:true,_id:systemPromptROWID};
   } else {
-    query =
-      "Select ROWID, Name, Content from SystemPrompts where IsActive = true and Name = '" +
-      requestBody.topic +
-      "'";
+    // query =
+    //   "Select ROWID, Name, Content from SystemPrompts where IsActive = true and Name = '" +
+    //   requestBody.topic +
+    //   "'";
+      filterParams = {IsActive:true,Name:requestBody.topic};
   }
 
-  const systemPromptsResult = await runQuery(query, zcql);
+  // const systemPromptsResult = await runQuery(query, zcql);
+  const systemPromptsResult = await SystemPrompt.find(filterParams,'_id Name Content')
   if (systemPromptsResult !== null) {
     console.info((new Date()).toString()+"|"+prependToLog,"systemPromptsResult", systemPromptsResult);
-    systemPromptROWID = systemPromptsResult[0].SystemPrompts.ROWID;
-    systemPrompt = systemPromptsResult[0].SystemPrompts.Content;
+    let tempId = systemPromptsResult[0]._id
+    systemPromptROWID = tempId;
+    systemPrompt = systemPromptsResult[0].Content;
   } else {
     response.status(500).json("Encountered error in executing query");
   }
@@ -222,11 +232,11 @@ app.post("/chatgpt", async (request, response) => {
 
   // ##############################################
   // Initialize the sessions table. Insert the new user message
-  const sessionsTable = app.datastore().table("Sessions");
+  // const sessionsTable = app.datastore().table("Sessions");
   let storedSessionRecord = {};
   if (sessionType !== "SentenceFeedback") {
     // Store User's Message in Session Table
-    storedSessionRecord = await sessionsTable.insertRow({
+    storedSessionRecord = await Session.create({
       Mobile: mobile,
       Message: encodeURIComponent(message),
       SessionID: requestBody.sessionId,
@@ -237,7 +247,7 @@ app.post("/chatgpt", async (request, response) => {
       MessageType: inputType,
     });
   } else {
-    storedSessionRecord.ROWID = requestBody.sessionROWID;
+    storedSessionRecord._id = requestBody.sessionROWID;
   }
   // ##############################################
 
@@ -275,34 +285,74 @@ app.post("/chatgpt", async (request, response) => {
 
   
   //for (let i = startIndex; i < maxRows; i += 300) {
-  query = "";
+   let queryOutput = [];
   if (sessionType === "SentenceFeedback") {
-    query =
-      "select ROWID, Message, MessageType, Reply, CREATEDTIME, SystemPrompts.Content " +
-      "from Sessions " +
-      "left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID " +
-      "where Sessions.ROWID='" +
-      storedSessionRecord["ROWID"] +
-      "'";
+    // query =
+    //   "select ROWID, Message, MessageType, Reply, CREATEDTIME, SystemPrompts.Content " +
+    //   "from Sessions " +
+    //   "left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID " +
+    //   "where Sessions.ROWID='" +
+    //   storedSessionRecord["ROWID"] +
+    //   "'";
+     queryOutput = await Session.findOne({ _id: storedSessionRecord["_id"] })
+                                  .populate({
+                                    path: 'SystemPromptsROWID',
+                                    model: SystemPrompt,
+                                    select: 'Content'
+                                  });
   } else {
-    query =
-      "select ROWID, Message, MessageType, Reply, CREATEDTIME, SystemPrompts.Content " +
-      "from Sessions " +
-      "left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID " +
-      "where Mobile = " +
-      mobile +
-      " and SessionID = '" +
-      (["Serious Mode","Voice Challenge","AskAnyDoubt"].includes(sessionType)? requestBody.sessionId :sessionId) +
-      "'" +
-      " order by CREATEDTIME ASC" /*+
+    // query =
+    //   "select ROWID, Message, MessageType, Reply, CREATEDTIME, SystemPrompts.Content " +
+    //   "from Sessions " +
+    //   "left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID " +
+    //   "where Mobile = " +
+    //   mobile +
+    //   " and SessionID = '" +
+    //   sessionId +
+    //   "'" +
+    //   " order by CREATEDTIME ASC"
+      
+      /*+
       " limit " +
       i +
       ", 300"*/;
     //" and SystemPromptsROWID =" + systemPromptROWID +
+
+     queryOutput = await Session.aggregate([
+      {
+        $match: {
+          Mobile: mobile.toString(),
+          //SessionID: sessionId
+          SessionID: (["Serious Mode","Voice Challenge","AskAnyDoubt"].includes(sessionType)? requestBody.sessionId :sessionId)
+        }
+      },
+      {
+        $lookup: {
+          from: "systemprompts", // Name of the collection to join with
+          localField: 'SystemPromptsROWID',
+          foreignField: '_id',
+          as: 'systemPromptData'
+        }
+      },
+      {
+        $sort: { CREATEDTIME: 1 } // Sort by CREATEDTIME in ascending order
+      },
+      {
+        $project: {
+          _id: 1,
+          Message: 1,
+          MessageType: 1,
+          Reply: 1,
+          CREATEDTIME: 1,
+          'systemPromptData.Content': 1
+        }
+      }
+    ]);
   }
 
-  console.debug((new Date()).toString()+"|"+prependToLog,"Query: " + query);
-  const queryOutput = await zcql.executeZCQLQuery(query);
+   console.debug((new Date()).toString()+"|"+prependToLog,"queryOutput: " + queryOutput);
+   
+  // const queryOutput = await zcql.executeZCQLQuery(query);
 
   const delimeterStartToken = process.env.DelimiterStartToken;
   const delimeterEndToken = process.env.DelimiterEndToken;
@@ -332,14 +382,14 @@ app.post("/chatgpt", async (request, response) => {
     }*/
 
     //If it's an empty response from ChatGPT in the record and it's not current record, don't include it in the session records
-    if(j !== queryOutput.length-1 && queryOutput[j]["Sessions"]["Reply"]==null)
+    if(j !== queryOutput.length-1 && queryOutput[j]["Reply"]==null)
       continue
 
     //If maxlinesofchat = -1 and its more than 20 messages, break
     if((j>=20)&&(maxlinesofchat == -1))
       break
     
-    let content = queryOutput[j]["Sessions"]["Message"];
+    let content = queryOutput[j]["Message"];
     content = decodeURIComponent(content);
 
     if (["SentenceFeedback","Serious Mode","Voice Challenge"].includes(sessionType)) {
@@ -377,24 +427,24 @@ app.post("/chatgpt", async (request, response) => {
       });
 
       if (
-        queryOutput[j]["Sessions"]["Reply"] !== null &&
+        queryOutput[j]["Reply"] !== null &&
         sessionType !== "SentenceFeedback"
       ) {
         sessionRecords.push({
           role: "assistant",
-          content: decodeURIComponent(queryOutput[j]["Sessions"]["Reply"]),
+          content: decodeURIComponent(queryOutput[j]["Reply"]),
         });
       }
     }
 
     //Increase counter of successful User Messages 
-    if(queryOutput[j]["Sessions"]["MessageType"].startsWith('UserMessage')){ 
+    if(queryOutput[j]["MessageType"].startsWith('UserMessage')){ 
       //If its the last message, increase the counter
       if(j === queryOutput.length-1)
         totalUserMessages++
       else{
         //If the next record is not a retry of current one, increase the counter
-        if(!queryOutput[j+1]["Sessions"]["MessageType"].startsWith('UserMessage - Retry'))
+        if(!queryOutput[j+1]["MessageType"].startsWith('UserMessage - Retry'))
           totalUserMessages++
         //Else the counter will be increased on next record (To handle case where there is retry on the record at mid of conversation)
       }
@@ -427,17 +477,23 @@ app.post("/chatgpt", async (request, response) => {
   // )
 
   const _retry = require("async-retry");
-  const { Configuration, OpenAIApi } = require("openai");
+  /*const { Configuration, OpenAIApi } = require("openai");
   const configuration = new Configuration({
     apiKey: process.env.openAIKey,
   });
-  const openai = new OpenAIApi(configuration);
+  const openai = new OpenAIApi(configuration);*/
+
+  const OpenAI = require("openai");
+  const openai = new OpenAI({
+    apiKey: process.env.openAIKey
+  });
 
   async function completionWithBackoff(model, temperature, messages) {
-    return await openai.createChatCompletion({
+    //return await openai.createChatCompletion({
+    return await openai.chat.completions.create({
       model: model,
-      temperature,
-      messages,
+      temperature:temperature,
+      messages:messages,
     });
   }
 
@@ -456,14 +512,19 @@ app.post("/chatgpt", async (request, response) => {
     );
   }, retryOptions);
   // Read ChatGPT's Response
-  const reply = chatGPTResponse.data.choices[0].message.content;
+  //const reply = chatGPTResponse.data.choices[0].message.content;
+  const reply = chatGPTResponse.choices[0].message.content;
   console.info((new Date()).toString()+"|"+prependToLog,"Reply received from Chat GPT: " + reply);
   let completionTokens = null
   let promptTokens = null
-  if(typeof chatGPTResponse['data']['usage'] !== 'undefined'){
+  /*if(typeof chatGPTResponse['data']['usage'] !== 'undefined'){
       completionTokens = (typeof chatGPTResponse['data']['usage']['completion_tokens'] !== 'undefined') ? chatGPTResponse['data']['usage']['completion_tokens'] : 0
       promptTokens = (typeof chatGPTResponse['data']['usage']['prompt_tokens'] !== 'undefined') ? chatGPTResponse['data']['usage']['prompt_tokens'] : 0
-  }
+  }*/
+  if(typeof chatGPTResponse['usage'] !== 'undefined'){
+    completionTokens = (typeof chatGPTResponse['usage']['completion_tokens'] !== 'undefined') ? chatGPTResponse['usage']['completion_tokens'] : 0
+    promptTokens = (typeof chatGPTResponse['usage']['prompt_tokens'] !== 'undefined') ? chatGPTResponse['usage']['prompt_tokens'] : 0
+}
 
   // Initialize Public URL of audio/image of response
   let publicURL = null;
@@ -485,12 +546,12 @@ app.post("/chatgpt", async (request, response) => {
   // Convert reply to audio
 
   // If responseType configuration == Audio or Text+Audio, then create audio else not
-  if (responseType === "Audio" || responseType === "Text+Audio") {
+  if ((responseType === "Audio" || responseType === "Text+Audio")&&(sessionType !== "SentenceFeedback")) {
     let createAudioOfText = require("./common/convertTextToSpeech.js");
     const audioDetails = JSON.parse(
       await createAudioOfText({
         text: reply,
-        fileName: 'R'+storedSessionRecord.ROWID, //R=>Reply of GPT
+        fileName: 'R'+storedSessionRecord._id, //R=>Reply of GPT
         language: "English",
         SessionID: executionID
       })
@@ -532,20 +593,18 @@ app.post("/chatgpt", async (request, response) => {
   // Update the latest session record with the reply
   let updatedSessionRecord;
   if (sessionType === "SentenceFeedback") {
-    updatedSessionRecord = await sessionsTable.updateRow({
-      ROWID: storedSessionRecord.ROWID,
+    updatedSessionRecord = await Session.findByIdAndUpdate(storedSessionRecord._id,{
       Classification: sentenceFeedbackClassification,
       Improvement: sentenceFeedbackImprovement,
       SentenceLevelFeedback: encodeURIComponent(reply),
       SLFCompletionTokens:completionTokens,
       SLFPromptTokens:promptTokens
-    });
+    },{new:true});
   } else {
     if (sessionId === "Onboarding") {
       isActive = false;
     }
-    updatedSessionRecord = await sessionsTable.updateRow({
-      ROWID: storedSessionRecord.ROWID,
+    updatedSessionRecord = await Session.findByIdAndUpdate(storedSessionRecord._id,{
       Reply: encodeURIComponent(reply),
       IsActive: sessionType !== "ObjectiveFeedback" ? isActive : false,
       ReplyAudioURL: publicURL,
@@ -553,21 +612,24 @@ app.post("/chatgpt", async (request, response) => {
       Improvement: sentenceFeedbackImprovement,
       CompletionTokens:completionTokens,
       PromptTokens:promptTokens
-    });
+    },{new:true});
   }
 
   console.info((new Date()).toString()+"|"+prependToLog,"Updated the Session Record");
 
   if (operationStatus === "END_OF_CNVRSSN") {
-    const query =
-      "Update Sessions set IsActive = false, EndOfSession=true where Mobile = " +
-      mobile +
-      " and ROWID !=" +
-      storedSessionRecord.ROWID +
-      " and SessionID = '" +
-      sessionId +
-      "'";
-    await zcql.executeZCQLQuery(query);
+    // const query =
+    //   "Update Sessions set IsActive = false where Mobile = " +
+    //   mobile +
+    //   " and ROWID !=" +
+    //   storedSessionRecord.ROWID +
+    //   " and SessionID = '" +
+    //   sessionId +
+    //   "'";
+    // await zcql.executeZCQLQuery(query);
+    await Session.findByIdAndUpdate(storedSessionRecord._id,
+      { $set: { IsActive: false } },{new:true});
+      
     console.info((new Date()).toString()+"|"+prependToLog,"Marked the session inactive");
   }
 
@@ -590,7 +652,7 @@ app.post("/chatgpt", async (request, response) => {
     Reply: replyText,
     ReponseType: responseType,
     AudioURL: publicURL,
-    SessionROWID: storedSessionRecord.ROWID,
+    SessionROWID: storedSessionRecord._id,
     LinesOfChatConsumed: totalUserMessages,
     LinesOfChatPending: maxlinesofchat > -1 ? (maxlinesofchat - 1 - totalUserMessages) : -1,
     FeedbackPromptFlag: feedbackPromptFlag
@@ -621,10 +683,10 @@ app.post("/chatgpt", async (request, response) => {
 
   // Store message audio file in GCS
   if (messageType === "Audio") {
-    const messageAudioPublicURL = await saveContentInGCS(messageURL,'M'+storedSessionRecord.ROWID,"Audio","URL",executionID);//M=>Message of User
+    const messageAudioPublicURL = await saveContentInGCS(messageURL,'M'+storedSessionRecord._id,"Audio","URL",executionID);//M=>Message of User
     if (messageAudioPublicURL !== null) {
-      sessionsTable.updateRow({
-        ROWID: storedSessionRecord.ROWID,
+      Session.updateMany({
+        _id: storedSessionRecord._id},{
         MessageAudioURL: messageAudioPublicURL,
       });
     } else {
@@ -637,7 +699,7 @@ app.post("/chatgpt", async (request, response) => {
   if (inputType.startsWith("UserMessage") && sessionId !== "Onboarding" && sessionType!=='Doubt') {
     const newRequestBody = {
       ...requestBody,
-      sessionROWID: storedSessionRecord.ROWID,
+      sessionROWID: storedSessionRecord._id,
       sessionId: sessionId + " - SentenceFeedback",
       topic: "Sentence Feedback",
       messageType: "Text",

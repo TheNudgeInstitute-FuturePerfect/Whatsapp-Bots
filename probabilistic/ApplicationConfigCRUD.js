@@ -2,7 +2,7 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const storeAudioFileinGCS = require("./common/storeAudioFileinGCS.js");
 const convertSpeechToText = require("./common/convertSpeechToText.js");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
