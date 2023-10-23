@@ -1058,7 +1058,7 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 				  $gte: new Date(startDate + ' 00:00:00'),
 				  $lte: new Date(endDate + ' 23:59:59')
 				},
-				'SystemPrompts.Name': 'Self Introduction',
+				//'SystemPrompts.Name': 'Self Introduction',
 				Mobile: { $in: mobiles.map(mobile=>mobile.toString()) }
 			  };
 
@@ -1090,7 +1090,7 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 				.sort(sortOrder)  
 			.then((allSessions)=>{
 				console.info((new Date()).toString()+"|"+prependToLog,"..............+++++++",allSessions)
-				const sessions = allSessions.filter(data=>!(data.SessionID.endsWith(' - Translation')||data.SessionID.endsWith(' - Hints')||data.SessionID.endsWith(' - ObjectiveFeedback')))
+				const sessions = allSessions.filter(data=>data.SystemPromptsROWID == null ? false : (data.SystemPromptsROWID.Name=='Self Introduction')).filter(data=>!(data.SessionID.endsWith(' - Translation')||data.SessionID.endsWith(' - Hints')||data.SessionID.endsWith(' - ObjectiveFeedback')))
 				if(sessions.length>0){
 					const sessionIDs = sessions.map(session=>session.SessionID)
 					// query = "Select {} "+
