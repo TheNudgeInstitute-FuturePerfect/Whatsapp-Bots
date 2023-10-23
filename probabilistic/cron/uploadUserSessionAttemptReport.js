@@ -209,9 +209,9 @@ UserSessionAttemptReport.find({}, '_id SessionID IsActive EndOfSession')
                               );
                               const userSessionsTopics = userSessions.map(
                                 (data) =>
-                                  data.SystemPromptsROWID.Name +
+                                  (data.SystemPromptsROWID ? data.SystemPromptsROWID.Name : null) +
                                   "-" +
-                                  data.SystemPromptsROWID._id
+                                  (data.SystemPromptsROWID ? data.SystemPromptsROWID._id : null)
                               );
                               const uniqueTopics =
                                 userSessionsTopics.filter(unique);
@@ -260,9 +260,9 @@ UserSessionAttemptReport.find({}, '_id SessionID IsActive EndOfSession')
                                 for (var j = 0; j < uniqueTopics.length; j++) {
                                   const topicSessionsData = userSessions.filter(
                                     (data) =>
-                                      data.SystemPromptsROWID.Name +
+                                      (data.SystemPromptsROWID ? data.SystemPromptsROWID.Name : null) +
                                       "-" +
-                                      data.SystemPromptsROWID._id ==
+                                      (data.SystemPromptsROWID ? data.SystemPromptsROWID._id : null) ==
                                       uniqueTopics[j]
                                   );
                                   const topicSessions = topicSessionsData.map(
@@ -283,10 +283,10 @@ UserSessionAttemptReport.find({}, '_id SessionID IsActive EndOfSession')
                                       uniqueTopics[j] == null
                                         ? ""
                                         : uniqueTopics[j].split("-")[0];
-                                    userReport["Module"] = topicSessionsData[0].SystemPromptsROWID.Persona;
+                                    userReport["Module"] = topicSessionsData[0].SystemPromptsROWID ? topicSessionsData[0].SystemPromptsROWID.Persona : null;
                                     userReport["Topic"] = userReport["Topic"] == null ? "" : userReport["Topic"]
                                     userReport["Persona"] =
-                                      topicSessionsData[0].SystemPromptsROWID.Persona;
+                                      topicSessionsData[0].SystemPromptsROWID ? topicSessionsData[0].SystemPromptsROWID.Persona : null;
                                     userReport["SessionID"] =
                                       uniqueTopicSessions[k];
                                     //const rowID = currentReport.length == 0 ? null : currentReport.filter(data=>data['UserSessionAttemptReport']['SessionID']==userReport['SessionID'])
