@@ -360,8 +360,7 @@ UserSessionAttemptReport.find({}, '_id SessionID IsActive EndOfSession')
                                           null
                                           ? 0
                                           : parseInt(
-                                            record.Sessions
-                                              .SLFCompletionTokens
+                                            record.SLFCompletionTokens
                                           )
                                       );
                                     userReport["SLFCompletionTokens"] =
