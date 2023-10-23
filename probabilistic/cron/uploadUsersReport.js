@@ -282,7 +282,7 @@ UsersReport.find({})//, '_id Mobile')
 													maxGap = 5
 												if (gap > maxGap) {
 													resurrected = "Yes"
-													resurrectionDate = getYYYYMMDDDate(allSessionDates[j - 1])
+													resurrectionDate = getYYYYMMDDDate(new Date(allSessionDates[j - 1]))
 												}
 											}
 											uniqueDates.sort()

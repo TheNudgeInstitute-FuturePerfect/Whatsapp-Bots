@@ -1059,7 +1059,7 @@ app.get("/userobdtopicattemptreport", (req, res) => {
 				  $lte: new Date(endDate + ' 23:59:59')
 				},
 				'SystemPrompts.Name': 'Self Introduction',
-				Mobile: { $in: mobiles }
+				Mobile: { $in: mobiles.map(mobile=>mobile.toString()) }
 			  };
 
 			const projection = {
@@ -1760,7 +1760,14 @@ app.get("/sessiontranslations", (req, res) => {
 			if(data.SessionID.endsWith(" - Translation")){
 				var returnObject = {}
 				returnObject["SessionID"]=data.SessionID
-				const reply = data.Reply == null ? null : JSON.parse(decodeURIComponent(data.Reply))
+				let reply = null
+				try{
+					data.Reply == null ? null : JSON.parse(decodeURIComponent(data.Reply))
+				}
+				catch(e){
+					console.info((new Date()).toString()+"|"+prependToLog,"Error in parsing JSON string",data.Reply)
+					data.Reply == null ? null : decodeURIComponent(data.Reply)
+				}
 				returnObject["LangChosen"] = reply == null ? "" : (reply['sourceLanguage'] + " to " + reply['targetLanguage'])
 				returnObject["UserInput"] = data.Message != null ? decodeURIComponent(data.Message) : ""
 				returnObject["Translation"] = reply != null ? reply:""
@@ -1917,7 +1924,7 @@ app.get("/sessionabandoned", (req, res) => {
 	// zcql.executeZCQLQuery(query.replace("{}","count(ROWID)"),dataLimit)
 	console.info((new Date()).toString()+"|"+prependToLog,"Getting Sessions Data")
 	Session.find({})
-	.sort({ Mobile: 1, SessionID: 1, 'Sessions.CREATEDTIME': 1 })
+	.sort({ Mobile: 1, SessionID: 1, CREATEDTIME: 1 })
 	.then((sessions)=>{
 		var report = sessions.map((data,index)=>{
 			if(index==(sessions.length-1))
@@ -2822,7 +2829,7 @@ app.get("/userlifecycle", (req, res) => {
 							learning.filter(data=>
 								(data.Mobile==mobile) && 
 								(data.CREATEDTIME >= regDate)
-								).map(data=>this.getYYYYMMDDDate(data.CREATEDTIME)
+								).map(data=>getYYYYMMDDDate(data.CREATEDTIME)
 								).filter(unique).sort()
 						)
 						activityDates = activityDates.concat(
