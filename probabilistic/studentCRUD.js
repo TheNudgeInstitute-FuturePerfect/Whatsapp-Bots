@@ -2,16 +2,18 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const searchUserbyMobile = require("./common/searchUserbyMobile.js");
 const addUserData = require("./common/addUserData.js");
+const User = require("./models/Users.js");
+const sendResponseToGlific = require("./common/sendResponseToGlific.js")
 
 // const app = express();
 // app.use(express.json());
 const app = express.Router();
 
 app.post("/create", (req, res) => {
-  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+  //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
   const executionID = Math.random().toString(36).slice(2)
     
@@ -39,10 +41,11 @@ app.post("/create", (req, res) => {
   //console.info((new Date()).toString()+"|"+prependToLog,'Current TimeStamp= '+currentDate)
 
   //Get table meta object without details.
-  let table = catalystApp.datastore().table("Users");
+  //let table = catalystApp.datastore().table("Users");
 
   //Use Table Meta Object to insert the row which returns a promise
-  let insertPromise = table.insertRow({
+  //let insertPromise = table.insertRow(
+  User.create({
     Mobile: requestBody["Mobile"].slice(-10),
     Name: encodeURI(requestBody["Name"]),
     Age: requestBody["Age"],
@@ -58,9 +61,9 @@ app.post("/create", (req, res) => {
     OnboardingComplete: false,
     OnboardingStep: 1,
     Excluded: false,
-  });
-
-  insertPromise
+    GoalInMinutes: null
+  })
+  //insertPromise
     .then((row) => {
       console.info((new Date()).toString()+"|"+prependToLog,"\nInserted Row : " + JSON.stringify(row));
       res.status(200).json({ OperationStatus: "USER_RECORD_CREATED" });
@@ -75,7 +78,7 @@ app.post("/create", (req, res) => {
 });
 
 app.post("/update", async (req, res) => {
-  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+ // //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
   
   const executionID = Math.random().toString(36).slice(2)
     
@@ -86,7 +89,7 @@ app.post("/update", async (req, res) => {
   console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
   
   //Initialze ZCQL
-  let zcql = catalystApp.zcql();
+ // let zcql = catalystApp.zcql();
 
   const requestBody = req.body;
   var responseJSON = {};
@@ -96,7 +99,7 @@ app.post("/update", async (req, res) => {
   const mobile = requestBody["Mobile"].toString().slice(-10);
   console.info((new Date()).toString()+"|"+prependToLog,"User Mobile Number: " + mobile);
   //Get the Consent Status: Yes/No
-  var updateFields = [];
+  var updateFields = {}//[];
   var requestOK = true;
   var errorDescription = "";
   //Consent
@@ -105,14 +108,14 @@ app.post("/update", async (req, res) => {
   //console.info((new Date()).toString()+"|"+prependToLog,requestBody["contact"]["fields"]["consent"]["value"].length)
   if (typeof requestBody["Consent"] !== "undefined") {
     if (requestBody["Consent"].length > 0) {
-      updateFields.push("Consent=" + requestBody["Consent"]);
+      updateFields["Consent"]  = requestBody["Consent"];
     }
   }
 
   //Name
   if (typeof requestBody["Name"] !== "undefined")
     if (requestBody["Name"].length > 0)
-      updateFields.push("Name='" + encodeURI(requestBody["Name"]) + "'");
+      updateFields["Name"] = encodeURI(requestBody["Name"])
     else {
       requestOK = false;
       errorDescription += "name is empty. ";
@@ -121,7 +124,7 @@ app.post("/update", async (req, res) => {
   //Age
   if (typeof requestBody["Age"] !== "undefined")
     if (requestBody["Age"].length > 0)
-      updateFields.push("Age=" + requestBody["Age"] + "");
+      updateFields["Age"]  = requestBody["Age"]
     else {
       requestOK = false;
       errorDescription += "age is empty. ";
@@ -129,7 +132,7 @@ app.post("/update", async (req, res) => {
   //Gender
   if (typeof requestBody["Gender"] !== "undefined")
     if (requestBody["Gender"].length > 0)
-      updateFields.push("Gender='" + requestBody["Gender"] + "'");
+      updateFields["Gender"] = requestBody["Gender"]
     else {
       requestOK = false;
       errorDescription += "gender is empty. ";
@@ -140,7 +143,7 @@ app.post("/update", async (req, res) => {
       requestBody["Language"].length > 0 &&
       requestBody["Language"].indexOf("@result") == -1
     )
-      updateFields.push("Language='" + requestBody["Language"] + "'");
+      updateFields["Language"] = requestBody["Language"]
     else {
       requestOK = false;
       errorDescription +=
@@ -150,7 +153,7 @@ app.post("/update", async (req, res) => {
   //Nudge Time
   if (typeof requestBody["NudgeTime"] !== "undefined")
     if (requestBody["NudgeTime"].length > 0)
-      updateFields.push("NudgeTime='" + requestBody["NudgeTime"] + "'");
+      updateFields["NudgeTime"] = requestBody["NudgeTime"]
     else {
       requestOK = false;
       errorDescription += "NudgeTime is empty. ";
@@ -159,7 +162,7 @@ app.post("/update", async (req, res) => {
   //Goal
   if (typeof requestBody["GoalInMinutes"] !== "undefined")
     if (isNaN(parseInt(requestBody["GoalInMinutes"]))==false)
-      updateFields.push("GoalInMinutes=" + parseInt(requestBody["GoalInMinutes"]));
+      updateFields["GoalInMinutes"]  = parseInt(requestBody["GoalInMinutes"])
     else {
       requestOK = false;
       errorDescription += "GoalInMinutes must be a number. ";
@@ -168,7 +171,7 @@ app.post("/update", async (req, res) => {
   //Unsubscribed/Re-Subscribed
   if (typeof requestBody["IsActive"] !== "undefined")
     if (typeof requestBody["IsActive"] === "boolean")
-      updateFields.push("IsActive=" + requestBody["IsActive"]);
+      updateFields["IsActive"]  = requestBody["IsActive"]
     else {
       requestOK = false;
       errorDescription += "isactive is not a boolean value. ";
@@ -177,7 +180,7 @@ app.post("/update", async (req, res) => {
   //Excluded
   if (typeof requestBody["Excluded"] !== "undefined")
     if (typeof requestBody["Excluded"] === "boolean")
-      updateFields.push("Excluded=" + requestBody["Excluded"]);
+      updateFields["Excluded"]  = requestBody["Excluded"]
     else {
       requestOK = false;
       errorDescription += "Excluded is not a boolean value. ";
@@ -185,7 +188,7 @@ app.post("/update", async (req, res) => {
 
   if (typeof requestBody["GlificID"] !== "undefined")
     if (!isNaN(parseInt(requestBody["GlificID"])))
-      updateFields.push("GlificID=" + requestBody["GlificID"]);
+      updateFields["GlificID"]  = requestBody["GlificID"]
     else {
       requestOK = false;
       errorDescription += "GlificID is not a number. ";
@@ -194,7 +197,7 @@ app.post("/update", async (req, res) => {
   //EnglishProficiency
   if (typeof requestBody["EnglishProficiency"] !== "undefined")
     if (requestBody["EnglishProficiency"] == null) {
-      updateFields.push("EnglishProficiency=null");
+      updateFields["EnglishProficiency"]=null
     } 
     else if (requestBody["EnglishProficiency"].length > 0)
       if (
@@ -202,9 +205,7 @@ app.post("/update", async (req, res) => {
           requestBody["EnglishProficiency"]
         )
       )
-        updateFields.push(
-          "EnglishProficiency='" + requestBody["EnglishProficiency"] + "'"
-        );
+        updateFields["EnglishProficiency"] = requestBody["EnglishProficiency"]
       else if(!requestBody["EnglishProficiency"].startsWith("@result")){
         requestOK = false;
         errorDescription +=
@@ -222,10 +223,8 @@ app.post("/update", async (req, res) => {
         errorDescription +=
           "OnboardingStep is required along with OnboardingComplete status.";
       } else {
-        updateFields.push(
-          "OnboardingComplete=" + requestBody["OnboardingComplete"]
-        );
-        updateFields.push("OnboardingStep=" + requestBody["OnboardingStep"]);
+        updateFields["OnboardingComplete"]  = requestBody["OnboardingComplete"]
+        updateFields["OnboardingStep"]  = requestBody["OnboardingStep"]
       }
     } else {
       requestOK = false;
@@ -236,7 +235,7 @@ app.post("/update", async (req, res) => {
   //Update SourcingChannel
   if (typeof requestBody["SourcingChannel"] !== "undefined")
     if (requestBody["SourcingChannel"].length > 0)
-      updateFields.push("SourcingChannel='" + requestBody["SourcingChannel"] + "'");
+      updateFields["SourcingChannel"] = requestBody["SourcingChannel"]
     else {
       requestOK = false;
       errorDescription += "SourcingChannel is empty. ";
@@ -260,7 +259,7 @@ app.post("/update", async (req, res) => {
           ("0" + currentDate.getMinutes()).slice(-2) +
           ":" +
           ("0" + currentDate.getSeconds()).slice(-2);
-        updateFields.push("RegisteredTime='" + regDate + "'");
+        updateFields["RegisteredTime"] = regDate
       }
     }
     else {
@@ -271,7 +270,7 @@ app.post("/update", async (req, res) => {
 
 
   //Final fields to update
-  console.info((new Date()).toString()+"|"+prependToLog,"Final fields to update: " + updateFields.join(","));
+  console.info((new Date()).toString()+"|"+prependToLog,"Final fields to update: " + updateFields);
   if (requestOK == false) {
     console.info((new Date()).toString()+"|"+prependToLog,"Issue with request: ", errorDescription);
     responseJSON["ErrorDescription"] = errorDescription;
@@ -284,20 +283,31 @@ app.post("/update", async (req, res) => {
     res.status(200).json(responseJSON);
   } else {
     //Update consent
-    let query =
-      "UPDATE Users SET " +
-      updateFields.join(",") +
-      " where Mobile='" +
-      mobile +
-      "'";
-    console.info((new Date()).toString()+"|"+prependToLog,"Query : " + query);
-    //Execute Query
-    let zcqlQuestions = zcql.executeZCQLQuery(query);
+    // let query =
+    //   "UPDATE Users SET " +
+    //   updateFields.join(",") +
+    //   " where Mobile='" +
+    //   mobile +
+    //   "'";
+    // console.info((new Date()).toString()+"|"+prependToLog,"Query : " + query);
+    // //Execute Query
+    // let zcqlQuestions = zcql.executeZCQLQuery(query);
 
-    zcqlQuestions
+    // zcqlQuestions
+    User.findOneAndUpdate(
+      { Mobile: mobile },
+      { $set: updateFields },
+      { new: true })
       .then((questionQueryResult) => {
+        console.info((new Date()).toString()+"|"+prependToLog,'questionQueryResult+++++++++',questionQueryResult);
         //If there is no record, then the mobile number does not exist in system. Return error
-        if (questionQueryResult.length == 0) {
+        if (questionQueryResult == null) {
+          //Send the response
+          responseJSON["OperationStatus"] = "USER_NOT_FOUND";
+          console.info((new Date()).toString()+"|"+prependToLog,"USER_NOT_FOUND ERROR");
+          res.status(200).json(responseJSON);
+        }
+        else if (questionQueryResult.length == 0) {
           //Send the response
           responseJSON["OperationStatus"] = "USER_NOT_FOUND";
           console.info((new Date()).toString()+"|"+prependToLog,"USER_NOT_FOUND ERROR");
@@ -311,7 +321,7 @@ app.post("/update", async (req, res) => {
           res.status(200).json(responseJSON);
         } else {
           responseJSON["OperationStatus"] = "SUCCESS";
-          responseJSON["UserROWID"] = questionQueryResult[0]["Users"]["ROWID"];
+          responseJSON["UserROWID"] = questionQueryResult._id;
           console.info((new Date()).toString()+"|"+prependToLog,
             "Updated User Record - " + JSON.stringify(questionQueryResult)
           );
@@ -326,7 +336,7 @@ app.post("/update", async (req, res) => {
 });
 
 app.post("/search", (req, res) => {
-  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+  //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
   const executionID = Math.random().toString(36).slice(2)
     
@@ -343,21 +353,28 @@ app.post("/search", (req, res) => {
   console.info((new Date()).toString()+"|"+prependToLog,"User Mobile Number: " + mobile);
 
   //Initialze ZCQL
-  let zcql = catalystApp.zcql();
+  //let zcql = catalystApp.zcql();
 
   //Update consent
-  let query =
-    "Select ROWID, IsActive from User where Mobile='" +
-    mobile +
-    "' and isActive=true";
-  console.info((new Date()).toString()+"|"+prependToLog,"Query : " + query);
-  //Execute Query
-  let zcqlQuestions = zcql.executeZCQLQuery(query);
+  // let query =
+  //   "Select ROWID, IsActive from User where Mobile='" +
+  //   mobile +
+  //   "' and isActive=true";
+  // console.info((new Date()).toString()+"|"+prependToLog,"Query : " + query);
+  // //Execute Query
+  // let zcqlQuestions = zcql.executeZCQLQuery(query);
   var responseJSON = {};
-  zcqlQuestions
+  User.findOne({ Mobile: mobile, IsActive: true }).select('ROWID IsActive')
     .then((questionQueryResult) => {
+      console.info((new Date()).toString()+"|"+prependToLog,"+++++++++++++",questionQueryResult);
       //If there is no record, then the mobile number does not exist in system. Return error
-      if (questionQueryResult.length == 0) {
+      if (questionQueryResult ==null){
+        //Send the response
+        responseJSON["OperationStatus"] = "USER_NOT_FOUND";
+        console.info((new Date()).toString()+"|"+prependToLog,"USER_NOT_FOUND ERROR");
+        res.status(200).json(responseJSON);
+      }
+      else if (questionQueryResult.length == 0) {
         //Send the response
         responseJSON["OperationStatus"] = "USER_NOT_FOUND";
         console.info((new Date()).toString()+"|"+prependToLog,"USER_NOT_FOUND ERROR");
@@ -377,7 +394,7 @@ app.post("/search", (req, res) => {
 });
 
 app.post("/searchfield", (req, res) => {
-  let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+  //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
 
   const executionID = Math.random().toString(36).slice(2)
     
@@ -399,20 +416,24 @@ app.post("/searchfield", (req, res) => {
   }
   console.info((new Date()).toString()+"|"+prependToLog,"Field Array: " + fields);
   //Initialze ZCQL
-  let zcql = catalystApp.zcql();
+  //let zcql = catalystApp.zcql();
 
   //Update consent
-  let query =
-    "Select ROWID, " +
-    fields.join(", ") +
-    " from Users where Mobile='" +
-    mobile +
-    "' and IsActive=true";
-  console.info((new Date()).toString()+"|"+prependToLog,"Query : " + query);
-  //Execute Query
-  let zcqlQuestions = zcql.executeZCQLQuery(query);
+  // let query =
+  //   "Select ROWID, " +
+  //   fields.join(", ") +
+  //   " from Users where Mobile='" +
+  //   mobile +
+  //   "' and IsActive=true";
+  // console.info((new Date()).toString()+"|"+prependToLog,"Query : " + query);
+  // //Execute Query
+  // let zcqlQuestions = zcql.executeZCQLQuery(query);
   var responseJSON = {};
-  zcqlQuestions
+  // zcqlQuestions
+  const selectFields = ['ROWID', ...fields];
+  User.findOne(
+    { Mobile: mobile, IsActive: true },
+    selectFields.join(' '))
     .then((questionQueryResult) => {
       //If there is no record, then the mobile number does not exist in system. Return error
       if (questionQueryResult.length == 0) {
@@ -468,18 +489,19 @@ app.post("/createuserdata", (req, res) => {
 		res.status(500).send(err);
 	})*/
   let validateUserDataRequest = require("./common/validateUserDataRequest.js");
-  validateUserDataRequest(requestBody)
+  validateUserDataRequest({...requestBody,"ExecutonID":executionID})
     .then((validationResultString) => {
       const validationResult = JSON.parse(validationResultString);
       if (validationResult["OperationStatus"] == "SUCCESS") {
         console.info((new Date()).toString()+"|"+prependToLog,"Validated Request");
-        searchUserbyMobile(requestBody)
+        searchUserbyMobile({...requestBody,"ExecutonID":executionID})
           .then((userROWIDResultString) => {
             const userROWIDResult = JSON.parse(userROWIDResultString);
             if (userROWIDResult["OperationStatus"] == "SUCCESS") {
               console.info((new Date()).toString()+"|"+prependToLog,"User ROWID Retrieved");
               var argument = requestBody;
               argument["UserROWID"] = userROWIDResult["UserROWID"];
+              argument["ExecutionID"] = executionID
               addUserData(argument)
                 .then((userDataResultString) => {
                   const userDataResult = JSON.parse(userDataResultString);

@@ -1,9 +1,9 @@
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 
 module.exports = async (basicIO) => {
   const env = process.env.CATALYST_USER_ENVIRONMENT;
-  const catalystApp = catalyst.initialize();
+  //const catalystApp = catalyst.initialize();
   const executionID = (typeof basicIO['executionID'] === 'undefined') ? Math.random().toString(36).slice(2) : basicIO['executionID']
 
 	//Prepare text to prepend with logs

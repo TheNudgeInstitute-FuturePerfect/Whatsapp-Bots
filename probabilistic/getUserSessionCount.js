@@ -2,8 +2,16 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
+const SessionEvents = require("./models/SessionEvents.js");
+const Session = require("./models/Sessions.js");
+const SystemPrompt = require("./models/SystemPrompts.js");
+const User = require("./models/Users.js");
+const UserAssessmentLog = require("./models/UserAssessmentLogs.js");
+const mongoose = require('mongoose');
+const ObjectId = mongoose.Types.ObjectId;
+
 // const app = express();
 // app.use(express.json());
 const app = express.Router();
@@ -13,34 +21,14 @@ const unique = (value, index, self) => {
   return self.indexOf(value) === index;
 };
 
-const getAllRows = (fields,query,zcql,prependToLog,dataLimit) => {
-	return new Promise(async (resolve) => {			
-		var jsonReport = []
-		const dataQuery = query.replace("{}",fields)
-		const lmt = dataLimit ? dataLimit : 300
-		var i = 1
-		while(true){
-			query = dataQuery+" LIMIT "+i+", "+lmt
-			console.info((new Date()).toString()+"|"+prependToLog,'Fetching records from '+i+" to "+(i+300-1)+
-						'\nQuery: '+query)
-			const queryResult = await zcql.executeZCQLQuery(query)
-			console.info((new Date()).toString()+"|"+prependToLog,queryResult.length)
-			if((queryResult.length == 0)||(!Array.isArray(queryResult))){
-				if(!Array.isArray(queryResult))
-					console.info((new Date()).toString()+"|"+prependToLog,"Error in query - ",queryResult)
-				break;
-			}
-			jsonReport = jsonReport.concat(queryResult)					
-			i=i+300
-		}
-		resolve(jsonReport)
-	})
+const getYYYYMMDDDate = (date) => {
+	return date.getFullYear()+"-"+('0'+(date.getMonth()+1)).slice(-2)+"-"+('0'+date.getDate()).slice(-2)
 }
 
 app.post("/totalsessions", (req, res) => {
     let startTimeStamp = new Date();
-    let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
-    let zcql = catalystApp.zcql()
+    //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+    //let zcql = catalystApp.zcql()
     const requestBody = req.body;
  
     const executionID = Math.random().toString(36).slice(2)
@@ -53,20 +41,69 @@ app.post("/totalsessions", (req, res) => {
     const systemPromptROWID = requestBody["TopicID"] ? ((requestBody["TopicID"].startsWith("@result")||requestBody["TopicID"].startsWith("@contact")) ? null : requestBody["TopicID"]):null
     const game = requestBody["Game"] ? ((requestBody["Game"].startsWith("@result")||requestBody["Game"].startsWith("@contact")) ? null : requestBody["Game"]):null
         
-    let query = "Select {} from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID where Sessions.Mobile = "+mobile
-    const sessionQuery = getAllRows("distinct SystemPrompts.Module, SystemPrompts.Name, SystemPrompts.Persona, Sessions.SystemPromptsROWID, Sessions.SessionID, Sessions.IsActive, Sessions.CREATEDTIME",query,zcql,prependToLog)
-    const learningQuery = "Select {} from UserAssessmentLogs left join Users on Users.ROWID = UserAssessmentLogs.UserROWID where Users.Mobile = "+mobile
-    const userAssessmentQuery = getAllRows("distinct ROWID, IsAssessmentComplete",learningQuery,zcql,prependToLog)
+    // let query = "Select {} from Sessions left join SystemPrompts on SystemPrompts.ROWID = Sessions.SystemPromptsROWID where Sessions.Mobile = "+mobile
+    // const sessionQuery = getAllRows("distinct SystemPrompts.Module, SystemPrompts.Name, SystemPrompts.Persona, Sessions.SystemPromptsROWID, Sessions.SessionID, Sessions.IsActive, Sessions.CREATEDTIME",query,zcql,prependToLog)
+    const sessionQuery = Session.aggregate([
+      {
+        $match:{ 
+          Mobile: mobile.toString()
+        }
+      },
+      {
+        $lookup:{
+          from:'systemprompts',
+          localField:'SystemPromptsROWID',
+          foreignField:'_id',
+          as:'SystemPrompts'
+        }
+      },
+      {
+        $unwind:{
+          path:'$SystemPrompts',
+          preserveNullAndEmptyArrays:true
+        }
+      }
+    ])
+    // const learningQuery = "Select {} from UserAssessmentLogs left join Users on Users.ROWID = UserAssessmentLogs.UserROWID where Users.Mobile = "+mobile
+    // const userAssessmentQuery = getAllRows("distinct ROWID, IsAssessmentComplete",learningQuery,zcql,prependToLog)
+    const userAssessmentQuery = UserAssessmentLog.aggregate([
+      {
+        $lookup: {
+          from: "users", // Name of the collection to join with
+          localField: 'UserROWID',
+          foreignField: '_id',
+          as: 'user'
+        }
+      },
+      {
+        $unwind: {
+          path:'$user',
+          preserveNullAndEmptyArrays:true
+        }
+      },
+      {
+        $match: {
+          'user.Mobile': parseInt(mobile)
+        }
+      }/*,
+      {
+        $project: {
+          _id: 0,
+          'UserAssessmentLogs._id': 1,
+          'UserAssessmentLogs.IsAssessmentComplete': 1
+        }
+      }*/
+    ]);
     const axios = require("axios");
     const gameQuery = axios.get(process.env.WordleReportURL+mobile)
-    const learningStartQuery = "Select {} from SessionEvents where Event = 'Learn Session Start' and Mobile = "+mobile
-    const runLearningStartQuery = getAllRows("distinct ROWID",learningStartQuery,zcql,prependToLog)
-    const systemPromptQuery = "Select {} from SystemPrompts where ROWID = "+systemPromptROWID
-    const runSystemPromptQuery = getAllRows("Module, Name, Persona",systemPromptQuery,zcql,prependToLog)
-    
+    const learningStartQuery = {Event:'Learn Session Start',Mobile:mobile} //"Select {} from SessionEvents where Event = 'Learn Session Start' and Mobile = "+mobile
+    const runLearningStartQuery = SessionEvents.find(learningStartQuery)//getAllRows("distinct ROWID",learningStartQuery,zcql,prependToLog)
+    const systemPromptQuery = systemPromptROWID == null ? {} : {_id:systemPromptROWID} //"Select {} from SystemPrompts where ROWID = "+systemPromptROWID
+    const runSystemPromptQuery = SystemPrompt.find(systemPromptQuery) //getAllRows("Module, Name, Persona",systemPromptQuery,zcql,prependToLog)
 
     Promise.all([sessionQuery,userAssessmentQuery,gameQuery,runLearningStartQuery, runSystemPromptQuery])
-    .then(([userSessions,userAssessmentLogs,wordleAttempts,learningStart,systemPromptQueryResult])=>{
+    .then(async ([userSessions,userAssessmentLogs,wordleAttempts,learningStart,systemPromptQueryResult])=>{
+        //userSessions = await Session.find({ _id: { $in: userSessions } });
         if(!Array.isArray(userSessions))
           throw new Error(userSessions)
         else if(!Array.isArray(userAssessmentLogs))
@@ -79,13 +116,13 @@ app.post("/totalsessions", (req, res) => {
           const sessions = userSessions.filter(
             (data) =>
               !(
-                data.Sessions.SessionID.endsWith("Hint") ||
-                data.Sessions.SessionID.endsWith("Translation") ||
-                data.Sessions.SessionID.endsWith("ObjectiveFeedback") ||
-                data.Sessions.SessionID.startsWith("Onboarding") ||
-                data.Sessions.SessionID.endsWith("Onboarding") ||
-                data.Sessions.SessionID.startsWith("onboarding") ||
-                data.Sessions.SessionID.endsWith("onboarding")
+                data.SessionID.endsWith("Hint") ||
+                data.SessionID.endsWith("Translation") ||
+                data.SessionID.endsWith("ObjectiveFeedback") ||
+                data.SessionID.startsWith("Onboarding") ||
+                data.SessionID.endsWith("Onboarding") ||
+                data.SessionID.startsWith("onboarding") ||
+                data.SessionID.endsWith("onboarding")
               )
           );
           console.info((new Date()).toString()+"|"+prependToLog,"Fetched Conversation Data. Total Records: ",sessions.length)
@@ -101,24 +138,24 @@ app.post("/totalsessions", (req, res) => {
           }
           else{
               //All Conversations Started
-              responseObject['TotalConvesationSessions']=sessions.map(data=>data.Sessions.SessionID).filter(unique).length
+              responseObject['TotalConvesationSessions']=sessions.map(data=>data.SessionID).filter(unique).length
               //All Conversations Completed
-              responseObject['TotalConvesationSessionsCompleted']=responseObject['TotalConvesationSessions'] - sessions.filter(data=>data.Sessions.IsActive==true).map(data=>data.Sessions.SessionID).filter(unique).length
+              responseObject['TotalConvesationSessionsCompleted']=responseObject['TotalConvesationSessions'] - sessions.filter(data=>data.IsActive==true).map(data=>data.SessionID).filter(unique).length
               //All Quiz Sesssions Completed
               responseObject['TotalLearningSessions']=userAssessmentLogs.length
               //All Learning Sesssions Complered
               responseObject['TotalLearningSessionsStarted'] = learningStart.length
               //All Learning/Quiz Sesssions Completed
-              responseObject['TotalLearningSessionsCompleted']=userAssessmentLogs.filter(data=>data.UserAssessmentLogs.IsAssessmentComplete==true).length
+              responseObject['TotalLearningSessionsCompleted']=userAssessmentLogs.filter(data=>data.IsAssessmentComplete==true).length
               //All Game Sessions Started
               responseObject['TotalGameSessions']=wordleAttemptsReport.length
               //All Game Sessions Completed
               responseObject['TotalGameSessionsCompleted']=wordleAttemptsReport.filter(data=>data.CompletedWordle=="Yes").length
               //Getting Persona, Topic and Module Started and Completed
               if((systemPromptROWID != null)&&(sessions.length>0)){
-                let personaSessions = sessions.filter(data=>data.Sessions.SystemPromptsROWID==systemPromptROWID)
+                let personaSessions = sessions.filter(data=>data.SystemPromptsROWID==systemPromptROWID)
                 if(personaSessions.length==0){
-                  responseObject['Persona'] = systemPromptQueryResult[0]['SystemPrompts']['Persona']
+                  responseObject['Persona'] = systemPromptQueryResult[0]['Persona']
                   responseObject['TotalPersonaSessionsStarted'] = 0
                   responseObject['TotalPersonaSessionsCompleted'] = 0
                   responseObject['TotalDaysPersonaPracticed'] = 0
@@ -126,19 +163,19 @@ app.post("/totalsessions", (req, res) => {
                 }
                 else{
                   responseObject['Persona'] = personaSessions[0]['SystemPrompts']['Persona']
-                  responseObject['TotalPersonaSessionsStarted'] = personaSessions.map(data=>data.Sessions.SessionID).filter(unique).length
-                  responseObject['TotalPersonaSessionsCompleted'] = responseObject['TotalPersonaSessionsStarted'] - personaSessions.filter(data=>data.Sessions.IsActive==true).map(data=>data.Sessions.SessionID).filter(unique).length
-                  responseObject['TotalDaysPersonaPracticed'] = personaSessions.map(data=>data.Sessions.CREATEDTIME.toString().slice(0,10)).filter(unique).length
+                  responseObject['TotalPersonaSessionsStarted'] = personaSessions.map(data=>data.SessionID).filter(unique).length
+                  responseObject['TotalPersonaSessionsCompleted'] = responseObject['TotalPersonaSessionsStarted'] - personaSessions.filter(data=>data.IsActive==true).map(data=>data.SessionID).filter(unique).length
+                  responseObject['TotalDaysPersonaPracticed'] = personaSessions.map(data=>getYYYYMMDDDate(data.CREATEDTIME)).filter(unique).length
                 }
-                const topic = systemPromptQueryResult[0]['SystemPrompts']['Name']
-                const module = systemPromptQueryResult[0]['SystemPrompts']['Module']
+                const topic = systemPromptQueryResult[0]['Name']
+                const module = systemPromptQueryResult[0]['Module']
                 personaSessions = sessions.filter(data=>data.SystemPrompts.Name==topic)
                 responseObject['Topic'] = topic
                 responseObject['Module'] = module
                 if(personaSessions.length>0){
-                  responseObject['TotalTopicSessionsStarted'] = personaSessions.map(data=>data.Sessions.SessionID).filter(unique).length
-                  responseObject['TotalTopicSessionsCompleted'] = responseObject['TotalTopicSessionsStarted'] - personaSessions.filter(data=>data.Sessions.IsActive==true).map(data=>data.Sessions.SessionID).filter(unique).length
-                  responseObject['TotalDaysTopicPracticed'] = personaSessions.map(data=>data.Sessions.CREATEDTIME.toString().slice(0,10)).filter(unique).length
+                  responseObject['TotalTopicSessionsStarted'] = personaSessions.map(data=>data.SessionID).filter(unique).length
+                  responseObject['TotalTopicSessionsCompleted'] = responseObject['TotalTopicSessionsStarted'] - personaSessions.filter(data=>data.IsActive==true).map(data=>data.SessionID).filter(unique).length
+                  responseObject['TotalDaysTopicPracticed'] = personaSessions.map(data=>getYYYYMMDDDate(data.CREATEDTIME)).filter(unique).length
                 }
                 else{
                   responseObject['TotalTopicSessionsStarted'] = 0
@@ -147,9 +184,9 @@ app.post("/totalsessions", (req, res) => {
                 }
                 personaSessions = sessions.filter(data=>data.SystemPrompts.Module==module)
                 if(personaSessions.length>0){
-                  responseObject['TotalModuleSessionsStarted'] = personaSessions.map(data=>data.Sessions.SessionID).filter(unique).length
-                  responseObject['TotalModuleSessionsCompleted'] = responseObject['TotalModuleSessionsStarted'] - personaSessions.filter(data=>data.Sessions.IsActive==true).map(data=>data.Sessions.SessionID).filter(unique).length
-                  responseObject['TotalDaysModulePracticed'] = personaSessions.map(data=>data.Sessions.CREATEDTIME.toString().slice(0,10)).filter(unique).length
+                  responseObject['TotalModuleSessionsStarted'] = personaSessions.map(data=>data.SessionID).filter(unique).length
+                  responseObject['TotalModuleSessionsCompleted'] = responseObject['TotalModuleSessionsStarted'] - personaSessions.filter(data=>data.IsActive==true).map(data=>data.SessionID).filter(unique).length
+                  responseObject['TotalDaysModulePracticed'] = personaSessions.map(data=>getYYYYMMDDDate(data.CREATEDTIME)).filter(unique).length
                 }
                 else{
                   responseObject['TotalModuleSessionsStarted'] = 0

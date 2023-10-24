@@ -1,6 +1,7 @@
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const applicationConfig = require("./../models/applicationConfigs.js")
+const _retry = require("async-retry");
 
 module.exports = async (basicIO) => {
     
@@ -68,7 +69,60 @@ module.exports = async (basicIO) => {
         const appConfig = await applicationConfig.find({AppName:"STTConfig"}).sort({"id":'descending'})
         const config = appConfig[0]["Config"]
         console.info((new Date()).toString()+"|"+prependToLog,"STTProvider:"+config.Provider)
-        if(config.Provider=='Bhashini'){
+        const retryOptions = {
+          retries: parseInt(process.env.MaxAttempts),
+          minTimeout: 1000,
+          maxTimeout: 60000,
+          randomize: true,
+        };      
+        if(config.Provider=='Whisper'){
+          let whisperConfig = config['Whisper']
+          
+          //const fileBuferBase64 = Buffer.from(fileBuffer,'binary').toString('base64')
+          const fs = require('fs')
+          const urlTokens = responseAVURL.split("/")
+          const tempFile = './probabilistic/tmp/'+urlTokens[urlTokens.length-1]
+          console.info((new Date()).toString()+"|"+prependToLog,"Storing audio file temporarily for processing: "+tempFile)
+          fs.open(tempFile, 'w', function(err, fd) {
+            if (err) {
+                throw 'could not open file: ' + err;
+            }
+        
+            // write the contents of the buffer, from position 0 to the end, to the file descriptor returned in opening our file
+            fs.write(fd, fileBuffer, 0, fileBuffer.length, null, function(err) {
+                if (err) throw 'error writing file: ' + err;
+                fs.close(fd, function() {
+                  console.info((new Date()).toString()+"|"+prependToLog,'Stored temp file: '+tempFile);
+                });
+            });
+          });
+          console.info((new Date()).toString()+"|"+prependToLog,"Initialize ChatGPT Object")
+          const OpenAI = require("openai");
+          const openai = new OpenAI({
+            apiKey: process.env.openAIKey
+          });
+ 
+          // Send request to ChatGPT
+          console.info((new Date()).toString()+"|"+prependToLog,"Request Sent to OpenAI for Transcription")
+          const chatGPTResponse = await _retry(async () => {
+              return await openai.audio.transcriptions.create({
+                  model: whisperConfig["model"],
+                  file: fs.createReadStream(tempFile),
+                  //prompt:whisperConfig["content"],
+                  temperature:whisperConfig["temperature"]
+              });
+          }, retryOptions);
+          // Read ChatGPT's Response
+          const reply = chatGPTResponse.text;
+          console.debug((new Date()).toString()+"|"+prependToLog,"Reply received from Chat GPT. Deleting temp audio file: "+tempFile)
+          responseJSON["OperationStatus"] = "SUCCESS";
+          responseJSON["AudioTranscript"] = reply
+          responseJSON["Confidence"] = null;
+          console.info((new Date()).toString()+"|"+prependToLog,"Returned: ", responseJSON);
+          fs.unlinkSync(tempFile)
+          return JSON.stringify(responseJSON);
+        }
+        else if(config.Provider=='Bhashini'){
           let bhashiniConfig = config['Bhashini']
           const axios = require("axios")
           try{
