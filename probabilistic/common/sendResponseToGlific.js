@@ -131,12 +131,20 @@ module.exports = async (basicIO) => {
               const elementResumeFlow = elementData.resumeContactFlow;
               const elementErrors = elementResumeFlow.errors;
               if (elementErrors != null) {
-                console.info((new Date()).toString()+"|"+prependToLog,
-                  "Error returned by Glific API " +
-                    JSON.stringify(resumeFlowResponse)
-                );
-                responseJSON["OperationStatus"] = "GLFC_API_ERR";
-                responseJSON["ErrorDescription"] = elementErrors;
+                //If there are no flows awaiting response for the user, return success
+                if(elementErrors[0]["message"].includes("does not have any active flows awaiting results")){
+                  console.info((new Date()).toString()+"|"+prependToLog,elementErrors[0]["message"]);
+                  responseJSON["OperationStatus"] = "SUCCESS";
+                  responseJSON["ErrorDescription"] = elementErrors;
+                }
+                else{
+                  console.info((new Date()).toString()+"|"+prependToLog,
+                    "Error returned by Glific API " +
+                      JSON.stringify(resumeFlowResponse)
+                  );
+                  responseJSON["OperationStatus"] = "GLFC_API_ERR";
+                  responseJSON["ErrorDescription"] = elementErrors;
+                }
                 return JSON.stringify(responseJSON);
               } else {
                 console.info((new Date()).toString()+"|"+prependToLog,"Successfully resumed flow in Glific");

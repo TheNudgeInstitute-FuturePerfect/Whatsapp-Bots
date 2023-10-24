@@ -169,8 +169,13 @@ app.post("/chatgpt", async (request, response) => {
     let tempId = systemPromptsResult[0]._id
     systemPromptROWID = tempId;
     systemPrompt = systemPromptsResult[0].Content;
-  } else {
-    response.status(500).json("Encountered error in executing query");
+  } else if (systemPromptsResult > 0) {
+    console.info((new Date()).toString()+"|"+prependToLog,"systemPromptsResult", systemPromptsResult);
+    let tempId = systemPromptsResult[0]._id
+    systemPromptROWID = tempId;
+    systemPrompt = systemPromptsResult[0].Content;
+  } else{
+    response.status(500).json("Encountered error in executing query for SystemPrompts:"+JSON.stringify(filterParams));
   }
 
   console.info((new Date()).toString()+"|"+prependToLog,"systemPromptROWID: " + systemPromptROWID);

@@ -471,8 +471,7 @@ app.post("/goalachievementcalendar", (req, res) => {
               }
               console.info((new Date()).toString()+"|"+prependToLog,"Fetched Flow QuestionAnswer TimeStamps:",practiceDates)
 
-              practiceDates = practiceDates.map(record=>new Date(record))
-              practiceDates.sort((date1, date2) => date1 - date2)
+              practiceDates = practiceDates.map(record=>new Date(record)).filter(record=>record >= (new Date(monthStart))).sort((date1, date2) => date1 - date2)
               console.info((new Date()).toString()+"|"+prependToLog,"Final TimeStamps:",practiceDates)
                 
               //For each day in current month
