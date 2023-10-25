@@ -1,5 +1,6 @@
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
+const Configuration = require(".././models/Configurations.js");
 
 module.exports = async (basicIO) => {
 	/*
@@ -13,7 +14,7 @@ module.exports = async (basicIO) => {
 		}
 	*/
 
-	const catalystApp = catalyst.initialize();
+	//const catalystApp = catalyst.initialize();
 
 	const executionID = Math.random().toString(36).slice(2)
 
@@ -27,19 +28,26 @@ module.exports = async (basicIO) => {
 	var result = {
 		OperationStatus : "SUCCESS"
 	}
-
+	let searchQuery = null
 	//var searchQuery = "select distinct Name, Description, Assessments.Assessment from Configurations left join Assessments on Configurations.AssessmentROWID = Assessments.ROWID"
-	var searchQuery = "select distinct SystemPromptROWID, Name, Description from Configurations"
-	let zcql = catalystApp.zcql()
+	// var searchQuery = "select distinct SystemPromptROWID, Name, Description from Configurations"
+	// let zcql = catalystApp.zcql()
 	try {
-       const searchQueryResult = await zcql.executeZCQLQuery(searchQuery);
+    //    const searchQueryResult = await zcql.executeZCQLQuery(searchQuery);
+		const distinctConfigurations = await Configuration.distinct(
+			'SystemPromptROWID',
+			{},
+			{ lean: true }
+		);
+		searchQuery = { SystemPromptROWID: { $in: distinctConfigurations } }
+	    const searchQueryResult = await Configuration.find(searchQuery,'SystemPromptROWID Name Description');
 	   if(searchQueryResult.length > 0){
 		result['OperationStatus']="SUCCESS"
 		result['Values'] = searchQueryResult.map(data => {
 			return {
-					Name: decodeURI(data.Configurations.Name),
-					Description: decodeURI(data.Configurations.Description),
-					TopicID: data.Configurations.SystemPromptROWID
+					Name: decodeURI(data.Name),
+					Description: decodeURI(data.Description),
+					TopicID: data.SystemPromptROWID
 				}
 			})		
 		}

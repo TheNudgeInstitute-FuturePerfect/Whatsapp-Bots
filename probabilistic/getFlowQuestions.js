@@ -2,10 +2,11 @@
 
 const express = require("express");
 // const catalyst = require('zcatalyst-sdk-node');
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
 const sendResponseToGlific = require("./common/sendResponseToGlific.js");
 const flowQuestions = require("./models/flowQuestions.js");
 const userFlowQuestionLogs = require("./models/userFlowQuestionLogs.js");
+const users = require("./models/Users.js");
 // const app = express();
 // app.use(express.json());
 const bodyParser = require('body-parser')
@@ -45,7 +46,7 @@ const sendResponse = (prependToLog,responseJSON,startTimeStamp,requestBody,res) 
                 }),
             })
             .then((glificResponse) => {})
-            .catch((err) => console.log("Error returned from Glific: ", err));
+            .catch((err) => console.info((new Date()).toString()+"|"+prependToLog,"Error returned from Glific: ", err));
     }
     return true
 }
@@ -168,7 +169,7 @@ app.post("/closesession", (req, res) => {
 app.post("/", (req, res) => {
     
     let startTimeStamp = new Date();
-    let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+    //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
     
     const requestBody = req.body;
  
@@ -202,14 +203,18 @@ app.post("/", (req, res) => {
 		
 		//Question Number
 		var qNo = 0;	
-		let zcql = catalystApp.zcql();
+		//let zcql = catalystApp.zcql();
 
 		//Fetch the User ID from mobile number
-		let query = "SELECT ROWID FROM Users where Mobile='"+mobile+"' and IsActive != false";
+		let query = {
+            Mobile: mobile,
+            IsActive: {$ne:false}
+        }//"SELECT ROWID FROM Users where Mobile='"+mobile+"' and IsActive != false";
 		console.debug((new Date()).toString()+"|"+prependToLog,"Get User Details: "+query);
 		
         //Execute Query
-		zcql.executeZCQLQuery(query)
+		//zcql.executeZCQLQuery(query)
+        users.find(query)
         .then((user) => {
             if(!Array.isArray(user) && (user!=null)){
                 responseJSON['OperationStatus']='FAILED_TO_GET_USER'

@@ -1,0 +1,45 @@
+const { Schema, model } = require("mongoose");
+
+const schema = new Schema({
+  ROWID: {type: Number},
+  CREATORID: {type: Number}, 
+  //CREATEDTIME: {type: Date,default: Date.now},
+  //MODIFIEDTIME: {type: Date,default: Date.now},
+  Mobile: { type: Number },
+  Consent: { type: String },
+  Excluded: { type: String },
+  OnboardingDate: {type: Date},
+  OnboardingVersion: { type: Number },
+  Onboarded: { type: String },
+  DeadlineDate: {type: Date},
+  ReminderTime: { type: String },
+  LastActiveDate: {type: Date},
+  Churned: { type: String },
+  Resurrected: { type: String },
+  ResurrectionDate: {type: Date},
+  RessurectionVersion: { type: Number },
+  CmpltnOnOBDRSDt: { type: String },
+  CmpltnOnOBDDt: { type: String },
+  AttmptOnOBDDt: { type: String },
+  DaysAttmptStrtd: { type: Number },
+  DaysAttmptCmpltd	: { type: Number },
+  TotalActiveDays: { type: Number },
+  TotalTopicsAttempted: { type: Number },
+  TotalTopicsCompleted: { type: Number },
+  DaysAttmptdPstOBDRS: { type: Number },
+  DaysAttmptStrtdPstRS: { type: Number },
+  DaysAttmptCmpltdPstRS: { type: Number },
+  DaysAttmptdPstRS: { type: Number },
+  DaysAttmptStrtdPstOBD: { type: Number },
+  DaysAttmptCmpltdPstOBD: { type: Number },
+  DaysAttmptdPstOBD: { type: Number },
+  Name: { type: String },
+  EnglishProficiency: { type: String },
+  SourcingChannel: { type: String },
+  UserCreatedAt: {type: Date}
+},
+{
+  timestamps: true,
+});
+
+module.exports = model("UsersReport", schema);

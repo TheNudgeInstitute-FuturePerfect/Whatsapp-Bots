@@ -1,12 +1,41 @@
-const catalyst = require("zoho-catalyst-sdk");
+//const catalyst = require("zoho-catalyst-sdk");
+const dotenv = require("dotenv");
+dotenv.config();
 const emojiRegex = require("emoji-regex");
 const mongoose = require("mongoose");
 const userFlowQuestionLogs = require("./../models/userFlowQuestionLogs.js");
 mongoose.connect(process.env.MongoDBConnStrng + "whatsapp-bots", {
   useNewUrlParser: true,
 });
+const SessionEvents = require(".././models/SessionEvents.js");
+const SessionFeedback = require(".././models/SessionFeedback.js");
+const Session = require(".././models/Sessions.js");
+const SystemPrompts = require(".././models/SystemPrompts.js");
+const UsersReport = require(".././models/UsersReport.js");
+const UserSessionAttemptReport = require(".././models/UserSessionAttemptReport.js");
+const Version = require(".././models/versions.js");
 
-const catalystApp = catalyst.initialize();
+const getYYYYMMDDDate = (date) => {
+  return (
+    date.getFullYear() +
+    "-" +
+    ("0" + (date.getMonth() + 1)).slice(-2) +
+    "-" +
+    ("0" + date.getDate()).slice(-2)
+  );
+};
+const getYYYYMMDDHHMMSSDate = (date) => {
+  return (
+    getYYYYMMDDDate(date) +
+    " " +
+    ("0" + date.getHours()).slice(-2) +
+    ":" +
+    ("0" + date.getMinutes()).slice(-2) +
+    ":" +
+    ("0" + date.getSeconds()).slice(-2)
+  );
+};
+//const catalystApp = catalyst.initialize();
 
 const executionID = Math.random().toString(36).slice(2);
 
@@ -27,53 +56,15 @@ const timer = (sleepTime) => {
   });
 };
 
-const getAllRows = (fields, query, zcql, dataLimit) => {
-  return new Promise(async (resolve) => {
-    var jsonReport = [];
-    const dataQuery = query.replace("{}", fields);
-    const lmt = dataLimit ? dataLimit : 300;
-    var i = 1;
-    while (true) {
-      query = dataQuery + " LIMIT " + i + ", " + lmt;
-      console.debug(
-        new Date().toString() + "|" + prependToLog,
-        "Fetching records from " + i + " to " + (i + 300 - 1)
-      ); /* +
-          "\nQuery: " +
-          query
-      );*/
-      var queryResult = [];
-      try {
-        queryResult = await zcql.executeZCQLQuery(query);
-      } catch (err) {
-        console.debug(
-          new Date().toString() + "|" + prependToLog,
-          "Error in Fetching records from " + i + " to " + (i + 300 - 1),
-          err
-        );
-      }
+//let zcql = catalystApp.zcql();
 
-      if((queryResult.length == 0)||(!Array.isArray(queryResult))){
-				if(!Array.isArray(queryResult))
-					console.error((new Date()).toString()+"|"+prependToLog,"Encountered error in executing query:",queryResult)
-				break;
-			}
-			
-      jsonReport = jsonReport.concat(queryResult);
-      i = i + 300;
-    }
-    resolve(jsonReport);
-  });
-};
-
-let zcql = catalystApp.zcql();
-
-let query = "select {} from UserSessionAttemptReport"; // where IsActive = true or IsActive is null"
+//let query = "select {} from UserSessionAttemptReport"; // where IsActive = true or IsActive is null"
+//getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
 console.info(
   new Date().toString() + "|" + prependToLog,
   "Getting UserSessionAttemptReport Data"
 );
-getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
+UserSessionAttemptReport.find({}, "_id SessionID IsActive EndOfSession")
   .then((usersAttemptReport) => {
     console.info(
       new Date().toString() + "|" + prependToLog,
@@ -81,107 +72,118 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
     );
     const currentReport = usersAttemptReport.filter(
       (data) =>
-        data.UserSessionAttemptReport.IsActive == true ||
-        data.UserSessionAttemptReport.IsActive == null ||
-        data.UserSessionAttemptReport.EndOfSession == "No" ||
-        data.UserSessionAttemptReport.EndOfSession == null
+        data.IsActive == true ||
+        data.IsActive == null ||
+        data.EndOfSession == "No" ||
+        data.EndOfSession == null
     );
-    const openSessions = currentReport.map(
-      (data) => data.UserSessionAttemptReport.SessionID
-    );
+    const openSessions = currentReport.map((data) => data.SessionID);
     console.info(
       new Date().toString() + "|" + prependToLog,
       "Total Open Sessions = " + openSessions.length
     );
     const closedReport = usersAttemptReport.filter(
-      (data) =>
-        data.UserSessionAttemptReport.IsActive == false &&
-        data.UserSessionAttemptReport.EndOfSession == "Yes"
+      (data) => data.IsActive == false && data.EndOfSession == "Yes"
     );
-    const closedSessions = closedReport.map(
-      (data) => data.UserSessionAttemptReport.SessionID
-    );
+    const closedSessions = closedReport.map((data) => data.SessionID);
     console.info(
       new Date().toString() + "|" + prependToLog,
       "Total Closed Sessions = " + closedSessions.length
     );
-    query = "select {} from UsersReport";
+    // query = "select {} from UsersReport";
+    //getAllRows("Name, Mobile, OnboardingDate", query, zcql)
     console.info(
       new Date().toString() + "|" + prependToLog,
       "Getting UsersReport Data"
     );
-    getAllRows("Name, Mobile, OnboardingDate", query, zcql)
+    UsersReport.find({}, "Name Mobile OnboardingDate")
       .then((users) => {
         if (users.length > 0) {
-          console.info((new Date()).toString()+"|"+prependToLog,"UsersReport Records:"+users.length)
-          const mobiles = users.map((user) => user.UsersReport.Mobile);
-          query =
-            "Select {} " +
-            "from Sessions " +
-            "left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID " +
-            "where ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null) or (SystemPrompts.Name = 'SLF Doubts')) " + //and SessionID not in ('"+closedSessions.join("','")+"') "+
-            "order by Sessions.CREATEDTIME ASC";
+          console.info(
+            new Date().toString() + "|" + prependToLog,
+            "UsersReport Records:" + users.length
+          );
+          const mobiles = users.map((user) => user.Mobile);
+          // query =
+          //   "Select {} " +
+          //   "from Sessions " +
+          //   "left join SystemPrompts on Sessions.SystemPromptsROWID = SystemPrompts.ROWID " +
+          //   "where ((SystemPrompts.Type = 'Topic Prompt') or (SystemPromptsROWID is null)) " + //and SessionID not in ('"+closedSessions.join("','")+"') "+
+          //   "order by Sessions.CREATEDTIME ASC";
+          // getAllRows(
+          //   "Sessions.IsActive, Sessions.PerformanceReportURL, Sessions.EndOfSession, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.ROWID, SystemPrompts.Name, SystemPrompts.Persona, SystemPrompts.Module, Sessions.Message, Sessions.MessageType, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens",
+          //   query,
+          //   zcql
+          // )
           console.info(
             new Date().toString() + "|" + prependToLog,
             "Getting Sessions Data"
           );
-          getAllRows(
-            "Sessions.IsActive, Sessions.PerformanceReportURL, Sessions.EndOfSession, Sessions.Mobile, Sessions.SessionID, Sessions.CREATEDTIME, Sessions.SystemPromptsROWID, SystemPrompts.ROWID, SystemPrompts.Name, SystemPrompts.Persona, SystemPrompts.Module, Sessions.Message, Sessions.MessageType, Sessions.CompletionTokens, Sessions.PromptTokens, Sessions.SLFCompletionTokens, Sessions.SLFPromptTokens",
-            query,
-            zcql
-          )
+          Session.find()
+            .populate({
+              path: "SystemPromptsROWID",
+              model: SystemPrompts,
+              match: {
+                $or: [{ Type: "Topic Prompt" }, { SystemPromptsROWID: null }],
+              },
+              select: "_id Name Persona Module Type",
+            })
+            .sort({ CREATEDTIME: 1 })
             .then(async (allSessions) => {
-              console.info((new Date()).toString()+"|"+prependToLog,"Session Records:"+allSessions.length)
+              console.info(
+                new Date().toString() + "|" + prependToLog,
+                "Session Records:" + allSessions.length
+              );
               const sessions = allSessions.filter(
                 (data) =>
                   !(
-                    data.Sessions.SessionID.endsWith(" - Translation") ||
-                    data.Sessions.SessionID.endsWith(" - Hints") ||
-                    data.Sessions.SessionID.endsWith(" - ObjectiveFeedback")
+                    data.SessionID.endsWith(" - Translation") ||
+                    data.SessionID.endsWith(" - Hints") ||
+                    data.SessionID.endsWith(" - ObjectiveFeedback")
                   )
               );
               if (sessions.length > 0) {
                 const sessionIDs = sessions
-                  .map((session) => session.Sessions.SessionID)
+                  .map((session) => session.SessionID)
                   .filter(unique);
                 await timer(2000);
-                query = "Select {} from SessionFeedback";
-                //"where SessionID in ('"+sessionIDs.join("','")+"') "+
-                //"order by SessionFeedback.CREATEDTIME ASC"
+                // query = "Select {} from SessionFeedback";
+                // //"where SessionID in ('"+sessionIDs.join("','")+"') "+
+                // //"order by SessionFeedback.CREATEDTIME ASC"
+                // getAllRows(
+                //   "SessionID, Rating, Feedback, FeedbackType, FeedbackURL, GPTRating, GPTFeedback, GPTFeedbackType, GPTFeedbackURL",
+                //   query,
+                //   zcql
+                // )
                 console.info(
                   new Date().toString() + "|" + prependToLog,
                   "Getting Session Feedback Data"
                 );
-                getAllRows(
-                  "SessionID, Rating, Feedback, FeedbackType, FeedbackURL, GPTRating, GPTFeedback, GPTFeedbackType, GPTFeedbackURL",
-                  query,
-                  zcql
-                )
+                SessionFeedback.find()
                   .then((allfeedbacks) => {
                     const feedbacks = allfeedbacks.filter(
                       (data) =>
-                        sessionIDs.includes(data.SessionFeedback.SessionID) &&
-                        (data.SessionFeedback.Feedback == null
+                        sessionIDs.includes(data.SessionID) &&
+                        (data.Feedback == null
                           ? true
-                          : data.SessionFeedback.Feedback.startsWith(
+                          : data.Feedback.startsWith("Overall Game Sessions") ==
+                              false &&
+                            data.Feedback.startsWith("Learnings Started") ==
+                              false) &&
+                        (data.GPTFeedback == null
+                          ? true
+                          : data.GPTFeedback.startsWith(
                               "Overall Game Sessions"
                             ) == false &&
-                            data.SessionFeedback.Feedback.startsWith(
-                              "Learnings Started"
-                            ) == false) &&
-                        (data.SessionFeedback.GPTFeedback == null
-                          ? true
-                          : data.SessionFeedback.GPTFeedback.startsWith(
-                              "Overall Game Sessions"
-                            ) == false &&
-                            data.SessionFeedback.GPTFeedback.startsWith(
-                              "Learnings Started"
-                            ) == false)
+                            data.GPTFeedback.startsWith("Learnings Started") ==
+                              false)
                     );
-                    zcql
-                      .executeZCQLQuery(
-                        "Select Version,StartDate from Versions order by StartDate"
-                      )
+                    // zcql
+                    //   .executeZCQLQuery(
+                    //     "Select Version,StartDate from Versions order by StartDate"
+                    //   )
+                    Version.find()
+                      .sort({ StartDate: 1 })
                       .then(async (versionRecords) => {
                         var versions = [];
                         if (
@@ -195,30 +197,23 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                               var now = new Date();
                               now.setHours(now.getHours() + 5);
                               now.setMinutes(now.getMinutes() + 30);
-                              d["Versions"]["EndDate"] = now;
+                              d["EndDate"] = now;
                             } else
-                              d["Versions"]["EndDate"] =
-                                versionRecords[index + 1]["Versions"][
-                                  "StartDate"
-                                ];
+                              d["EndDate"] =
+                                versionRecords[index + 1]["StartDate"];
                             return d;
                           });
-                        query =
-                          "Select {} from SessionEvents where Event in ('Progress Message - 1','Progress Message - 2','Progress Message - 3','Progress Message - 4','Progress Message - 5','Progress Message - 6','Progress Message - 7','Progress Message - 8')";
+                        // query =
+                        //   "Select {} from SessionEvents where Event in ('Progress Message - 1','Progress Message - 2','Progress Message - 3','Progress Message - 4','Progress Message - 5','Progress Message - 6','Progress Message - 7','Progress Message - 8')";
+                        // getAllRows("distinct SessionID", query, zcql)
 
                         const seriousModeVoiceChallengeSessionIDs = sessions
                           .filter(
                             (data) =>
-                              data.Sessions.SessionID.endsWith(
-                                "Serious Mode"
-                              ) ||
-                              data.Sessions.SessionID.endsWith(
-                                "Voice Challenge"
-                              )
+                              data.SessionID.endsWith("Serious Mode") ||
+                              data.SessionID.endsWith("Voice Challenge")
                           )
-                          .map(
-                            (data) => data.Sessions.SessionID.split(" - ")[0]
-                          )
+                          .map((data) => data.SessionID.split(" - ")[0])
                           .filter(unique);
                         const runUserFlowQuestionLog =
                           userFlowQuestionLogs.find({
@@ -226,25 +221,37 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                               $in: seriousModeVoiceChallengeSessionIDs,
                             },
                           });
+                        const runSessionEventsQuery = SessionEvents.find({
+                          Event: {
+                            $in: [
+                              "Progress Message - 1",
+                              "Progress Message - 2",
+                              "Progress Message - 3",
+                              "Progress Message - 4",
+                              "Progress Message - 5",
+                              "Progress Message - 6",
+                              "Progress Message - 7",
+                              "Progress Message - 8",
+                            ],
+                          },
+                        });
                         console.info(
                           new Date().toString() + "|" + prependToLog,
                           "Getting Session Events Data + Serious Mode and Voice Challenge Data"
                         );
                         Promise.all([
-                          getAllRows("distinct SessionID", query, zcql),
+                          runSessionEventsQuery,
                           runUserFlowQuestionLog,
                         ])
                           .then(async ([allevents, userFlowQuestionLog]) => {
                             const events = allevents.filter((data) =>
-                              sessionIDs.includes(data.SessionEvents.SessionID)
+                              sessionIDs.includes(data.SessionID)
                             );
                             var report = [];
                             const emojiRegEx = emojiRegex();
                             for (var i = 0; i < users.length; i++) {
                               const userSessions = sessions.filter(
-                                (data) =>
-                                  data.Sessions.Mobile ==
-                                  users[i]["UsersReport"]["Mobile"]
+                                (data) => data.Mobile == users[i]["Mobile"]
                               );
                               const userSessionsWC = userSessions.map(
                                 (data) => {
@@ -252,17 +259,16 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                   var msg = "";
                                   try {
                                     msg = decodeURIComponent(
-                                      data["Sessions"]["Message"]
+                                      data["Message"]
                                     ).replace(emojiRegEx, "");
                                   } catch (e) {
-                                    msg = data["Sessions"]["Message"].replace(
+                                    msg = data["Message"].replace(
                                       emojiRegEx,
                                       ""
                                     );
                                   }
-                                  temp["Sessions"]["TotalWords"] =
-                                    data["Sessions"]["MessageType"] ==
-                                    "UserMessage"
+                                  temp["TotalWords"] =
+                                    data["MessageType"] == "UserMessage"
                                       ? msg.split(" ").length
                                       : 0;
                                   return temp;
@@ -270,16 +276,19 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                               );
                               const userSessionsTopics = userSessions.map(
                                 (data) =>
-                                  data.SystemPrompts.Name +
+                                  (data.SystemPromptsROWID
+                                    ? data.SystemPromptsROWID.Name
+                                    : null) +
                                   "-" +
-                                  data.SystemPrompts.ROWID
+                                  (data.SystemPromptsROWID
+                                    ? data.SystemPromptsROWID._id
+                                    : null)
                               );
                               const uniqueTopics =
                                 userSessionsTopics.filter(unique);
                               if (uniqueTopics.length == 0) {
                                 var userReport = {};
-                                userReport["Mobile"] =
-                                  users[i]["UsersReport"]["Mobile"];
+                                userReport["Mobile"] = users[i]["Mobile"];
                                 userReport["Topic"] = "";
                                 userReport["Persona"] = "";
                                 userReport["Module"] = "";
@@ -321,13 +330,17 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                 for (var j = 0; j < uniqueTopics.length; j++) {
                                   const topicSessionsData = userSessions.filter(
                                     (data) =>
-                                      data.SystemPrompts.Name +
+                                      (data.SystemPromptsROWID
+                                        ? data.SystemPromptsROWID.Name
+                                        : null) +
                                         "-" +
-                                        data.SystemPrompts.ROWID ==
+                                        (data.SystemPromptsROWID
+                                          ? data.SystemPromptsROWID._id
+                                          : null) ==
                                       uniqueTopics[j]
                                   );
                                   const topicSessions = topicSessionsData.map(
-                                    (data) => data.Sessions.SessionID
+                                    (data) => data.SessionID
                                   );
                                   const uniqueTopicSessions =
                                     topicSessions.filter(unique);
@@ -338,20 +351,25 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                     k++
                                   ) {
                                     var userReport = {};
-                                    userReport["Mobile"] =
-                                      users[i]["UsersReport"]["Mobile"];
+                                    userReport["Mobile"] = users[i]["Mobile"];
                                     userReport["Topic"] =
                                       uniqueTopics[j] == null
                                         ? ""
                                         : uniqueTopics[j].split("-")[0];
-                                    userReport["Module"] =
-                                      topicSessionsData[0].SystemPrompts.Persona;
+                                    userReport["Module"] = topicSessionsData[0]
+                                      .SystemPromptsROWID
+                                      ? topicSessionsData[0].SystemPromptsROWID
+                                          .Persona
+                                      : null;
                                     userReport["Topic"] =
                                       userReport["Topic"] == null
                                         ? ""
                                         : userReport["Topic"];
-                                    userReport["Persona"] =
-                                      topicSessionsData[0].SystemPrompts.Persona;
+                                    userReport["Persona"] = topicSessionsData[0]
+                                      .SystemPromptsROWID
+                                      ? topicSessionsData[0].SystemPromptsROWID
+                                          .Persona
+                                      : null;
                                     userReport["SessionID"] =
                                       uniqueTopicSessions[k];
                                     //const rowID = currentReport.length == 0 ? null : currentReport.filter(data=>data['UserSessionAttemptReport']['SessionID']==userReport['SessionID'])
@@ -360,26 +378,21 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                         ? null
                                         : usersAttemptReport.filter(
                                             (data) =>
-                                              data["UserSessionAttemptReport"][
-                                                "SessionID"
-                                              ] == userReport["SessionID"]
+                                              data["SessionID"] ==
+                                              userReport["SessionID"]
                                           );
                                     if (rowID != null && rowID.length > 0)
-                                      userReport["ROWID"] =
-                                        rowID[0]["UserSessionAttemptReport"][
-                                          "ROWID"
-                                        ];
+                                      userReport["_id"] = rowID[0]["_id"];
                                     //userReport['Attempt'] = ++attempt
                                     //attempt++ //--
 
                                     const sessionRecord = userSessionsWC.filter(
                                       (record) =>
-                                        record.Sessions.SessionID ==
+                                        record.SessionID ==
                                         userReport["SessionID"]
                                     );
                                     userReport["IsActive"] = sessionRecord.some(
-                                      (record) =>
-                                        record.Sessions.IsActive == true
+                                      (record) => record.IsActive == true
                                     );
                                     //if(userReport['IsActive']==false){
                                     //	userReport['Completed'] = ++attemptCompleted
@@ -389,17 +402,15 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                     //userReport['Completed'] = 0
 
                                     const sessionWCs = sessionRecord.map(
-                                      (record) => record.Sessions.TotalWords
+                                      (record) => record.TotalWords
                                     );
                                     userReport["TotalWords"] =
                                       sessionWCs.reduce((a, b) => a + b, 0);
                                     const sessionCompletionTokens =
                                       sessionRecord.map((record) =>
-                                        record.Sessions.CompletionTokens == null
+                                        record.CompletionTokens == null
                                           ? 0
-                                          : parseInt(
-                                              record.Sessions.CompletionTokens
-                                            )
+                                          : parseInt(record.CompletionTokens)
                                       );
                                     userReport["CompletionTokens"] =
                                       sessionCompletionTokens.reduce(
@@ -408,11 +419,9 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                       );
                                     const sessionPromptTokens =
                                       sessionRecord.map((record) =>
-                                        record.Sessions.PromptTokens == null
+                                        record.PromptTokens == null
                                           ? 0
-                                          : parseInt(
-                                              record.Sessions.PromptTokens
-                                            )
+                                          : parseInt(record.PromptTokens)
                                       );
                                     userReport["PromptTokens"] =
                                       sessionPromptTokens.reduce(
@@ -421,13 +430,9 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                       );
                                     const sessionSLFCompletionTokens =
                                       sessionRecord.map((record) =>
-                                        record.Sessions.SLFCompletionTokens ==
-                                        null
+                                        record.SLFCompletionTokens == null
                                           ? 0
-                                          : parseInt(
-                                              record.Sessions
-                                                .SLFCompletionTokens
-                                            )
+                                          : parseInt(record.SLFCompletionTokens)
                                       );
                                     userReport["SLFCompletionTokens"] =
                                       sessionSLFCompletionTokens.reduce(
@@ -436,11 +441,9 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                       );
                                     const sessionSLFPromptTokens =
                                       sessionRecord.map((record) =>
-                                        record.Sessions.SLFPromptTokens == null
+                                        record.SLFPromptTokens == null
                                           ? 0
-                                          : parseInt(
-                                              record.Sessions.SLFPromptTokens
-                                            )
+                                          : parseInt(record.SLFPromptTokens)
                                       );
                                     userReport["SLFPromptTokens"] =
                                       sessionSLFPromptTokens.reduce(
@@ -449,7 +452,7 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                       );
 
                                     var sessionTimeStamps = sessionRecord.map(
-                                      (record) => record.Sessions.CREATEDTIME
+                                      (record) => record.CREATEDTIME
                                     );
                                     if (
                                       userReport["SessionID"].endsWith(
@@ -471,61 +474,41 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                             )
                                             .map(
                                               (log) =>
-                                                log.createdAt.getFullYear() +
-                                                "-" +
-                                                (
-                                                  "0" +
-                                                  (log.createdAt.getMonth() + 1)
-                                                ).slice(-2) +
-                                                "-" +
-                                                (
-                                                  "0" + log.createdAt.getDate()
-                                                ).slice(-2) +
-                                                " " +
-                                                (
-                                                  "0" + log.createdAt.getHours()
-                                                ).slice(-2) +
-                                                ":" +
-                                                (
-                                                  "0" +
-                                                  log.createdAt.getMinutes()
-                                                ).slice(-2) +
-                                                ":" +
-                                                (
-                                                  "0" +
-                                                  log.createdAt.getSeconds()
-                                                ).slice(-2)
+                                                log.createdAt /*.getFullYear() + "-" +
+                                          ('0' + (log.createdAt.getMonth() + 1)).slice(-2) + "-" +
+                                          ('0' + log.createdAt.getDate()).slice(-2) + " " +
+                                          ('0' + log.createdAt.getHours()).slice(-2) + ":" +
+                                          ('0' + log.createdAt.getMinutes()).slice(-2) + ":" +
+                                          ('0' + log.createdAt.getSeconds()).slice(-2)*/
                                             )
                                         );
                                     }
                                     sessionTimeStamps =
                                       sessionTimeStamps.sort();
-                                    userReport["SessionStartTime"] = new String(
-                                      sessionTimeStamps[0]
-                                    ).slice(0, 19);
+                                    userReport["SessionStartTime"] =
+                                      sessionTimeStamps[0]; //new String(sessionTimeStamps[0]).slice(0, 19);
                                     const sessionTimeStampVersion =
                                       versions.filter((data) => {
                                         /*console.debug((new Date()).toString()+"|"+prependToLog,new Date(data.Versions.StartDate), "|",
-                              new Date(sessionTimeStamps[0]), "|",
-                              new Date(data.Versions.EndDate), " = ",
-                              (((new Date(data.Versions.StartDate)) <= (new Date(sessionTimeStamps[0]))) && ((new Date(data.Versions.EndDate)) > (new Date(sessionTimeStamps[0]))))
-                            )*/
+                            new Date(sessionTimeStamps[0]), "|",
+                            new Date(data.Versions.EndDate), " = ",
+                            (((new Date(data.Versions.StartDate)) <= (new Date(sessionTimeStamps[0]))) && ((new Date(data.Versions.EndDate)) > (new Date(sessionTimeStamps[0]))))
+                          )*/
                                         return (
-                                          new Date(data.Versions.StartDate) <=
+                                          new Date(data.StartDate) <=
                                             new Date(sessionTimeStamps[0]) &&
-                                          new Date(data.Versions.EndDate) >
+                                          new Date(data.EndDate) >
                                             new Date(sessionTimeStamps[0])
                                         );
                                       });
                                     userReport["AttemptVersion"] =
-                                      sessionTimeStampVersion[0]["Versions"][
-                                        "Version"
-                                      ];
-                                    userReport["SessionEndTime"] = new String(
+                                      sessionTimeStampVersion.length > 0
+                                        ? sessionTimeStampVersion[0]["Version"]
+                                        : "";
+                                    userReport["SessionEndTime"] =
                                       sessionTimeStamps[
                                         sessionTimeStamps.length - 1
-                                      ]
-                                    ).slice(0, 19);
+                                      ]; //new String(sessionTimeStamps[sessionTimeStamps.length - 1]).slice(0, 19);
                                     userReport["SessionDuration"] = 0;
                                     for (
                                       var l = 1;
@@ -547,15 +530,13 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                     }
                                     userReport["EndOfSession"] =
                                       sessionRecord.some(
-                                        (record) =>
-                                          record.Sessions.EndOfSession == true
+                                        (record) => record.EndOfSession == true
                                       ) || userReport["IsActive"] != false
                                         ? "Yes"
                                         : "No";
                                     const perfReport = sessionRecord.filter(
                                       (record) =>
-                                        record.Sessions.PerformanceReportURL !=
-                                        null
+                                        record.PerformanceReportURL != null
                                     );
                                     userReport["OptedForPerformanceReport"] =
                                       typeof perfReport === "undefined"
@@ -568,12 +549,11 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                     userReport["PerformanceReportURL"] =
                                       userReport["OptedForPerformanceReport"] ==
                                       "Yes"
-                                        ? perfReport[0].Sessions
-                                            .PerformanceReportURL
+                                        ? perfReport[0].PerformanceReportURL
                                         : "";
                                     const feedback = feedbacks.filter(
                                       (record) =>
-                                        record.SessionFeedback.SessionID ==
+                                        record.SessionID ==
                                         userReport["SessionID"]
                                     );
                                     if (
@@ -583,107 +563,58 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                     ) {
                                       userReport["SessionComplete"] = "Yes";
                                       userReport["OptedForGPTFeedback"] =
-                                        feedback[0]["SessionFeedback"][
-                                          "GPTRating"
-                                        ] == -99
+                                        feedback[0]["GPTRating"] == -99
                                           ? "No"
                                           : "Yes";
                                       userReport["GPTRating"] =
-                                        feedback[0]["SessionFeedback"][
-                                          "GPTRating"
-                                        ] == -99
+                                        feedback[0]["GPTRating"] == -99
                                           ? ""
-                                          : feedback[0]["SessionFeedback"][
-                                              "GPTRating"
-                                            ] == -1
+                                          : feedback[0]["GPTRating"] == -1
                                           ? "Skipped"
-                                          : feedback[0]["SessionFeedback"][
-                                              "GPTRating"
-                                            ] == null
+                                          : feedback[0]["GPTRating"] == null
                                           ? ""
-                                          : feedback[0]["SessionFeedback"][
-                                              "GPTRating"
-                                            ];
+                                          : feedback[0]["GPTRating"];
                                       userReport["GPTFeedback"] =
-                                        feedback[0]["SessionFeedback"][
-                                          "GPTRating"
-                                        ] == -99
+                                        feedback[0]["GPTRating"] == -99
                                           ? ""
-                                          : feedback[0]["SessionFeedback"][
-                                              "GPTRating"
-                                            ] == -1
+                                          : feedback[0]["GPTRating"] == -1
                                           ? ""
-                                          : feedback[0]["SessionFeedback"][
-                                              "GPTFeedback"
-                                            ] == null
+                                          : feedback[0]["GPTFeedback"] == null
                                           ? ""
-                                          : feedback[0]["SessionFeedback"][
-                                              "GPTFeedback"
-                                            ];
+                                          : feedback[0]["GPTFeedback"];
                                       userReport["GPTFeedbackURL"] =
-                                        feedback[0]["SessionFeedback"][
-                                          "GPTRating"
-                                        ] == -99
+                                        feedback[0]["GPTRating"] == -99
                                           ? ""
-                                          : feedback[0]["SessionFeedback"][
-                                              "GPTRating"
-                                            ] == -1
+                                          : feedback[0]["GPTRating"] == -1
                                           ? ""
-                                          : feedback[0]["SessionFeedback"][
-                                              "GPTFeedbackURL"
-                                            ] == null
+                                          : feedback[0]["GPTFeedbackURL"] ==
+                                            null
                                           ? ""
-                                          : feedback[0]["SessionFeedback"][
-                                              "GPTFeedbackURL"
-                                            ];
+                                          : feedback[0]["GPTFeedbackURL"];
                                       userReport["FlowRating"] =
-                                        feedback[0]["SessionFeedback"][
-                                          "Rating"
-                                        ] == -99
+                                        feedback[0]["Rating"] == -99
                                           ? ""
-                                          : feedback[0]["SessionFeedback"][
-                                              "Rating"
-                                            ] == -1
+                                          : feedback[0]["Rating"] == -1
                                           ? "Skipped"
-                                          : feedback[0]["SessionFeedback"][
-                                              "Rating"
-                                            ] == null
+                                          : feedback[0]["Rating"] == null
                                           ? ""
-                                          : feedback[0]["SessionFeedback"][
-                                              "Rating"
-                                            ];
+                                          : feedback[0]["Rating"];
                                       userReport["Feedback"] =
-                                        feedback[0]["SessionFeedback"][
-                                          "Rating"
-                                        ] == -99
+                                        feedback[0]["Rating"] == -99
                                           ? ""
-                                          : feedback[0]["SessionFeedback"][
-                                              "Rating"
-                                            ] == -1
+                                          : feedback[0]["Rating"] == -1
                                           ? ""
-                                          : feedback[0]["SessionFeedback"][
-                                              "Feedback"
-                                            ] == null
+                                          : feedback[0]["Feedback"] == null
                                           ? ""
-                                          : feedback[0]["SessionFeedback"][
-                                              "Feedback"
-                                            ];
+                                          : feedback[0]["Feedback"];
                                       userReport["FeedbackURL"] =
-                                        feedback[0]["SessionFeedback"][
-                                          "Rating"
-                                        ] == -99
+                                        feedback[0]["Rating"] == -99
                                           ? ""
-                                          : feedback[0]["SessionFeedback"][
-                                              "Rating"
-                                            ] == -1
+                                          : feedback[0]["Rating"] == -1
                                           ? ""
-                                          : feedback[0]["SessionFeedback"][
-                                              "FeedbackURL"
-                                            ] == null
+                                          : feedback[0]["FeedbackURL"] == null
                                           ? ""
-                                          : feedback[0]["SessionFeedback"][
-                                              "FeedbackURL"
-                                            ];
+                                          : feedback[0]["FeedbackURL"];
                                     } else {
                                       userReport["SessionComplete"] = "No";
                                       userReport["OptedForGPTFeedback"] = "";
@@ -701,19 +632,51 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                         ? null
                                         : events.some(
                                             (data) =>
-                                              data.SessionEvents.SessionID ==
+                                              data.SessionID ==
                                               userReport["SessionID"]
                                           )
                                         ? "Yes"
                                         : "No";
                                     userReport["ActiveDays"] = sessionTimeStamps
-                                      .map((data) => data.slice(0, 10))
+                                      .map((data) => {
+                                        let returnData = null;
+                                        try {
+                                          returnData =
+                                            data.getFullYear() +
+                                            "-" +
+                                            ("0" + (data.getMonth() + 1)).slice(
+                                              -2
+                                            ) +
+                                            "-" +
+                                            ("0" + data.getDate()).slice(-2);
+                                        } catch (e) {
+                                          returnData = data.slice(0, 10);
+                                        } finally {
+                                          return returnData;
+                                        }
+                                      })
                                       .filter(
                                         (data) =>
                                           data !=
-                                          users[i]["UsersReport"][
+                                          users[i][
                                             "OnboardingDate"
-                                          ].slice(0, 10)
+                                          ].getFullYear() +
+                                            "-" +
+                                            (
+                                              "0" +
+                                              (users[i][
+                                                "OnboardingDate"
+                                              ].getMonth() +
+                                                1)
+                                            ).slice(-2) +
+                                            "-" +
+                                            (
+                                              "0" +
+                                              users[i][
+                                                "OnboardingDate"
+                                              ].getDate()
+                                            ).slice(-2)
+                                        //users[i]["OnboardingDate"].slice(0, 10)
                                       )
                                       .filter(unique).length;
 
@@ -771,113 +734,33 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                                   ? ++completed
                                   : 0;
                             }
-                            let table = catalystApp
-                              .datastore()
-                              .table("UserSessionAttemptReport");
-                            const updateData = report.filter(
-                              (data) => typeof data["ROWID"] !== "undefined"
-                            );
-                            const insertData = report.filter(
-                              (data) => typeof data["ROWID"] === "undefined"
-                            );
-                            let tableIndex = 0;
+                            const upsertData = report.map((data) => {
+                              if (typeof data["_id"] !== "undefined")
+                                return {
+                                  updateOne: {
+                                    filter: {
+                                      _id: data["_id"],
+                                    },
+                                    update: data,
+                                  },
+                                };
+                              else
+                                return {
+                                  insertOne: {
+                                    document: data,
+                                  },
+                                };
+                            });
+                            const upsertOutput =
+                              await UserSessionAttemptReport.bulkWrite(
+                                upsertData
+                              );
                             console.info(
                               new Date().toString() + "|" + prependToLog,
-                              "Records to Update " + updateData.length
-                            );
-                            var breakAt = 10;
-                            while (
-                              updateData.length > 0 &&
-                              tableIndex < updateData.length
-                            ) {
-                              try {
-                                const updated = await table.updateRows(
-                                  updateData.slice(tableIndex, tableIndex + 50)
-                                );
-                                if (!Array.isArray(updated))
-                                  console.info(
-                                    new Date().toString() + "|" + prependToLog,
-                                    "Status of Update records from index =",
-                                    tableIndex,
-                                    " : ",
-                                    updated
-                                  );
-                                else
-                                  console.info(
-                                    new Date().toString() + "|" + prependToLog,
-                                    "Updated records from index =",
-                                    tableIndex
-                                  );
-                                tableIndex = tableIndex + 50;
-                              } catch (e) {
-                                console.error(
-                                  new Date().toString() + "|" + prependToLog,
-                                  "Could not update data from index =",
-                                  tableIndex,
-                                  "\nError",
-                                  e
-                                );
-                                console.debug(
-                                  new Date().toString() + "|" + prependToLog,
-                                  updateData.slice(tableIndex, tableIndex + 200)
-                                );
-                                if (breakAt == 0) tableIndex = tableIndex + 50;
-                                else breakAt--;
-                              }
-                            }
-                            tableIndex = 0;
-                            breakAt = 10;
-                            console.info(
-                              new Date().toString() + "|" + prependToLog,
-                              "Records to Insert " + insertData.length
-                            );
-                            while (
-                              insertData.length > 0 &&
-                              tableIndex < insertData.length
-                            ) {
-                              try {
-                                //const inserted = await table.insertRows(
-                                //insertData.slice(tableIndex, tableIndex + 50)
-                                //);
-                                const inserted = await table.insertRow(
-                                  insertData[tableIndex]
-                                );
-
-                                if (!Array.isArray(inserted))
-                                  console.info(
-                                    new Date().toString() + "|" + prependToLog,
-                                    "Status of Insert records from index =",
-                                    tableIndex,
-                                    " : ",
-                                    inserted
-                                  );
-                                else
-                                  console.info(
-                                    new Date().toString() + "|" + prependToLog,
-                                    "Inserted records from index =",
-                                    tableIndex
-                                  );
-                                tableIndex++; //tableIndex = tableIndex + 50;
-                              } catch (e) {
-                                console.error(
-                                  new Date().toString() + "|" + prependToLog,
-                                  "Could not insert data from index =",
-                                  tableIndex,
-                                  "\nError",
-                                  e
-                                );
-                                console.debug(
-                                  new Date().toString() + "|" + prependToLog,
-                                  insertData.slice(tableIndex, tableIndex + 200)
-                                );
-                                if (breakAt == 0)
-                                  tableIndex++; // = tableIndex+50
-                                else breakAt--;
-                              }
-                            }
-                            console.info(
-                              new Date().toString() + "|" + prependToLog,
-                              "End of Execution"
+                              "End of Execution | Inserted: " +
+                                upsertOutput.insertedCount +
+                                " | Updated: " +
+                                upsertOutput.modifiedCount
                             );
                           })
                           .catch((err) => {
@@ -913,7 +796,10 @@ getAllRows("ROWID, SessionID, IsActive, EndOfSession", query, zcql)
                     );
                   });
               } else {
-                console.log("End of Execution. No Session Data");
+                console.info(
+                  new Date().toString() + "|" + prependToLog,
+                  "End of Execution. No Session Data"
+                );
               }
             })
             .catch((err) => {
