@@ -15,6 +15,12 @@ const UsersReport = require(".././models/UsersReport.js");
 const UserSessionAttemptReport = require(".././models/UserSessionAttemptReport.js");
 const Version = require(".././models/versions.js");
 
+const getYYYYMMDDDate = (date) => {
+	return date.getFullYear()+"-"+('0'+(date.getMonth()+1)).slice(-2)+"-"+('0'+date.getDate()).slice(-2)
+}
+const getYYYYMMDDHHMMSSDate = (date) => {
+	return getYYYYMMDDDate(date)+" "+('0'+date.getHours()).slice(-2)+":"+('0'+date.getMinutes()).slice(-2)+":"+('0'+date.getSeconds()).slice(-2)
+}
 //const catalystApp = catalyst.initialize();
 
 const executionID = Math.random().toString(36).slice(2);
@@ -390,20 +396,18 @@ UserSessionAttemptReport.find({}, '_id SessionID IsActive EndOfSession')
                                         userFlowQuestionLog.filter(
                                           log => log.SessionID == (userReport["SessionID"].split(" - "))[0]
                                         ).map(log =>
-                                          log.createdAt.getFullYear() + "-" +
+                                          log.createdAt/*.getFullYear() + "-" +
                                           ('0' + (log.createdAt.getMonth() + 1)).slice(-2) + "-" +
                                           ('0' + log.createdAt.getDate()).slice(-2) + " " +
                                           ('0' + log.createdAt.getHours()).slice(-2) + ":" +
                                           ('0' + log.createdAt.getMinutes()).slice(-2) + ":" +
-                                          ('0' + log.createdAt.getSeconds()).slice(-2)
+                                          ('0' + log.createdAt.getSeconds()).slice(-2)*/
                                         )
                                       )
                                     }
                                     sessionTimeStamps =
                                       sessionTimeStamps.sort();
-                                    userReport["SessionStartTime"] = new String(
-                                      sessionTimeStamps[0]
-                                    ).slice(0, 19);
+                                    userReport["SessionStartTime"] = sessionTimeStamps[0] //new String(sessionTimeStamps[0]).slice(0, 19);
                                     const sessionTimeStampVersion =
                                       versions.filter((data) => {
                                         /*console.debug((new Date()).toString()+"|"+prependToLog,new Date(data.Versions.StartDate), "|",
@@ -419,11 +423,7 @@ UserSessionAttemptReport.find({}, '_id SessionID IsActive EndOfSession')
                                         );
                                       });
                                     userReport["AttemptVersion"] = sessionTimeStampVersion.length>0 ? sessionTimeStampVersion[0]["Version"] :"" ;
-                                    userReport["SessionEndTime"] = new String(
-                                      sessionTimeStamps[
-                                      sessionTimeStamps.length - 1
-                                      ]
-                                    ).slice(0, 19);
+                                    userReport["SessionEndTime"] = sessionTimeStamps[sessionTimeStamps.length - 1]//new String(sessionTimeStamps[sessionTimeStamps.length - 1]).slice(0, 19);
                                     userReport["SessionDuration"] = 0;
                                     for (
                                       var l = 1;
@@ -604,7 +604,12 @@ UserSessionAttemptReport.find({}, '_id SessionID IsActive EndOfSession')
                                           ? "Yes"
                                           : "No";
                                     userReport["ActiveDays"] = sessionTimeStamps
-                                      .map((data) => data.getFullYear()+"-"+('0'+(data.getMonth()+1)).slice(-2)+"-"+('0'+data.getDate()).slice(-2))//data.slice(0, 10))
+                                      .map((data) => {
+                                        let returnData = null
+                                        try{returnData = data.getFullYear()+"-"+('0'+(data.getMonth()+1)).slice(-2)+"-"+('0'+data.getDate()).slice(-2)}
+                                        catch(e){returnData = data.slice(0, 10)}
+                                        finally{return returnData}
+                                      })
                                       .filter(
                                         (data) =>
                                           data != (users[i]["OnboardingDate"].getFullYear()+"-"+('0'+(users[i]["OnboardingDate"].getMonth()+1)).slice(-2)+"-"+('0'+users[i]["OnboardingDate"].getDate()).slice(-2))
