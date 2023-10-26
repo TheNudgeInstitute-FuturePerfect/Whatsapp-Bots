@@ -223,7 +223,7 @@ app.post("/chatgpt", async (request, response) => {
     filterParams,
     "_id Name Content"
   );
-  if (systemPromptsResult !== null) {
+  if (systemPromptsResult.length > 0) {
     console.info(
       new Date().toString() + "|" + prependToLog,
       "systemPromptsResult",
@@ -232,7 +232,7 @@ app.post("/chatgpt", async (request, response) => {
     let tempId = systemPromptsResult[0]._id;
     systemPromptROWID = tempId;
     systemPrompt = systemPromptsResult[0].Content;
-  } else if (systemPromptsResult > 0) {
+  } else if (systemPromptsResult !== null) {
     console.info(
       new Date().toString() + "|" + prependToLog,
       "systemPromptsResult",
@@ -393,7 +393,7 @@ app.post("/chatgpt", async (request, response) => {
     //   "where Sessions.ROWID='" +
     //   storedSessionRecord["ROWID"] +
     //   "'";
-    queryOutput = await Session.findOne({
+    queryOutput = await Session.find({
       _id: storedSessionRecord["_id"],
     }).populate({
       path: "SystemPromptsROWID",

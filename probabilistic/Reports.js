@@ -1587,7 +1587,7 @@ app.get("/sessionevents", (req, res) => {
 	  })
 		.populate({
 		  path: 'SystemPromptROWID',
-		  select: 'Name Persona -_id' 
+		  select: 'Name Persona Module -_id' 
 		})
 		.select('Mobile SessionID Event CREATEDTIME')
 		.sort('CREATEDTIME')
@@ -1608,6 +1608,7 @@ app.get("/sessionevents", (req, res) => {
 						Mobile : data.Mobile,
 						Topic : data.SystemPromptROWID ? decodeURIComponent(data.SystemPromptROWID.Name) : "",
 						Persona : data.SystemPromptROWID ? decodeURIComponent(data.SystemPromptROWID.Persona):"",
+						Module : data.SystemPromptROWID ? decodeURIComponent(data.SystemPromptROWID.Module):"",
 						SessionID : data.SessionID,
 						Event : data.Event,
 						EventTimestamp : getYYYYMMDDHHMMSSDate(data.CREATEDTIME)//.toString().slice(0,19)
@@ -2046,7 +2047,7 @@ app.get("/wordleattempts", (req, res) => {
 		from: 'wordleconfigurations', // Replace with the actual name of the WordleConfiguration collection
 		localField: 'WordleROWID',
 		foreignField: '_id',
-		as: 'WordleConfiguration',
+		as: 'WordleConfigurations',
 	  },
 	},
 	{
@@ -2057,7 +2058,7 @@ app.get("/wordleattempts", (req, res) => {
 	},
 	{
 	  	$unwind: {
-			path:'$WordleConfiguration',
+			path:'$WordleConfigurations',
 			preserveNullAndEmptyArrays:true
 	  	}
 	},
@@ -2152,7 +2153,7 @@ app.get("/wordleattempts", (req, res) => {
 			  userReport['GuessedCorrect'] = wordleAttemptData.some(data=>data.IsCorrect == true) ? "Yes" : "No"
 			  userReport['Guessedwords'] = wordleAttemptData.map(data=>data.Answer).join(",")
 			  userReport['WordOfDay'] = wordleAttemptData[0]['Word']
-			  userReport['RecommendedTopic'] = wordleAttemptData[0]["WordleConfigurations"] ? wordleAttemptData[0]['RecommendedTopic'] :""
+			  userReport['RecommendedTopic'] = wordleAttemptData[0]["WordleConfigurations"] ? wordleAttemptData[0]["WordleConfigurations"]['RecommendedTopic'] :""
 			  const wordleSource = wordleAttemptData.map(data=>data.Source).filter(unique).filter(data=>data!=null)
 			  userReport['WordleSource'] = wordleSource.length > 0 ? wordleSource.join(","):null
 			  
