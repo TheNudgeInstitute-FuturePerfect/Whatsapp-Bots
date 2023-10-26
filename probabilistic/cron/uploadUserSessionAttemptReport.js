@@ -688,40 +688,49 @@ UserSessionAttemptReport.find({}, '_id SessionID IsActive EndOfSession')
                             });
                             const upsertOutput = await UserSessionAttemptReport.bulkWrite(upsertData)
 										        console.info((new Date()).toString() + "|" + prependToLog, "End of Execution | Inserted: "+upsertOutput.insertedCount +" | Updated: "+upsertOutput.modifiedCount);
+                            mongoose.connection.close()
                           })
                           .catch((err) => {
                             console.info(new Date().toString() + "|" + prependToLog,"End of Execution");
                             console.error(new Date().toString() + "|" + prependToLog,err);
+                            mongoose.connection.close()
                           });
                       })
                       .catch((err) => {
                         console.info(new Date().toString() + "|" + prependToLog,"End of Execution");
                         console.error(new Date().toString() + "|" + prependToLog,err);
+                        mongoose.connection.close()
                       });
                   })
                   .catch((err) => {
                     console.info(new Date().toString() + "|" + prependToLog,"End of Execution");
                     console.error(new Date().toString() + "|" + prependToLog,err);
+                    mongoose.connection.close()
                   });
               } else {
                 console.info((new Date()).toString() + "|" + prependToLog,"End of Execution. No Session Data");
+                mongoose.connection.close()
               }
             })
             .catch((err) => {
               console.info(new Date().toString() + "|" + prependToLog,"End of Execution");
               console.error(new Date().toString() + "|" + prependToLog, err);
+              mongoose.connection.close()
             });
         } else {
           console.info(new Date().toString() + "|" + prependToLog,"End of Execution. No user found"
           );
+          mongoose.connection.close()
         }
       })
       .catch((err) => {
         console.info(new Date().toString() + "|" + prependToLog,"End of Execution");
         console.error(new Date().toString() + "|" + prependToLog, err);
+        mongoose.connection.close()
       });
   })
   .catch((err) => {
     console.info(new Date().toString() + "|" + prependToLog,"End of Execution");
     console.error(new Date().toString() + "|" + prependToLog, err);
+    mongoose.connection.close()
   });

@@ -378,28 +378,34 @@ UsersReport.find({})//, '_id Mobile')
 										})
 										const upsertOutput = await UsersReport.bulkWrite(upsertData)
 										console.info((new Date()).toString() + "|" + prependToLog, "End of Execution | Inserted: "+upsertOutput.insertedCount +" | Updated: "+upsertOutput.modifiedCount);
+										mongoose.connection.close()
 									})
 									.catch((err) => {
 										console.info((new Date()).toString() + "|" + prependToLog, "End of Execution");
 										console.error((new Date()).toString() + "|" + prependToLog, err);
+										mongoose.connection.close()
 									});
 							})
 							.catch((err) => {
 								console.info((new Date()).toString() + "|" + prependToLog, "End of Execution");
 								console.error((new Date()).toString() + "|" + prependToLog, err);
+								mongoose.connection.close()
 							});
 					})
 					.catch((err) => {
 						console.info((new Date()).toString() + "|" + prependToLog, "End of Execution");
 						console.error((new Date()).toString() + "|" + prependToLog, err);
+						mongoose.connection.close()
 					});
 			})
 			.catch((err) => {
 				console.info((new Date()).toString() + "|" + prependToLog, "End of Execution");
 				console.error((new Date()).toString() + "|" + prependToLog, err);
+				mongoose.connection.close()
 			});
 	})
 	.catch((err) => {
 		console.info((new Date()).toString() + "|" + prependToLog, "End of Execution");
 		console.error((new Date()).toString() + "|" + prependToLog, err);
+		mongoose.connection.close()
 	});
