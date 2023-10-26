@@ -282,7 +282,7 @@ app.post("/", (req, res) => {
                             responseJSON['OperationStatus']='PRCTC_DATA_ERR'
                             sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody,res)
                         }
-                        else if(userSessions.data.OperationStatus != 'SUCCESS'){
+                        else if(["SUCCESS","NO_SESSION_RECORD"].includes(userSessions.data.OperationStatus) == false){
                             console.info((new Date()).toString()+"|"+prependToLog,"Failed to get user session counts")
                             responseJSON['OperationStatus']='SSN_CNT_ERR'
                             sendResponse(prependToLog,responseJSON,startTimeStamp,requestBody,res)
@@ -290,20 +290,20 @@ app.post("/", (req, res) => {
                         else{
                             console.info((new Date()).toString()+"|"+prependToLog,"Fetched user's practice data");
                             let userSessionData = {                                            
-                                OverallPracticeDays : pendingPractices.data.CompletedPracticeCount,
-                                TotalDaysConversationPracticed : pendingPractices.data.ConversationAttemptDays,
-                                TotalDaysConversationCompleted : pendingPractices.data.ConversationCompletionDays,
-                                TotalDaysLearningPracticed : pendingPractices.data.LearningAttemptDays,
-                                TotalDaysLearningCompleted : pendingPractices.data.LearningCompletionDays,
-                                TotalDaysGameCompleted : pendingPractices.data.GameCompletionDays,
-                                TotalDaysGamePracticed : pendingPractices.data.GameAttemptDays,
-                                TotalConversationSessionsStarted : userSessions.data.TotalConvesationSessions,
-                                TotalConvesationSessionsCompleted : userSessions.data.TotalConvesationSessionsCompleted,
-                                TotalLearningSessions : userSessions.data.TotalLearningSessions,
-                                TotalLearningSessionsStarted : userSessions.data.TotalLearningSessionsStarted,
-                                TotalLearningSessionsCompleted : userSessions.data.TotalLearningSessionsCompleted,
-                                TotalGameSessionsStarted : userSessions.data.TotalGameSessions,
-                                TotalGameSessionsCompleted : userSessions.data.TotalGameSessionsCompleted,
+                                OverallPracticeDays : pendingPractices.data.CompletedPracticeCount ? pendingPractices.data.CompletedPracticeCount : null,
+                                TotalDaysConversationPracticed : pendingPractices.data.ConversationAttemptDays ? pendingPractices.data.ConversationAttemptDays : null,
+                                TotalDaysConversationCompleted : pendingPractices.data.ConversationCompletionDays ? pendingPractices.data.ConversationCompletionDays : null,
+                                TotalDaysLearningPracticed : pendingPractices.data.LearningAttemptDays ? pendingPractices.data.LearningAttemptDays : null,
+                                TotalDaysLearningCompleted : pendingPractices.data.LearningCompletionDays ? pendingPractices.data.LearningCompletionDays : null,
+                                TotalDaysGameCompleted : pendingPractices.data.GameCompletionDays ? pendingPractices.data.GameCompletionDays : null,
+                                TotalDaysGamePracticed : pendingPractices.data.GameAttemptDays ? pendingPractices.data.GameAttemptDays : null,
+                                TotalConversationSessionsStarted : userSessions.data.TotalConvesationSessions ? userSessions.data.TotalConvesationSessions : null,
+                                TotalConvesationSessionsCompleted : userSessions.data.TotalConvesationSessionsCompleted ? userSessions.data.TotalConvesationSessionsCompleted : null,
+                                TotalLearningSessions : userSessions.data.TotalLearningSessions ? userSessions.data.TotalLearningSessions : null,
+                                TotalLearningSessionsStarted : userSessions.data.TotalLearningSessionsStarted ? userSessions.data.TotalLearningSessionsStarted : null,
+                                TotalLearningSessionsCompleted : userSessions.data.TotalLearningSessionsCompleted ? userSessions.data.TotalLearningSessionsCompleted : null,
+                                TotalGameSessionsStarted : userSessions.data.TotalGameSessions ?  userSessions.data.TotalGameSessions : null,
+                                TotalGameSessionsCompleted : userSessions.data.TotalGameSessionsCompleted ? userSessions.data.TotalGameSessionsCompleted : null,
                                 Persona : userSessions.data.Persona ? userSessions.data.Persona : null,
                                 TotalPersonaSessionsStarted : userSessions.data.TotalPersonaSessionsStarted ? userSessions.data.TotalPersonaSessionsStarted : userSessions.data.TotalPersonaSessionsStarted,
                                 TotalPersonaSessionsCompleted : userSessions.data.TotalPersonaSessionsCompleted ? userSessions.data.TotalPersonaSessionsCompleted : userSessions.data.TotalPersonaSessionsCompleted,
