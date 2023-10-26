@@ -63,7 +63,7 @@ module.exports = (basicIO) => {
                                 }
                             ],
                             "pipelineRequestConfig": {
-                                "pipelineId": process.env.BhashiniPipelineID
+                                "pipelineId": bhashiniConfig["pipelineID"]//process.env.BhashiniPipelineID
                             }
                         })
                         //Create pipeline config
@@ -73,8 +73,8 @@ module.exports = (basicIO) => {
                             maxBodyLength: Infinity,
                             url: config["configURL"],
                             headers: { 
-                              'userID': process.env.BhashiniUserID, 
-                              'ulcaApiKey': process.env.BhashiniAPIKey, 
+                              'userID': bhashiniConfig["userID"],//process.env.BhashiniUserID, 
+                              'ulcaApiKey': bhashiniConfig["apiKey"],//process.env.BhashiniAPIKey, 
                               'Content-Type': 'application/json'
                             },
                             data : data
