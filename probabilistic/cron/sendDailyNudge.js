@@ -59,10 +59,12 @@ User.find(query).select('Mobile GlificID RegisteredTime NudgeTime')
 	if(users == null){
 		//End execution
 		console.info((new Date()).toString()+"|"+prependToLog,'No user who has opted for this hour');
+		mongoose.connection.close()
 	}
 	else if(users.length == 0){
 		//End execution
 		console.info((new Date()).toString()+"|"+prependToLog,'No user who has opted for this hour');
+		mongoose.connection.close()
 	}
 	else{
 		var mobiles = users.map(data=>data.Mobile)
@@ -290,6 +292,7 @@ User.find(query).select('Mobile GlificID RegisteredTime NudgeTime')
 						else{
 							console.info((new Date()).toString()+"|"+prependToLog,'Execution completed successfully.')
 						}
+						mongoose.connection.close()
 					}
 				}
 
@@ -510,14 +513,15 @@ User.find(query).select('Mobile GlificID RegisteredTime NudgeTime')
 						}
 					}
 				})
-			
 			})
 			.catch(err => {
 				console.error((new Date()).toString()+"|"+prependToLog,'Closing Execution. Encountered Error in getting session records: '+err)
+				mongoose.connection.close()
 			})
 		})
 		.catch(err => {
 			console.error((new Date()).toString()+"|"+prependToLog,'Closing Execution. Encountered Error in getting session records: '+err)
+			mongoose.connection.close()
 		})
 	}
 });
