@@ -45,35 +45,50 @@ app.post("/create", (req, res) => {
 
   //Use Table Meta Object to insert the row which returns a promise
   //let insertPromise = table.insertRow(
-  User.create({
-    Mobile: requestBody["Mobile"].slice(-10),
-    Name: encodeURI(requestBody["Name"]),
-    Age: requestBody["Age"],
-    WhatsAppOptedIn: requestBody["WAOptedIn"],
-    Consent: false, //Updated in separate call after seeking informed consent
-    GlificID: requestBody["contact"]["id"],
-    GlificIDUpdated: true,
-    IsActive: true,
-    RegisteredTime: regDate,
-    Language: requestBody["Language"],
-    Gender: requestBody["Gender"],
-    NudgeTime: process.env.DefaultNudgeHour,
-    OnboardingComplete: false,
-    OnboardingStep: 1,
-    Excluded: false,
-    GoalInMinutes: null
-  })
-  //insertPromise
-    .then((row) => {
-      console.info((new Date()).toString()+"|"+prependToLog,"\nInserted Row : " + JSON.stringify(row));
-      res.status(200).json({ OperationStatus: "USER_RECORD_CREATED" });
+    User.find({
+      Mobile:parseInt(requestBody["Mobile"].slice(-10))
+    })
+    .then((currentUser)=>{
+      if(currentUser.length>0){
+        console.info((new Date()).toString()+"|"+prependToLog,"Response Sent:", { OperationStatus: "USER_ALRDY_PRSNT" });
+        res.status(200).json({ OperationStatus: "USER_ALRDY_PRSNT" });
+      }
+      else{
+        User.create({
+          Mobile: requestBody["Mobile"].slice(-10),
+          Name: encodeURI(requestBody["Name"]),
+          Age: requestBody["Age"],
+          WhatsAppOptedIn: requestBody["WAOptedIn"],
+          Consent: false, //Updated in separate call after seeking informed consent
+          GlificID: requestBody["contact"]["id"],
+          GlificIDUpdated: true,
+          IsActive: true,
+          RegisteredTime: regDate,
+          Language: requestBody["Language"],
+          Gender: requestBody["Gender"],
+          NudgeTime: process.env.DefaultNudgeHour,
+          OnboardingComplete: false,
+          OnboardingStep: 1,
+          Excluded: false,
+          GoalInMinutes: null
+        })
+        //insertPromise
+        .then((row) => {
+          console.info((new Date()).toString()+"|"+prependToLog,"\nInserted Row : " + JSON.stringify(row));
+          res.status(200).json({ OperationStatus: "USER_RECORD_CREATED" });
+        })
+        .catch((err) => {
+          console.info((new Date()).toString()+"|"+prependToLog,err);
+          if (err.indexOf("DUPLICATE_VALUE") != 0) {
+            console.info((new Date()).toString()+"|"+prependToLog,"Response Sent:", { OperationStatus: "USER_ALRDY_PRSNT" });
+            res.status(200).json({ OperationStatus: "USER_ALRDY_PRSNT" });
+          } else res.status(500).send(err);
+        });
+      }
     })
     .catch((err) => {
       console.info((new Date()).toString()+"|"+prependToLog,err);
-      if (err.indexOf("DUPLICATE_VALUE") != 0) {
-        console.info((new Date()).toString()+"|"+prependToLog,"Response Sent:", { OperationStatus: "USER_ALRDY_PRSNT" });
-        res.status(200).json({ OperationStatus: "USER_ALRDY_PRSNT" });
-      } else res.status(500).send(err);
+      res.status(500).send(err);
     });
 });
 
@@ -383,6 +398,52 @@ app.post("/search", (req, res) => {
       //Else return success
       else {
         responseJSON["OperationStatus"] = "SUCCESS";
+        console.info((new Date()).toString()+"|"+prependToLog,"User Found");
+        res.status(200).json(responseJSON);
+      }
+    })
+    .catch((err) => {
+      console.info((new Date()).toString()+"|"+prependToLog,err);
+      res.status(500).send(err);
+    });
+});
+
+app.get("/search/:Mobile", (req, res) => {
+  //let catalystApp = catalyst.initialize(req, { type: catalyst.type.applogic });
+
+  const executionID = Math.random().toString(36).slice(2)
+    
+  //Prepare text to prepend with logs
+  const params = ["StudentCRUD",req.url,executionID,""]
+  const prependToLog = params.join(" | ")
+  
+  console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
+  //Get the User's mobile number
+  const mobile = req.params["Mobile"].slice(-10);
+  console.info((new Date()).toString()+"|"+prependToLog,"User Mobile Number: " + mobile);
+
+  var responseJSON = {};
+  User.find({ Mobile: mobile})
+    .then((questionQueryResult) => {
+      //console.info((new Date()).toString()+"|"+prependToLog,"+++++++++++++",questionQueryResult);
+      //If there is no record, then the mobile number does not exist in system. Return error
+      if (questionQueryResult ==null){
+        //Send the response
+        responseJSON["OperationStatus"] = "USER_NOT_FOUND";
+        console.info((new Date()).toString()+"|"+prependToLog,"USER_NOT_FOUND ERROR");
+        res.status(200).json(responseJSON);
+      }
+      else if (questionQueryResult.length == 0) {
+        //Send the response
+        responseJSON["OperationStatus"] = "USER_NOT_FOUND";
+        console.info((new Date()).toString()+"|"+prependToLog,"USER_NOT_FOUND ERROR");
+        res.status(200).json(responseJSON);
+      }
+      //Else return success
+      else {
+        responseJSON["OperationStatus"] = "SUCCESS";
+        responseJSON["UserRecords"] = questionQueryResult
         console.info((new Date()).toString()+"|"+prependToLog,"User Found");
         res.status(200).json(responseJSON);
       }
