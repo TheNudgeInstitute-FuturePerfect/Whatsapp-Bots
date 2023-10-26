@@ -311,6 +311,12 @@ app.post("/", (req, res) => {
                                     reject(responseJSON['OperationStatus'])
                                     return
                                 }
+                                else if((typeOfResponse == 'Audio')&&(responseAudioURL.length==0)){
+                                    responseJSON['OperationStatus'] = 'RESPONSE_FORMAT_ERR'
+                                    console.info((new Date()).toString()+"|"+prependToLog,"Response has been sent as text whereas it was expected in "+responseFormat)
+                                    reject(responseJSON['OperationStatus'])
+                                    return
+                                }
                                 else if(((responseFormat=='Button')||(responseFormat=='List'))&&(buttonOptions.includes(responseText) == false)){
                                         responseJSON['OperationStatus'] = 'NT_BTN_OPTN_ERR'
                                         console.info((new Date()).toString()+"|"+prependToLog,'Response ',responseText,' sent is not present in the button options ',buttonOptions)

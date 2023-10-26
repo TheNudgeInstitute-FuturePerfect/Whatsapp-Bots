@@ -133,8 +133,29 @@ app.post("/totalsessions", (req, res) => {
                 "OperationStatus":"SUCCESS"
           }
           if((sessions.length==0)&&(userAssessmentLogs.length==0)&&(wordleAttemptsReport.length==0)&&(learningStart.length==0)){
-              responseObject['OperationStatus'] = "NO_SESSION_RECORD"
+              responseObject['OperationStatus'] = "SUCCESS"//"NO_SESSION_RECORD"
               responseObject['StatusDescription'] = "No Session Data"
+              responseObject['TotalConvesationSessions'] = 0
+              responseObject['TotalConvesationSessionsCompleted'] = 0
+              responseObject['TotalLearningSessions'] = 0
+              responseObject['TotalLearningSessionsStarted'] = 0
+              responseObject['TotalLearningSessionsCompleted'] = 0
+              responseObject['TotalGameSessions'] = 0
+              responseObject['TotalGameSessionsCompleted'] = 0
+              responseObject['Persona'] = systemPromptQueryResult[0]['Persona']
+              responseObject['TotalPersonaSessionsStarted'] = 0
+              responseObject['TotalPersonaSessionsCompleted'] = 0
+              responseObject['TotalDaysPersonaPracticed'] = 0
+              const topic = systemPromptQueryResult[0]['Name']
+              const module = systemPromptQueryResult[0]['Module']
+              responseObject['Topic'] = topic
+              responseObject['Module'] = module
+              responseObject['TotalTopicSessionsStarted'] = 0
+              responseObject['TotalTopicSessionsCompleted'] = 0
+              responseObject['TotalDaysTopicPracticed'] = 0
+              responseObject['TotalModuleSessionsStarted'] = 0
+              responseObject['TotalModuleSessionsCompleted'] = 0
+              responseObject['TotalDaysModulePracticed'] = 0
           }
           else{
               //All Conversations Started
