@@ -193,9 +193,13 @@ app.post("/chatgpt", async (request, response) => {
         "performance template",
         "progressbarat",
         "feedback prompt", //Get the feedback prompt configured for the topic to return whether feedback prompt exists or not
+        "feedback prompt temperature",
         "serious mode prompt", //Get the serious mode prompt
+        "serious mode temperature", //Get the serious mode temperature
         "voice challenge prompt", //Get the voice challenge prompt
-        "easy mode prompt" //Get the voice challenge prompt
+        "voice challenge temperature", //Get the voice challenge prompt
+        "easy mode prompt", //Get the voice challenge prompt
+        "easy mode temperature" //Get the voice challenge prompt
       ],
     })
   );
@@ -509,10 +513,25 @@ app.post("/chatgpt", async (request, response) => {
     randomize: true,
   };
 
+  let model = messagePrompt["Values"]["model"]
+  let temperature = messagePrompt["Values"]["temperature"]
+  if(feedbackPromptFlag==true){
+    if(typeof messagePrompt["Values"]["feedback prompt model"] !== 'undefined')
+      model = messagePrompt["Values"]["feedback prompt model"]
+    if(typeof messagePrompt["Values"]["feedback prompt temperature"] !== 'undefined')
+      temperature = messagePrompt["Values"]["feedback prompt temperature"]
+  }
+  else if(sessionType != "Normal Flow"){
+    if(typeof messagePrompt["Values"][sessionType.toLowerCase()+" model"] !== 'undefined')
+      model = messagePrompt["Values"][sessionType.toLowerCase()+" model"]
+    if(typeof messagePrompt["Values"][sessionType.toLowerCase()+" temperature"] !== 'undefined')
+      temperature = messagePrompt["Values"][sessionType.toLowerCase()+" temperature"]
+  }
+
   const chatGPTResponse = await _retry(async () => {
     return await completionWithBackoff(
-      messagePrompt["Values"]["model"],
-      parseFloat(messagePrompt["Values"]["temperature"]),
+      model,              //messagePrompt["Values"]["model"],
+      parseInt(temperature),        //parseFloat(messagePrompt["Values"]["temperature"]),
       sessionRecords
     );
   }, retryOptions);
