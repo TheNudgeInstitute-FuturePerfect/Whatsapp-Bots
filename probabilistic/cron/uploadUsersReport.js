@@ -347,12 +347,9 @@ UsersReport.find({})//, '_id Mobile')
 											userReport['DaysAttmptCmpltdPstOBD'] = (startedSessions.filter(data => (data.TotalSessionsCompleted >= 1) && (data.SessionDate > regDate))).length
 											userReport['DaysAttmptdPstOBD'] = (uniqueDates.filter(data => data > regDate)).length
 											userReport['TotalActiveDays'] = uniqueDates.length
-											const allTopics = userSessions.map(data => data.SystemPrompts.Name)
-											const uniqueTopics = allTopics.filter(unique)
+											const uniqueTopics = userSessions.filter(data => (typeof data.SystemPrompts !== 'undefined')).map(data => data.SystemPrompts.Name).filter(unique)
 											userReport['TotalTopicsAttempted'] = uniqueTopics.length
-											const allActiveSessions = userSessions.filter(data => data.IsActive == false)
-											const allActiveTopics = allActiveSessions.map(data => data.SystemPrompts.Name)
-											const uniqueActiveTopics = allActiveTopics.filter(unique)
+											const uniqueActiveTopics = userSessions.filter(data => data.IsActive == false).filter(data => (typeof data.SystemPrompts !== 'undefined')).map(data => data.SystemPrompts.Name).filter(unique)
 											userReport['TotalTopicsCompleted'] = uniqueActiveTopics.length
 											//uniqueDates.forEach(data=>console.debug((new Date()).toString()+"|"+prependToLog,users[i]["Mobile"],' | data | ',data,' | regDate | ',regDate,' | ',data > regDate))
 											userReport['EnglishProficiency'] = users[i]["EnglishProficiency"]
