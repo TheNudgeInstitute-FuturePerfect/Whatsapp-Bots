@@ -34,6 +34,7 @@ const storeFlowQuestionAnswer = require("./storeFlowQuestionAnswer.js");
 const applicationConfig = require("./ApplicationConfigCRUD.js");
 const convertSpeechToText = require("./convertSpeechToText.js");
 const versions = require("./VersionsCRUD.js");
+const gamesAttemptsCRUD = require("./GameAttemptsCRUD.js");
 
 // Basic I/O const
 const addUserData = require("./common/addUserData.js");
@@ -86,6 +87,7 @@ app.use("/getflowquestion",getFlowQuestion);
 app.use("/storeflowanswer",storeFlowQuestionAnswer);
 app.use("/appconfig",applicationConfig);
 app.use("/versions",versions);
+app.use("/games",gamesAttemptsCRUD);
 
 // Basic I/O  routes
 app.use("/addUserData",addUserData);
