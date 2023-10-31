@@ -594,7 +594,7 @@ app.post("/", (req, res) => {
                                             try{
                                                 const transcription = JSON.parse(await convertSpeechToText({ responseAVURL: ressponseAVURL, task:task, sourceLanguage:srcLang, targetLanguage:trgtLang }))
                                                 if (transcription["OperationStatus"] == "SUCCESS") {
-                                                    var audioTranscript = transcription["AudioTranscript"];
+                                                    var audioTranscript = (typeof transcription["Translation"] !== 'undefined') ? transcription["Translation"] : transcription["AudioTranscript"];
                                                     var confidence = transcription["Confidence"];
                                                     console.info((new Date()).toString()+"|"+prependToLog,'Transcription: ', audioTranscript);
                                                     if(((audioTranscript == '.')||(audioTranscript.length==0))&&(wrongAnswers<2))
