@@ -647,7 +647,7 @@ app.post("/", (req, res) => {
                                 +'-FQL'+requestBody["UserFlowQuestionLogID"]+'-Q'+requestBody['QuestionIdentifier'])
                                 .then((storedAudioPath)=>{
                                     userAssessmentRecord['ResponseAVURL'] =  storedAudioPath
-                                    convertSpchToTxt(typeOfResponse,requestBody["ResponseAVURL"],requestBody["STTTask"],requestBody["SourceLanguage"],requestBody["TargetLanguage"])
+                                    convertSpchToTxt(typeOfResponse,userAssessmentRecord["ResponseAVURL"],requestBody["STTTask"],requestBody["SourceLanguage"],requestBody["TargetLanguage"])
                                     .then((audioTranscript) => {
                                         userAssessmentRecord['ResponseText'] = typeOfResponse != 'Audio' ? requestBody["ResponseText"] : audioTranscript==null?null:audioTranscript[0]
                                         userAssessmentRecord['ConfidenceInterval'] = audioTranscript==null?null:audioTranscript[1]
