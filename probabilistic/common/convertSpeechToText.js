@@ -14,6 +14,9 @@ module.exports = async (basicIO) => {
     console.info((new Date()).toString()+"|"+prependToLog,"Execution Started")
 
     let responseAVURL = basicIO["responseAVURL"];
+    let sourceLanguage = basicIO["sourceLanguage"];
+    let targetLanguage = basicIO["targetLanguage"];
+    let task = basicIO["task"] //Transcribe / Translate / Both
     
     var responseJSON = {
       OperationStatus: "REQ_ERR",
@@ -105,11 +108,20 @@ module.exports = async (basicIO) => {
           // Send request to ChatGPT
           console.info((new Date()).toString()+"|"+prependToLog,"Request Sent to OpenAI for Transcription")
           const chatGPTResponse = await _retry(async () => {
-              return await openai.audio.transcriptions.create({
-                  model: whisperConfig["model"],
+            if((task == "Translate")||(task == "Both"))
+                return await openai.audio.translations.create({
+                  model: whisperConfig["translate"]["model"],
                   file: fs.createReadStream(tempFile),
-                  //prompt:whisperConfig["content"],
-                  temperature:whisperConfig["temperature"]
+                  prompt: whisperConfig["translate"]["content"] ? whisperConfig["translate"]["content"] : null,
+                  temperature: whisperConfig["translate"]["temperature"]
+              });
+            else
+              return await openai.audio.transcriptions.create({
+                  model: whisperConfig["transcribe"]["model"],
+                  file: fs.createReadStream(tempFile),
+                  language: whisperConfig["languageCode"][sourceLanguage ? sourceLanguage : "English"],
+                  prompt: whisperConfig["transcribe"] ? (whisperConfig["transcribe"]["content"] ? whisperConfig["transcribe"]["content"] : null) : null,
+                  temperature: whisperConfig["transcribe"]["temperature"]
               });
           }, retryOptions);
           // Read ChatGPT's Response
@@ -126,17 +138,31 @@ module.exports = async (basicIO) => {
           let bhashiniConfig = config['Bhashini']
           const axios = require("axios")
           try{
-            let data = JSON.stringify({
-                "pipelineTasks": [
-                    {
-                        "taskType": "asr",
-                        "config": {
-                            "language": {
-                                "sourceLanguage": bhashiniConfig["languageCode"]["English"]
-                            }
-                        }
+            let pipelineTasks = []
+            pipelineTasks.push(
+              {
+                "taskType": "asr",
+                "config": {
+                    "language": {
+                        "sourceLanguage": bhashiniConfig["languageCode"][sourceLanguage ? sourceLanguage : "English"]
                     }
-                ],
+                }
+              }
+            )
+            if((task == "Translate")||(task == "Both"))
+              pipelineTasks.push(
+                {
+                  "taskType": "translation",
+                  "config": {
+                      "language": {
+                          "sourceLanguage": bhashiniConfig["languageCode"][sourceLanguage ? sourceLanguage : "English"],
+                          "targetLanguage": bhashiniConfig["languageCode"][targetLanguage ? targetLanguage : "English"]
+                      }
+                  }
+                }
+              )
+            let data = JSON.stringify({
+                "pipelineTasks": pipelineTasks,
                 "pipelineRequestConfig": {
                     "pipelineId": bhashiniConfig["pipelineID"]//process.env.BhashiniPipelineID
                 }
@@ -159,23 +185,45 @@ module.exports = async (basicIO) => {
             const callbackURL = jsonRes.pipelineInferenceAPIEndPoint.callbackUrl;
             const computeCallAuthorizationKey = jsonRes.pipelineInferenceAPIEndPoint.inferenceApiKey.name;
             const computeCallAuthorizationValue = jsonRes.pipelineInferenceAPIEndPoint.inferenceApiKey.value;
-            const serviceID = jsonRes.pipelineResponseConfig[0].config[0].serviceId;
+            let serviceID = null
+            let nmtServiceID = null
+            for(let eachResp of jsonRes.pipelineResponseConfig){
+              if(eachResp.taskType=='asr')
+                serviceID = eachResp.config[0].serviceId;
+              else if(eachResp.taskType=='translation')
+                nmtServiceID = eachResp.config[0].serviceId;
+            }
             console.info((new Date()).toString()+"|"+prependToLog,"Retrieved Bhashini Config Params")
             const fileBuferBase64 = Buffer.from(fileBuffer,'binary').toString('base64')
+            pipelineTasks = []
+            pipelineTasks.push(
+              {
+                "taskType": "asr",
+                "config": {
+                  "language": {
+                      "sourceLanguage": bhashiniConfig["languageCode"][sourceLanguage ? sourceLanguage : "English"]
+                  },
+                  "serviceId": serviceID,
+                  "audioFormat": bhashiniConfig['audioConfig']['audioEncoding'],
+                  "samplingRate": bhashiniConfig['audioConfig']['sampleRateHertz']
+                }
+              }
+            )
+            if((task == "Translate")||(task == "Both"))
+              pipelineTasks.push(
+                {
+                  "taskType": "translation",
+                  "config": {
+                    "language": {
+                        "sourceLanguage": bhashiniConfig["languageCode"][sourceLanguage ? sourceLanguage : "English"],
+                        "targetLanguage": bhashiniConfig["languageCode"][targetLanguage ? targetLanguage : "English"]
+                    },
+                    "serviceId": nmtServiceID
+                  }
+                }
+              )
             const computeData = JSON.stringify({
-                "pipelineTasks": [       
-                    {
-                        "taskType": "asr",
-                        "config": {
-                            "language": {
-                                "sourceLanguage": bhashiniConfig["languageCode"]["English"]
-                            },
-                            "serviceId": serviceID,
-                            "audioFormat": bhashiniConfig['audioConfig']['audioEncoding'],
-                            "samplingRate": bhashiniConfig['audioConfig']['sampleRateHertz']
-                        }
-                    }
-                ],
+                "pipelineTasks": pipelineTasks,
                 "inputData": {
                     "audio": [
                         {
@@ -198,7 +246,14 @@ module.exports = async (basicIO) => {
             })
             console.info((new Date()).toString()+"|"+prependToLog,"Received Pipeline Compute Response from Bhashini")
             responseJSON["OperationStatus"] = "SUCCESS";
-            responseJSON["AudioTranscript"] = computeResponse['data']['pipelineResponse'][0]['output'][0]['source']
+            for(let eachResponse of computeResponse['data']['pipelineResponse']){
+              if(eachResponse.taskType == "asr")
+                responseJSON["AudioTranscript"] = eachResponse['output'][0]['source']
+              if(eachResponse.taskType == "translation"){
+                responseJSON["AudioTranscript"] = eachResponse['output'][0]['source']
+                responseJSON["Translation"] = eachResponse['output'][0]['target']
+              }
+            }
             responseJSON["Confidence"] = null;
             console.info((new Date()).toString()+"|"+prependToLog,"Returned: ", responseJSON);
             return JSON.stringify(responseJSON);
