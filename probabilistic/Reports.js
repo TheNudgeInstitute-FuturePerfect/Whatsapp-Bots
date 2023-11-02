@@ -1440,7 +1440,7 @@ app.get("/usertopicmsgs", (req, res) => {
 			$match: {
 				$or: [
 					{ "SystemPrompts.Type": 'Topic Prompt' },
-					{ "SystemPrompts.Type": 'Backend Prompt', "SystemPrompts.Name": 'Self Introduction' },
+					{ "SystemPrompts.Type": 'Backend Prompt', "SystemPrompts.Name": {$in:["Self Introduction","SLF Doubts"]} },
 					{ SystemPromptsROWID: null }
 				]
 			}

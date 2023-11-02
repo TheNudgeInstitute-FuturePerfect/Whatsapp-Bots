@@ -301,4 +301,134 @@ app.patch("/updateSTTProvider/:Provider", (req, res) => {
   })
 });
 
+app.patch("/updateBhashiniSTTPipeline/:PipelineID", (req, res) => {
+    
+  const executionID = Math.random().toString(36).slice(2)
+
+  //Prepare text to prepend with logs
+  const params = ["Application Config",req.method,req.url,executionID,""]
+  const prependToLog = params.join(" | ")
+  
+  console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
+  let filter = {}
+  if(typeof req.params["AppName"] === 'undefined'){
+    filter["AppName"] = "STTConfig"
+  }
+   
+  applicationConfig.find(filter).sort({"id":-1})
+  .then(async (config)=>{
+      let latestConfig = config
+      latestConfig[0]['Config']["Bhashini"]['pipelineID'] = req.params["PipelineID"]
+      const updatedConfig = await applicationConfig.findByIdAndUpdate(latestConfig[0]["id"],latestConfig[0],{new:true})
+      console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Response:",updatedConfig)
+      res.status(200).json(updatedConfig)
+  })
+  .catch((error)=>{
+      console.info((new Date()).toString()+"|"+prependToLog,"End of Execution.")
+      console.error((new Date()).toString()+"|"+prependToLog,"End of Execution. Error:",error)
+      res.status(500).send(error)
+  })
+});
+
+app.patch("/updateBhashiniTTSPipeline/:PipelineID", (req, res) => {
+    
+  const executionID = Math.random().toString(36).slice(2)
+
+  //Prepare text to prepend with logs
+  const params = ["Application Config",req.method,req.url,executionID,""]
+  const prependToLog = params.join(" | ")
+  
+  console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
+  let filter = {}
+  if(typeof req.params["AppName"] === 'undefined'){
+    filter["AppName"] = "TTSConfig"
+  }
+   
+  applicationConfig.find(filter).sort({"id":-1})
+  .then(async (config)=>{
+      let latestConfig = config
+      latestConfig[0]['Config']["Bhashini"]['pipelineID'] = req.params["PipelineID"]
+      const updatedConfig = await applicationConfig.findByIdAndUpdate(latestConfig[0]["id"],latestConfig[0],{new:true})
+      console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Response:",updatedConfig)
+      res.status(200).json(updatedConfig)
+  })
+  .catch((error)=>{
+      console.info((new Date()).toString()+"|"+prependToLog,"End of Execution.")
+      console.error((new Date()).toString()+"|"+prependToLog,"End of Execution. Error:",error)
+      res.status(500).send(error)
+  })
+});
+
+app.patch("/updateWhisperSTTPrompt/transcription", (req, res) => {
+    
+  const executionID = Math.random().toString(36).slice(2)
+
+  //Prepare text to prepend with logs
+  const params = ["Application Config",req.method,req.url,executionID,""]
+  const prependToLog = params.join(" | ")
+  
+  console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
+  let filter = {}
+  if(typeof req.params["AppName"] === 'undefined'){
+    filter["AppName"] = "STTConfig"
+  }
+   
+  applicationConfig.find(filter).sort({"id":-1})
+  .then(async (config)=>{
+      let latestConfig = config
+      if(typeof req.body["prompt"] !== 'undefined')
+        latestConfig[0]['Config']["Whisper"]['transcribe']['content'] = req.body["prompt"]
+      if(typeof req.body["model"] !== 'undefined')
+        latestConfig[0]['Config']["Whisper"]['transcribe']['model'] = req.body["model"]
+      if(typeof req.body["temperature"] !== 'undefined')
+        latestConfig[0]['Config']["Whisper"]['transcribe']['temperature'] = req.body["temperature"]
+      const updatedConfig = await applicationConfig.findByIdAndUpdate(latestConfig[0]["id"],latestConfig[0],{new:true})
+      console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Response:",updatedConfig)
+      res.status(200).json(updatedConfig)
+  })
+  .catch((error)=>{
+      console.info((new Date()).toString()+"|"+prependToLog,"End of Execution.")
+      console.error((new Date()).toString()+"|"+prependToLog,"End of Execution. Error:",error)
+      res.status(500).send(error)
+  })
+});
+
+app.patch("/updateWhisperSTTPrompt/translation", (req, res) => {
+    
+  const executionID = Math.random().toString(36).slice(2)
+
+  //Prepare text to prepend with logs
+  const params = ["Application Config",req.method,req.url,executionID,""]
+  const prependToLog = params.join(" | ")
+  
+  console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+  
+  let filter = {}
+  if(typeof req.params["AppName"] === 'undefined'){
+    filter["AppName"] = "STTConfig"
+  }
+   
+  applicationConfig.find(filter).sort({"id":-1})
+  .then(async (config)=>{
+      let latestConfig = config
+      if(typeof req.body["prompt"] !== 'undefined')
+        latestConfig[0]['Config']["Whisper"]['translate']['content'] = req.body["prompt"]
+      if(typeof req.body["model"] !== 'undefined')
+        latestConfig[0]['Config']["Whisper"]['translate']['model'] = req.body["model"]
+      if(typeof req.body["temperature"] !== 'undefined')
+        latestConfig[0]['Config']["Whisper"]['translate']['temperature'] = req.body["temperature"]
+      const updatedConfig = await applicationConfig.findByIdAndUpdate(latestConfig[0]["id"],latestConfig[0],{new:true})
+      console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Response:",updatedConfig)
+      res.status(200).json(updatedConfig)
+  })
+  .catch((error)=>{
+      console.info((new Date()).toString()+"|"+prependToLog,"End of Execution.")
+      console.error((new Date()).toString()+"|"+prependToLog,"End of Execution. Error:",error)
+      res.status(500).send(error)
+  })
+});
+
 module.exports = app;

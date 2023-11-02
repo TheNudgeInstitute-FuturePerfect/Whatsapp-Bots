@@ -585,16 +585,16 @@ app.post("/", (req, res) => {
                                     })
                                 }
 
-                                const convertSpchToTxt = (typeOfResponse,ressponseAVURL) =>{
+                                const convertSpchToTxt = (typeOfResponse,ressponseAVURL,task, srcLang, trgtLang) =>{
                                     return new Promise(async (resolve, reject)=>{
                                         if(typeOfResponse!='Audio')
                                             resolve(null)
                                         else{
                                             //Convert Speech to text
                                             try{
-                                                const transcription = JSON.parse(await convertSpeechToText({ responseAVURL: ressponseAVURL }))
+                                                const transcription = JSON.parse(await convertSpeechToText({ responseAVURL: ressponseAVURL, task:task, sourceLanguage:srcLang, targetLanguage:trgtLang }))
                                                 if (transcription["OperationStatus"] == "SUCCESS") {
-                                                    var audioTranscript = transcription["AudioTranscript"];
+                                                    var audioTranscript = (typeof transcription["Translation"] !== 'undefined') ? transcription["Translation"] : transcription["AudioTranscript"];
                                                     var confidence = transcription["Confidence"];
                                                     console.info((new Date()).toString()+"|"+prependToLog,'Transcription: ', audioTranscript);
                                                     if(((audioTranscript == '.')||(audioTranscript.length==0))&&(wrongAnswers<2))
@@ -647,7 +647,7 @@ app.post("/", (req, res) => {
                                 +'-FQL'+requestBody["UserFlowQuestionLogID"]+'-Q'+requestBody['QuestionIdentifier'])
                                 .then((storedAudioPath)=>{
                                     userAssessmentRecord['ResponseAVURL'] =  storedAudioPath
-                                    convertSpchToTxt(typeOfResponse,requestBody["ResponseAVURL"])
+                                    convertSpchToTxt(typeOfResponse,userAssessmentRecord["ResponseAVURL"],requestBody["STTTask"],requestBody["SourceLanguage"],requestBody["TargetLanguage"])
                                     .then((audioTranscript) => {
                                         userAssessmentRecord['ResponseText'] = typeOfResponse != 'Audio' ? requestBody["ResponseText"] : audioTranscript==null?null:audioTranscript[0]
                                         userAssessmentRecord['ConfidenceInterval'] = audioTranscript==null?null:audioTranscript[1]
