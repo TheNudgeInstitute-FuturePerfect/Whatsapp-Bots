@@ -13,6 +13,7 @@ const systemprompts = require("./models/SystemPrompts.js");
 const UserData = require("./models/UserData.js");
 const User = require("./models/Users.js");
 const WordleAttempt = require("./models/WordleAttempts.js");
+const GameAttempt = require("./models/GameAttempts.js");
 const WordleConfiguration = require("./models/WordleConfiguration.js");
 const QuestionBank = require("./models/questionBank.js");
 const UserAssessmentLogs = require("./models/UserAssessmentLogs.js");
@@ -2785,15 +2786,29 @@ app.get("/userlifecycle", (req, res) => {
 			  },
 			},
 		  ])
-		console.info((new Date()).toString()+"|"+prependToLog,"Getting Conversation Data + Learning Data + Wordle Attempt Data")
-		Promise.all([runSessionQuery,runLearningQuery,runGameAttemptQuery])
-		.then(([allsessions,learning,wordleAttempts]) => {
+		const runOthergameAttemptsQuery = GameAttempt.find({
+			Mobile: { $in: mobiles.map(mobile=>parseInt(mobile)) }
+		})
+		.select('Mobile SessionID SessionStartTime')
+		.sort('Mobile SessionID SessionStartTime')
+		const runFlowQuestionQuery = userFlowQuestionLogs.find({
+			Mobile: { $in: mobiles.map(mobile=>parseInt(mobile)) }
+		})
+		.select('Mobile SessionID createdAt')
+		.sort('Mobile SessionID createdAt')
+		console.info((new Date()).toString()+"|"+prependToLog,"Getting Conversation Data + Learning Data + Wordle Attempt Data + Game Attempt Data + Flow Question Data")
+		Promise.all([runSessionQuery,runLearningQuery,runGameAttemptQuery,runOthergameAttemptsQuery,runFlowQuestionQuery])
+		.then(([allsessions,learning,wordleAttempts,gameAttempts,flowAttempts]) => {
 			if(!Array.isArray(allsessions))
 				throw new Error(allsessions)
 			else if(!Array.isArray(learning))
 				throw new Error(learning)
 			if(!Array.isArray(wordleAttempts))
 				throw new Error(wordleAttempts)
+			if(!Array.isArray(gameAttempts))
+				throw new Error(gameAttempts)
+			if(!Array.isArray(flowAttempts))
+				throw new Error(flowAttempts)
 			else{
 				const sessions = allsessions.filter(
 				(data) =>
@@ -2836,12 +2851,26 @@ app.get("/userlifecycle", (req, res) => {
 						activityDates = activityDates.concat(
 							wordleAttempts.filter(data=>
 								(data.Mobile==mobile) && 
-								(data.WordleAttempts.CREATEDTIME >= regDate)
-								).map(data=>getYYYYMMDDDate(data.WordleAttempts.CREATEDTIME)
+								(data.CREATEDTIME >= regDate)
+								).map(data=>getYYYYMMDDDate(data.CREATEDTIME)
+								).filter(unique).sort()
+						)
+						activityDates = activityDates.concat(
+							gameAttempts.filter(data=>
+								(data.Mobile==mobile) && 
+								(data.SessionStartTime >= regDate)
+								).map(data=>getYYYYMMDDDate(data.SessionStartTime)
+								).filter(unique).sort()
+						)
+						activityDates = activityDates.concat(
+							flowAttempts.filter(data=>
+								(data.Mobile==mobile) && 
+								(data.createdAt >= regDate)
+								).map(data=>getYYYYMMDDDate(data.createdAt)
 								).filter(unique).sort()
 						)
 					}
-					console.info((new Date()).toString()+"|"+prependToLog,"Got Conversation, Learning, Games Data:",activityDates)
+					console.info((new Date()).toString()+"|"+prependToLog,"Got Conversation, Learning, Games and Flow Data:",activityDates)
 						
 
 					activityDates = activityDates.filter(unique).sort()
@@ -2939,25 +2968,36 @@ app.get("/allattempts", (req, res) => {
     
     console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
 
+	const startDate = req.query.startDate ? req.query.startDate : (req.query.date ? req.query.date : '1970-01-01')
+	var today = new Date()
+	today.setHours(today.getHours()+5)
+	today.setMinutes(today.getMinutes()+30)
+	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
+	const queryParam = "startDate="+startDate+"&endDate="+endDate
 	const axios = require("axios");
-    const gameQuery = axios.get(process.env.WordleReportURL)
-	const conversationQuery = axios.get(process.env.UserSessionAttemptReportURL)
-	const quizQuery = axios.get(process.env.CFUAttemptReportURL)
-	const obdQuery = axios.get(process.env.OnboardingReportURL)
+    const gameQuery = axios.get(process.env.WordleReportURL+"&"+queryParam)
+	const conversationQuery = axios.get(process.env.UserSessionAttemptReportURL+"?"+queryParam)
+	const quizQuery = axios.get(process.env.CFUAttemptReportURL+"?"+queryParam)
+	const obdQuery = axios.get(process.env.OnboardingReportURL+"?"+queryParam)
+	const flowQuestionQuery = axios.get(process.env.FlowQuestionAttemptReportURL+"?"+queryParam)
 
-	Promise.all([gameQuery,conversationQuery,quizQuery,obdQuery])
-	.then(([gameQueryResult,conversationQueryResult,quizQueryResult,obdQueryResult])=>{
+	const runOtherGameAttemptQuery = GameAttempt.find({
+		SessionStartTime: {
+		  "$gte":startDate+" 00:00:00",
+		  "$lt":endDate+" 23:59:59"
+		}
+	})
+	.sort({ SessionEndTime: 'asc' })
+	Promise.all([gameQuery,conversationQuery,quizQuery,obdQuery,runOtherGameAttemptQuery,flowQuestionQuery])
+	.then(([gameQueryResult,conversationQueryResult,quizQueryResult,obdQueryResult,gameAttempts,flowAttempts])=>{
 		console.info((new Date()).toString()+"|"+prependToLog,"Fetched Games Report of length:",gameQueryResult.data.length)
 		console.info((new Date()).toString()+"|"+prependToLog,"Fetched Quiz Attempt Report of length:",quizQueryResult.data.length)
 		console.info((new Date()).toString()+"|"+prependToLog,"Fetched Conversation Attempt Report of length:",conversationQueryResult.data.length)
 		console.info((new Date()).toString()+"|"+prependToLog,"Fetched Onboarding Report of length:",obdQueryResult.data.length)
+		console.info((new Date()).toString()+"|"+prependToLog,"Fetched Game Attempts Report of length:",gameAttempts.length)
+		console.info((new Date()).toString()+"|"+prependToLog,"Fetched Flow Attempts Report of length:",flowAttempts.data.length)
 
-		const startDate = req.query.startDate ? req.query.startDate : (req.query.date ? req.query.date : '1970-01-01')
-		var today = new Date()
-		today.setHours(today.getHours()+5)
-		today.setMinutes(today.getMinutes()+30)
-		const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))
-	
+		
 		const quizQueryIDs = quizQueryResult.data.filter(data=>(data.AssessmentStartTime>=(startDate+" 00:00:00"))&&(data.AssessmentStartTime<=(endDate+" 23:59:59"))).map(data=>data.AssessmentID).filter(unique)
 		var report = quizQueryIDs.map(id=>{
 			const data = quizQueryResult.data.filter(report=>report.AssessmentID==id)
@@ -3004,7 +3044,30 @@ app.get("/allattempts", (req, res) => {
 			}
 		}))
 		console.info((new Date()).toString()+"|"+prependToLog,"Appended Onboarding Report Data")
-		
+		report = report.concat(gameAttempts.map(data=>{
+			return {
+				Mobile: data.Mobile,
+				Type: data.Type,
+				SessionID: data.SessionID,
+				SessionStartTime: data.SessionStartTime,
+				SessionEndTime: data.SessionEndTime,
+				SessionComplete: data.SessionComplete
+			}
+		}))
+		console.info((new Date()).toString()+"|"+prependToLog,"Appended Game Attempts Data")
+		const flowAttemptIDs = flowAttempts.data.filter(data=>(data.StartTime>=(startDate+" 00:00:00"))&&(data.StartTime<=(endDate+" 23:59:59"))).map(data=>data.LogID).filter(unique)
+		report = report.concat(flowAttemptIDs.map(id=>{
+			const data = flowAttempts.data.filter(report=>report.LogID==id)
+			return {
+				Mobile: data[0].Mobile,
+				Type: "Conversation",
+				SessionID: data[0].SessionID,
+				SessionStartTime: data[0].StartTime,
+				SessionEndTime: data[0].EndTime,
+				SessionComplete: data[0].IsComplete == true ? "Yes":"No"
+			}
+		}))
+		console.info((new Date()).toString()+"|"+prependToLog,"Appended Flow Questions Data")
 		res.status(200).json(report)
 		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution")
 	})
@@ -3135,6 +3198,39 @@ app.get("/flowquestionanswers", (req, res) => {
 		res.status(500).send(err);
 	});
 });
+
+app.get("/gameattempts",(req,res) => {
+	const executionID = Math.random().toString(36).slice(2)
+    
+    //Prepare text to prepend with logs
+    const params = ["Reports",req.url,executionID,""]
+    const prependToLog = params.join(" | ")
+    
+    console.info((new Date()).toString()+"|"+prependToLog,"Start of Execution")
+
+	const startDate = req.query.startDate ? req.query.startDate : '1970-01-01 00:00:00'
+	var today = new Date()
+	today.setHours(today.getHours()+5)
+	today.setMinutes(today.getMinutes()+30)
+	const endDate = req.query.endDate ? req.query.endDate : (today.getFullYear()+"-"+('0'+(today.getMonth()+1)).slice(-2)+"-"+('0'+today.getDate()).slice(-2))+" 23:59:59"
+	
+	GameAttempt.find({
+		SessionStartTime: {
+		  "$gte":startDate,
+		  "$lt":endDate
+		}
+	})
+	.sort({ SessionEndTime: 'asc' })
+	.then((gameAttempts)=>{
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution. Report Length = ",gameAttempts.length)
+		res.status(200).json(gameAttempts)
+	})
+	.catch((err) => {
+		console.info((new Date()).toString()+"|"+prependToLog,"End of Execution with Error")
+		console.error((new Date()).toString()+"|"+prependToLog,err);
+		res.status(500).send(err);
+	});
+})
 
 app.all("/", (req,res) => {
 

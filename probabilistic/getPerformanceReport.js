@@ -11,6 +11,7 @@ const User = require("./models/Users.js");
 const UserAssessment = require("./models/UserAssessment.js");
 const UserAssessmentLog = require("./models/UserAssessmentLogs.js");
 const WordleAttempt = require("./models/WordleAttempts.js");
+const GameAttempt = require("./models/GameAttempts.js")
 const userFlowQuestionLogs = require("./models/userFlowQuestionLogs.js");
 // const app = express();
 // app.use(express.json());
@@ -431,9 +432,19 @@ app.post("/goalachievementcalendar", (req, res) => {
               "$lt":nextMonthStartDate
             }
           })
+          const runOtherGameAttemptQuery = GameAttempt.find({
+            Mobile:parseInt(mobile),
+            SessionEndTime: {
+              "$gte":monthStart,
+              $gte: users['RegisteredTime'],
+              "$lt":nextMonthStartDate
+            }
+          })
+          .select('SessionID SessionEndTime')
+          .sort({ SessionEndTime: 'asc' })
           
-          Promise.all([runSessionQuery,runAssessmentQuery,runGameAttemptQuery,runFlowQuestionAnswerQuery])
-          .then(([allsessions,userassessment,wordleAttempts,userFlowQuestionLog]) => {
+          Promise.all([runSessionQuery,runAssessmentQuery,runGameAttemptQuery,runFlowQuestionAnswerQuery,runOtherGameAttemptQuery])
+          .then(([allsessions,userassessment,wordleAttempts,userFlowQuestionLog,gameAttempts]) => {
             if(!Array.isArray(allsessions))
               throw new Error(allsessions) 
             else if(!Array.isArray(userassessment))
@@ -471,6 +482,8 @@ app.post("/goalachievementcalendar", (req, res) => {
               }
               console.info((new Date()).toString()+"|"+prependToLog,"Fetched Flow QuestionAnswer TimeStamps:",practiceDates)
 
+              practiceDates = practiceDates.concat(gameAttempts.map(data=>data.SessionEndTime))
+              console.info((new Date()).toString()+"|"+prependToLog,"Fetched Game Attempt TimeStamps:",practiceDates)
               practiceDates = practiceDates.map(record=>new Date(record)).filter(record=>record >= (new Date(monthStart))).sort((date1, date2) => date1 - date2)
               console.info((new Date()).toString()+"|"+prependToLog,"Final TimeStamps:",practiceDates)
                 
@@ -708,14 +721,26 @@ app.post("/dailygoalprogress", (req, res) => {
             }
           })
 
-          Promise.all([runSessionQuery,runAssessmentQuery,runGameAttemptQuery,runFlowQuestionAnswerQuery])
-          .then(([allsessions,userassessment,wordleAttempts,userFlowQuestionLog]) => {
+          const runOtherGameAttemptQuery = GameAttempt.find({
+            Mobile:parseInt(mobile),
+            SessionStartTime: {
+              $gte: fromDate,
+              $lte: toDate
+            }
+          })
+          .select('SessionID TimeSpent')
+          .sort({ SessionStartTime: 'asc' })
+
+          Promise.all([runSessionQuery,runAssessmentQuery,runGameAttemptQuery,runFlowQuestionAnswerQuery,runOtherGameAttemptQuery])
+          .then(([allsessions,userassessment,wordleAttempts,userFlowQuestionLog,gameAttempts]) => {
             if(!Array.isArray(allsessions))
               throw new Error(allsessions)
             else if(!Array.isArray(userassessment))
               throw new Error(userassessment)
             if(!Array.isArray(wordleAttempts))
               throw new Error(wordleAttempts)
+            if(!Array.isArray(gameAttempts))
+              throw new Error(gameAttempts)
             else{
               const sessions = allsessions.filter(
                 (data) =>
@@ -750,7 +775,7 @@ app.post("/dailygoalprogress", (req, res) => {
                     return 0
                 }))
               }
-              console.info((new Date()).toString()+"|"+prependToLog,"Got Conversation Data:",practiceDates)
+              console.info((new Date()).toString()+"|"+prependToLog,"Got Conversation Data")//:",practiceDates)
               const userassessmentLogIDs = userassessment.map(data=>data.UserAssessmentLogROWID.toString()).filter(unique)
               for(var i=0; i<userassessmentLogIDs.length;i++){
                 practiceDates=userassessment.filter(data=>data.UserAssessmentLogROWID == userassessmentLogIDs[i]).map(data=>data.CREATEDTIME)
@@ -767,7 +792,7 @@ app.post("/dailygoalprogress", (req, res) => {
                     return 0
                 }))
               }
-              console.info((new Date()).toString()+"|"+prependToLog,"Got Learning Data:",practiceDates)
+              console.info((new Date()).toString()+"|"+prependToLog,"Got Learning Data")//:",practiceDates)
               const wordleIDs = wordleAttempts.map(data=>data.WordleROWID.toString()).filter(unique)
               for(var i=0; i<wordleIDs.length;i++){
                 practiceDates=wordleAttempts.filter(data=>data.WordleROWID==wordleIDs[i]).map(data=>data.CREATEDTIME)
@@ -784,7 +809,7 @@ app.post("/dailygoalprogress", (req, res) => {
                     return 0
                 }))
               }
-              console.info((new Date()).toString()+"|"+prependToLog,"Got Wordle Data:",practiceDates)
+              console.info((new Date()).toString()+"|"+prependToLog,"Got Wordle Data")//:",practiceDates)
               
               for(var i=0; i<userFlowQuestionLog.length; i++){
                 const record = userFlowQuestionLog[i]
@@ -814,8 +839,10 @@ app.post("/dailygoalprogress", (req, res) => {
                     return 0
                 }))
               }
-              console.info((new Date()).toString()+"|"+prependToLog,"Got Flow QuestionAnswer Data:",practiceDates)
+              console.info((new Date()).toString()+"|"+prependToLog,"Got Flow QuestionAnswer Data")//:",practiceDates)
                               
+              dateSessionDurations = dateSessionDurations.concat(gameAttempts.map(data=>data.TimeSpent))
+              console.info((new Date()).toString()+"|"+prependToLog,"Got Game Attempts Data")
               const totalDuration=dateSessionDurations.length == 0 ? 0 : Math.round(dateSessionDurations.reduce((a,b)=>a=a+b))
               console.info((new Date()).toString()+"|"+prependToLog,"Total Duration:",totalDuration)
               const pctCompletion = totalDuration/goal
