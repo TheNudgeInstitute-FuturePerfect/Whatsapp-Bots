@@ -10,6 +10,7 @@ const SystemPrompt = require("./models/SystemPrompts.js");
 const User = require("./models/Users.js");
 const UserAssessmentLog = require("./models/UserAssessmentLogs.js");
 const mongoose = require('mongoose');
+const GameAttempts = require("./models/GameAttempts.js");
 const ObjectId = mongoose.Types.ObjectId;
 
 // const app = express();
@@ -100,9 +101,10 @@ app.post("/totalsessions", (req, res) => {
     const runLearningStartQuery = SessionEvents.find(learningStartQuery)//getAllRows("distinct ROWID",learningStartQuery,zcql,prependToLog)
     const systemPromptQuery = systemPromptROWID == null ? {} : {_id:systemPromptROWID} //"Select {} from SystemPrompts where ROWID = "+systemPromptROWID
     const runSystemPromptQuery = SystemPrompt.find(systemPromptQuery) //getAllRows("Module, Name, Persona",systemPromptQuery,zcql,prependToLog)
+    const otherGameQuery = GameAttempts.find({Mobile: parseInt(mobile)})
 
-    Promise.all([sessionQuery,userAssessmentQuery,gameQuery,runLearningStartQuery, runSystemPromptQuery])
-    .then(async ([userSessions,userAssessmentLogs,wordleAttempts,learningStart,systemPromptQueryResult])=>{
+    Promise.all([sessionQuery,userAssessmentQuery,gameQuery,runLearningStartQuery, runSystemPromptQuery,otherGameQuery])
+    .then(async ([userSessions,userAssessmentLogs,wordleAttempts,learningStart,systemPromptQueryResult,gameAttempts])=>{
         //userSessions = await Session.find({ _id: { $in: userSessions } });
         if(!Array.isArray(userSessions))
           throw new Error(userSessions)
@@ -132,7 +134,7 @@ app.post("/totalsessions", (req, res) => {
           var responseObject = {
                 "OperationStatus":"SUCCESS"
           }
-          if((sessions.length==0)&&(userAssessmentLogs.length==0)&&(wordleAttemptsReport.length==0)&&(learningStart.length==0)){
+          if((sessions.length==0)&&(userAssessmentLogs.length==0)&&(wordleAttemptsReport.length==0)&&(learningStart.length==0)&&(gameAttempts.length==0)){
               responseObject['OperationStatus'] = "SUCCESS"//"NO_SESSION_RECORD"
               responseObject['StatusDescription'] = "No Session Data"
               responseObject['TotalConvesationSessions'] = 0
@@ -169,14 +171,14 @@ app.post("/totalsessions", (req, res) => {
               //All Learning/Quiz Sesssions Completed
               responseObject['TotalLearningSessionsCompleted']=userAssessmentLogs.filter(data=>data.IsAssessmentComplete==true).length
               //All Game Sessions Started
-              responseObject['TotalGameSessions']=wordleAttemptsReport.length
+              responseObject['TotalGameSessions']=wordleAttemptsReport.length + gameAttempts.length
               //All Game Sessions Completed
-              responseObject['TotalGameSessionsCompleted']=wordleAttemptsReport.filter(data=>data.CompletedWordle=="Yes").length
+              responseObject['TotalGameSessionsCompleted']=wordleAttemptsReport.filter(data=>data.CompletedWordle=="Yes").length + gameAttempts.filter(data=>data.SessionComplete =='Yes').length
               //Getting Persona, Topic and Module Started and Completed
               if((systemPromptROWID != null)&&(sessions.length>0)){
                 let personaSessions = sessions.filter(data=>data.SystemPromptsROWID==systemPromptROWID)
                 if(personaSessions.length==0){
-                  responseObject['Persona'] = systemPromptQueryResult[0]['Persona']
+                  responseObject['Persona'] = systemPromptQueryResult.length>0 ? systemPromptQueryResult[0]['Persona'] : null
                   responseObject['TotalPersonaSessionsStarted'] = 0
                   responseObject['TotalPersonaSessionsCompleted'] = 0
                   responseObject['TotalDaysPersonaPracticed'] = 0
@@ -188,8 +190,8 @@ app.post("/totalsessions", (req, res) => {
                   responseObject['TotalPersonaSessionsCompleted'] = responseObject['TotalPersonaSessionsStarted'] - personaSessions.filter(data=>data.IsActive==true).map(data=>data.SessionID).filter(unique).length
                   responseObject['TotalDaysPersonaPracticed'] = personaSessions.map(data=>getYYYYMMDDDate(data.CREATEDTIME)).filter(unique).length
                 }
-                const topic = systemPromptQueryResult[0]['Name']
-                const module = systemPromptQueryResult[0]['Module']
+                const topic = systemPromptQueryResult.length > 0 ? systemPromptQueryResult[0]['Name'] : null
+                const module = systemPromptQueryResult.length > 0 ? systemPromptQueryResult[0]['Module'] : null
                 personaSessions = sessions.filter(data=>data.SystemPrompts.Name==topic)
                 responseObject['Topic'] = topic
                 responseObject['Module'] = module
