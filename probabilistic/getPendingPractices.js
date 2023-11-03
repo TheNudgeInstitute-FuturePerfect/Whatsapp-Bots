@@ -9,6 +9,7 @@ const SessionEvents = require("./models/SessionEvents.js");
 const User = require("./models/Users.js");
 const UserAssessmentLog = require("./models/UserAssessmentLogs.js");
 const UsersReport = require("./models/UsersReport.js");
+const GameAttempts = require("./models/GameAttempts.js");
 // const app = express();
 // app.use(express.json());
 const app = express.Router();
@@ -124,6 +125,7 @@ app.post("/pendingpractices", (req, res) => {
           ])
           const axios = require("axios");
           const gameQuery = axios.get(process.env.WordleReportURL+mobile)
+          const otherGameQuery = GameAttempts.find({ Mobile: parseInt(mobile) })
           const userReportQuery = UsersReport.find({ Mobile: mobile }, 'LastActiveDate DeadlineDate')
           const learningStartQuery = {
             Event: 'Learn Session Start',
@@ -132,8 +134,8 @@ app.post("/pendingpractices", (req, res) => {
           const runLearningStartQuery = SessionEvents.find(learningStartQuery)//getAllRows("distinct ROWID, CREATEDTIME",learningStartQuery,zcql,prependToLog)
     
           
-          Promise.all([sessionQuery,userAssessmentQuery,gameQuery,userReportQuery,runLearningStartQuery])
-          .then(([userSessions,userAssessmentLogs,wordleAttempts,userReport,learningStart])=>{
+          Promise.all([sessionQuery,userAssessmentQuery,gameQuery,userReportQuery,runLearningStartQuery,otherGameQuery])
+          .then(([userSessions,userAssessmentLogs,wordleAttempts,userReport,learningStart,gameAttempts])=>{
               if(!Array.isArray(userSessions))
                 throw new Error(userSessions)
               else if(!Array.isArray(userAssessmentLogs))
@@ -165,8 +167,12 @@ app.post("/pendingpractices", (req, res) => {
                 responseObject["LearningCompletionDays"] = userAssessmentLogs.map(data=>getYYYYMMDDDate(data.MODIFIEDTIME)).filter(unique).length
                 practiceDates =  practiceDates.concat(userAssessmentLogs.map(data=>getYYYYMMDDDate(data.MODIFIEDTIME)))
                 console.info((new Date()).toString()+"|"+prependToLog,"Fetched Learning TimeStamps:",practiceDates)
-                responseObject["GameCompletionDays"] = wordleAttemptsReport.filter(data=>data.CompletedWordle=="Yes").map(data=>data.SessionEndTime.toString().slice(0,10)).filter(unique).length
-                responseObject["GameAttemptDays"] = wordleAttemptsReport.map(data=>data.SessionEndTime.toString().slice(0,10)).filter(unique).length
+                let allGameCompletions = wordleAttemptsReport.filter(data=>data.CompletedWordle=="Yes").map(data=>data.SessionEndTime.toString().slice(0,10))
+                allGameCompletions = allGameCompletions.concat(gameAttempts.filter(data=>(data.SessionComplete=="Yes")&&(data.SessionEndTime!=null)).map(data=>getYYYYMMDDDate(data.SessionEndTime)))
+                responseObject["GameCompletionDays"] = allGameCompletions.filter(unique).length
+                let allGameAttempts = wordleAttemptsReport.map(data=>data.SessionEndTime.toString().slice(0,10))
+                allGameAttempts = allGameAttempts.concat(gameAttempts.map(data=>getYYYYMMDDDate(data.SessionStartTime)),gameAttempts.filter(data=>data.SessionEndTime!=null).map(data=>getYYYYMMDDDate(data.SessionEndTime)))
+                responseObject["GameAttemptDays"] = allGameAttempts.filter(unique).length
                 practiceDates =  practiceDates.concat(wordleAttemptsReport.filter(data=>data.CompletedWordle=="Yes").map(data=>data.SessionEndTime))
                 console.info((new Date()).toString()+"|"+prependToLog,"Fetched Game TimeStamps:",practiceDates)
 

@@ -12,6 +12,7 @@ const UsersReport = require(".././models/UsersReport.js");
 const UserAssessment = require(".././models/UserAssessment.js");
 const UserAssessmentLogs = require(".././models/UserAssessmentLogs.js");
 const WordleAttempts = require(".././models/WordleAttempts.js");
+const GameAttempts = require(".././models/GameAttempts.js");
 const SystemPrompts = require(".././models/SystemPrompts.js");
 /*let cronParams = cronDetails.getCronParam("name");
 if(typeof cronParams === 'undefined'){
@@ -243,8 +244,46 @@ User.find(query).select('Mobile GlificID RegisteredTime NudgeTime')
 				},
 			])
 
-			Promise.all([userSessionQuery,userAssessmentQuery,userGameQuery])				
-			.then(async ([sessions,userAssessments,gameSessions]) =>	{
+			const userOtherGameQuery = GameAttempts.aggregate([
+				{
+					$match: {
+						Mobile: { $in: mobiles.map(data=>parseInt(data)) }
+					}
+				},
+				{
+					$addFields:
+					  /**
+					   * newField: The new field name.
+					   * expression: The new field expression.
+					   */
+					{
+						latestDate: {
+							$max: [
+								"$SessionStartTime",
+								"$SessionEndTime",
+							],
+						},
+					},
+				},
+				{
+					$group: {
+						_id: "$Mobile",
+						CREATEDTIME: {
+							$max: "$latestDate",
+						},
+					},
+				},
+				{
+					$project: {
+						_id: 0,
+						Mobile: "$_id",
+						CREATEDTIME: 1,
+					},
+				}
+			])
+			
+			Promise.all([userSessionQuery,userAssessmentQuery,userGameQuery,userOtherGameQuery])				
+			.then(async ([sessions,userAssessments,gameSessions,gameAttempts]) =>	{
 				console.info((new Date()).toString()+"|"+prependToLog,"Fetched Sessions Records")
 				//Calculate days since last activity for each user
 				userSessions.forEach(userSession=>{
@@ -264,6 +303,12 @@ User.find(query).select('Mobile GlificID RegisteredTime NudgeTime')
 					if(Array.isArray(gameSessions))
 						if(gameSessions.some(session=>session.Mobile == userSession.Mobile)){
 							const sesssionData = gameSessions.filter(session=>session.Mobile == userSession.Mobile)
+							const sessionDate = new Date(getYYYYMMDDDate(sesssionData[0].CREATEDTIME))//.toString().slice(0,10))
+							sessionDates.push(sessionDate)
+						}
+					if(Array.isArray(gameAttempts))
+						if(gameAttempts.some(session=>session.Mobile == userSession.Mobile)){
+							const sesssionData = gameAttempts.filter(session=>session.Mobile == userSession.Mobile)
 							const sessionDate = new Date(getYYYYMMDDDate(sesssionData[0].CREATEDTIME))//.toString().slice(0,10))
 							sessionDates.push(sessionDate)
 						}
@@ -511,6 +556,9 @@ User.find(query).select('Mobile GlificID RegisteredTime NudgeTime')
 								}
 							}
 						}
+					}
+					else{
+						closeContext(i,true)
 					}
 				})
 			})

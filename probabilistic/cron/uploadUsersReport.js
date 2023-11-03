@@ -10,6 +10,7 @@ const SystemPrompt = require(".././models/SystemPrompts.js");
 const UsersReport = require(".././models/UsersReport.js");
 const User = require(".././models/Users.js");
 const Version = require(".././models/versions.js");
+const GameAttempts = require("../models/GameAttempts.js");
 
 //const catalystApp = catalyst.initialize();
 
@@ -178,7 +179,11 @@ UsersReport.find({})//, '_id Mobile')
 							.then((obdSessions) => {
 								console.info((new Date()).toString() + "|" + prependToLog, "Getting Versions")
 								// zcql.executeZCQLQuery("Select Version,StartDate from Versions order by StartDate")
-								Version.find().sort({ StartDate: 1 })
+								GameAttempts.find({
+									Mobile: { $in: mobiles.map(data=>parseInt(data)) }
+								})
+								.then((gameAttempts)=>{
+									Version.find().sort({ StartDate: 1 })
 									.then(async (versionRecords) => {
 										var versions = []
 										if ((typeof versionRecords !== 'undefined') && (versionRecords != null) && (versionRecords.length > 0))
@@ -235,6 +240,11 @@ UsersReport.find({})//, '_id Mobile')
 											const bqData = bqUsers.filter(data => data.Mobile == "91" + userReport["Mobile"])
 											if (bqData.length > 0)
 												uniqueDates.push(bqData[0]["CREATEDTIME"].toString().slice(0, 10))
+											//Add Game Activity Date of User to Session Date
+											const gameData = gameAttempts.filter(data => data.Mobile == userReport["Mobile"])
+											uniqueDates = uniqueDates.concat(gameData.map(data=>getYYYYMMDDDate(data["SessionStartTime"])))
+											uniqueDates = uniqueDates.concat(gameData.map(data=>getYYYYMMDDDate(data["SessionEndTime"])))
+											
 											uniqueDates = uniqueDates.filter(unique).sort().reverse()
 											//console.debug((new Date()).toString()+"|"+prependToLog,users[i]["Mobile"],' | uniqueDates | ',uniqueDates)
 											const uniqueSessions = (userSessions.map(data => data.SessionID)).filter(unique)
@@ -382,6 +392,12 @@ UsersReport.find({})//, '_id Mobile')
 										console.error((new Date()).toString() + "|" + prependToLog, err);
 										mongoose.connection.close()
 									});
+								})
+								.catch((err) => {
+									console.info((new Date()).toString() + "|" + prependToLog, "End of Execution");
+									console.error((new Date()).toString() + "|" + prependToLog, err);
+									mongoose.connection.close()
+								});
 							})
 							.catch((err) => {
 								console.info((new Date()).toString() + "|" + prependToLog, "End of Execution");
