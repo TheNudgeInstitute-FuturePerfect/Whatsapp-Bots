@@ -178,7 +178,7 @@ app.post("/totalsessions", (req, res) => {
               if((systemPromptROWID != null)&&(sessions.length>0)){
                 let personaSessions = sessions.filter(data=>data.SystemPromptsROWID==systemPromptROWID)
                 if(personaSessions.length==0){
-                  responseObject['Persona'] = systemPromptQueryResult[0]['Persona']
+                  responseObject['Persona'] = systemPromptQueryResult.length>0 ? systemPromptQueryResult[0]['Persona'] : null
                   responseObject['TotalPersonaSessionsStarted'] = 0
                   responseObject['TotalPersonaSessionsCompleted'] = 0
                   responseObject['TotalDaysPersonaPracticed'] = 0
@@ -190,8 +190,8 @@ app.post("/totalsessions", (req, res) => {
                   responseObject['TotalPersonaSessionsCompleted'] = responseObject['TotalPersonaSessionsStarted'] - personaSessions.filter(data=>data.IsActive==true).map(data=>data.SessionID).filter(unique).length
                   responseObject['TotalDaysPersonaPracticed'] = personaSessions.map(data=>getYYYYMMDDDate(data.CREATEDTIME)).filter(unique).length
                 }
-                const topic = systemPromptQueryResult[0]['Name']
-                const module = systemPromptQueryResult[0]['Module']
+                const topic = systemPromptQueryResult.length > 0 ? systemPromptQueryResult[0]['Name'] : null
+                const module = systemPromptQueryResult.length > 0 ? systemPromptQueryResult[0]['Module'] : null
                 personaSessions = sessions.filter(data=>data.SystemPrompts.Name==topic)
                 responseObject['Topic'] = topic
                 responseObject['Module'] = module
